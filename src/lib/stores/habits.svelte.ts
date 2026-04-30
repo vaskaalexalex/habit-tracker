@@ -36,7 +36,7 @@ class HabitsStore {
 			this.completions = local;
 
 			if (isSupabaseConfigured) {
-				void drainQueue();
+				await drainQueue();
 				const remote = await fetchHabitCompletionsRange(this.#userId, fromISO, toISO2);
 				await db.habit_completions.bulkPut(remote);
 				this.completions = mergeByKey(

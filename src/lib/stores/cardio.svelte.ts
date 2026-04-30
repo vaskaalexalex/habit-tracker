@@ -36,7 +36,7 @@ class CardioStore {
 			this.items = local.sort((a, b) => b.date.localeCompare(a.date));
 
 			if (isSupabaseConfigured) {
-				void drainQueue();
+				await drainQueue();
 				const remote = await fetchCardio(this.#userId, fromISO, toISO2);
 				await db.cardio_workouts.bulkPut(remote);
 				this.items = mergeByKey(local, remote, (item) => item.id).sort((a, b) =>

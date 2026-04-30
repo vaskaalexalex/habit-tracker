@@ -59,7 +59,7 @@
 </script>
 
 <div class="relative flex min-h-dvh flex-col">
-	<main class="flex-1" class:pb-28={showNav}>
+	<main class="safe-top flex-1" class:pb-28={showNav}>
 		{#if booted}
 			{@render children?.()}
 		{:else}

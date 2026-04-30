@@ -76,7 +76,7 @@
 		bind:value={content}
 		placeholder="Что произошло сегодня? Чем горжусь, что хочу повторить, что улучшить…"
 		rows="6"
-		class="w-full resize-y rounded-2xl bg-(--color-bg-mute) p-3 text-sm leading-relaxed outline-none placeholder:text-(--color-fg-mute)"
+		class="w-full resize-y rounded-2xl bg-(--color-bg-mute) p-3 text-base leading-relaxed outline-none placeholder:text-(--color-fg-mute)"
 	></textarea>
 
 	<div class="flex flex-col gap-2">

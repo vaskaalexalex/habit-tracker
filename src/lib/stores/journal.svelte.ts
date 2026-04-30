@@ -36,7 +36,7 @@ class JournalStore {
 			this.entries = local.sort((a, b) => b.date.localeCompare(a.date));
 
 			if (isSupabaseConfigured) {
-				void drainQueue();
+				await drainQueue();
 				const remote = await fetchJournal(this.#userId, fromISO, toISO2);
 				await db.journal_entries.bulkPut(remote);
 				this.entries = mergeByKey(

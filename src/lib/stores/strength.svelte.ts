@@ -48,7 +48,7 @@ class StrengthStore {
 			this.sets = localSets;
 
 			if (isSupabaseConfigured) {
-				void drainQueue();
+				await drainQueue();
 				const [remoteEx, remoteSets] = await Promise.all([
 					fetchExercises(this.#userId),
 					fetchWorkoutSets(this.#userId, fromISO, toISO2)
