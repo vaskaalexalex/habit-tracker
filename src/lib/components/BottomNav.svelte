@@ -32,7 +32,8 @@
 </script>
 
 <nav
-	class="glass safe-bottom fixed inset-x-0 bottom-0 z-30 mx-auto max-w-xl border-t border-(--color-border) px-3 pt-2 sm:rounded-t-3xl"
+	class="glass fixed inset-x-0 z-30 mx-auto max-w-xl border-t border-(--color-border) px-3 pt-2 pb-2 sm:rounded-t-3xl"
+	style="bottom: max(env(safe-area-inset-bottom), 0.25rem);"
 	aria-label="Основная навигация"
 >
 	<ul class="grid grid-cols-4 gap-1">
