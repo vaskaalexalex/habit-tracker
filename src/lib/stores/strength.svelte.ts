@@ -13,6 +13,7 @@ import {
 import type { Exercise, ISODate, UUID, WorkoutSet } from '$supabase/types';
 import { uuid } from '$utils/uuid';
 import { isoToday, lastNMonthsRange, toISO } from '$utils/dates';
+import { mergeByKey } from '$utils/merge';
 
 class StrengthStore {
 	exercises = $state<Exercise[]>([]);
@@ -47,14 +48,15 @@ class StrengthStore {
 			this.sets = localSets;
 
 			if (isSupabaseConfigured) {
+				void drainQueue();
 				const [remoteEx, remoteSets] = await Promise.all([
 					fetchExercises(this.#userId),
 					fetchWorkoutSets(this.#userId, fromISO, toISO2)
 				]);
 				await db.exercises.bulkPut(remoteEx);
 				await db.workout_sets.bulkPut(remoteSets);
-				this.exercises = remoteEx;
-				this.sets = remoteSets;
+				this.exercises = mergeByKey(localEx, remoteEx, (item) => item.id);
+				this.sets = mergeByKey(localSets, remoteSets, (item) => item.id);
 			}
 			this.loaded = true;
 		} catch (err) {

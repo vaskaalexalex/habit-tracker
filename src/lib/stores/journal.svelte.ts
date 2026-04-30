@@ -5,6 +5,7 @@ import { fetchJournal, fetchJournalDay, upsertJournal } from '$supabase/api';
 import type { ISODate, JournalEntry, UUID } from '$supabase/types';
 import { uuid } from '$utils/uuid';
 import { isoToday, lastNMonthsRange, toISO } from '$utils/dates';
+import { mergeByKey } from '$utils/merge';
 
 class JournalStore {
 	entries = $state<JournalEntry[]>([]);
@@ -35,9 +36,16 @@ class JournalStore {
 			this.entries = local.sort((a, b) => b.date.localeCompare(a.date));
 
 			if (isSupabaseConfigured) {
+				void drainQueue();
 				const remote = await fetchJournal(this.#userId, fromISO, toISO2);
 				await db.journal_entries.bulkPut(remote);
-				this.entries = remote;
+				this.entries = mergeByKey(
+					local,
+					remote,
+					(item) => `${item.user_id}:${item.date}`,
+					(localItem, remoteItem) =>
+						localItem.updated_at > remoteItem.updated_at ? localItem : remoteItem
+				).sort((a, b) => b.date.localeCompare(a.date));
 			}
 			this.loaded = true;
 		} catch (err) {

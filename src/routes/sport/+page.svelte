@@ -30,6 +30,11 @@
 			count: cardioToday
 		}
 	]);
+
+	function openCatalog(event: MouseEvent) {
+		event.preventDefault();
+		void goto(`${base}/sport/strength/exercises`);
+	}
 </script>
 
 <div class="mx-auto flex w-full max-w-xl flex-col gap-4 px-4 pt-6 sm:pt-10">
@@ -42,6 +47,7 @@
 		</div>
 		<a
 			href={`${base}/sport/strength/exercises`}
+			onclick={openCatalog}
 			class="tap-target inline-flex items-center gap-1.5 rounded-2xl border border-(--color-border) bg-(--color-bg-soft) px-3 py-2 text-sm"
 		>
 			<ListChecks size={16} />

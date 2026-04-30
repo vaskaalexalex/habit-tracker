@@ -5,6 +5,7 @@ import { fetchHabitCompletionsRange } from '$supabase/api';
 import type { HabitCompletion, HabitType, ISODate, UUID } from '$supabase/types';
 import { uuid } from '$utils/uuid';
 import { isoToday, lastNMonthsRange, toISO } from '$utils/dates';
+import { mergeByKey } from '$utils/merge';
 
 class HabitsStore {
 	completions = $state<HabitCompletion[]>([]);
@@ -35,9 +36,14 @@ class HabitsStore {
 			this.completions = local;
 
 			if (isSupabaseConfigured) {
+				void drainQueue();
 				const remote = await fetchHabitCompletionsRange(this.#userId, fromISO, toISO2);
 				await db.habit_completions.bulkPut(remote);
-				this.completions = remote;
+				this.completions = mergeByKey(
+					local,
+					remote,
+					(item) => `${item.user_id}:${item.habit_type}:${item.date}`
+				);
 			}
 			this.loaded = true;
 		} catch (err) {

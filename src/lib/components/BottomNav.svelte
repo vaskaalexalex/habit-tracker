@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { base } from '$app/paths';
+	import { goto } from '$app/navigation';
 	import { Home, Dumbbell, BookOpenText, User } from 'lucide-svelte';
 
 	const items = $derived([
@@ -29,6 +30,11 @@
 			match: (p: string) => p.startsWith(`${base}/profile`)
 		}
 	]);
+
+	function navigate(event: MouseEvent, href: string) {
+		event.preventDefault();
+		void goto(href);
+	}
 </script>
 
 <nav
@@ -42,6 +48,7 @@
 			<li class="contents">
 				<a
 					href={item.href}
+					onclick={(event) => navigate(event, item.href)}
 					data-sveltekit-preload-data="hover"
 					class="tap-target flex flex-col items-center justify-center gap-0.5 rounded-2xl px-2 py-1.5 text-xs transition active:scale-95"
 					class:text-fg={active}

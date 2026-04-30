@@ -5,6 +5,7 @@ import { deleteCardio as apiDelete, fetchCardio, insertCardio } from '$supabase/
 import type { CardioWorkout, CardioType, ISODate, UUID } from '$supabase/types';
 import { uuid } from '$utils/uuid';
 import { isoToday, lastNMonthsRange, toISO } from '$utils/dates';
+import { mergeByKey } from '$utils/merge';
 
 class CardioStore {
 	items = $state<CardioWorkout[]>([]);
@@ -35,9 +36,12 @@ class CardioStore {
 			this.items = local.sort((a, b) => b.date.localeCompare(a.date));
 
 			if (isSupabaseConfigured) {
+				void drainQueue();
 				const remote = await fetchCardio(this.#userId, fromISO, toISO2);
 				await db.cardio_workouts.bulkPut(remote);
-				this.items = remote;
+				this.items = mergeByKey(local, remote, (item) => item.id).sort((a, b) =>
+					b.date.localeCompare(a.date)
+				);
 			}
 			this.loaded = true;
 		} catch (err) {

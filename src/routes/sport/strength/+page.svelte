@@ -6,6 +6,7 @@
 	import WorkoutLog from '$components/WorkoutLog.svelte';
 	import ProgressChart from '$components/ProgressChart.svelte';
 	import BackButton from '$components/BackButton.svelte';
+	import { goto } from '$app/navigation';
 	import { base } from '$app/paths';
 	import { isoToday, formatRu } from '$utils/dates';
 	import { uuid } from '$utils/uuid';
@@ -37,6 +38,11 @@
 
 	function makeRow(group: MuscleGroup): Row {
 		return { id: uuid(), group, exerciseId: null, weight: 0, sets: 0 };
+	}
+
+	function openCatalog(event: MouseEvent) {
+		event.preventDefault();
+		void goto(`${base}/sport/strength/exercises`);
 	}
 
 	function makeTemplate(): Row[] {
@@ -216,6 +222,7 @@
 			<h2 class="text-sm font-medium text-(--color-fg-mute)">Сегодня уже записано</h2>
 			<a
 				href={`${base}/sport/strength/exercises`}
+				onclick={openCatalog}
 				class="inline-flex items-center gap-1 text-xs text-(--color-fg-mute) hover:text-(--color-fg)"
 			>
 				<ListChecks size={12} /> Каталог

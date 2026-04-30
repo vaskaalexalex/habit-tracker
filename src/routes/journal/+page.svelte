@@ -3,6 +3,7 @@
 	import { ensureJournalCompleted } from '$stores/auto-complete';
 	import JournalEditor from '$components/JournalEditor.svelte';
 	import BackButton from '$components/BackButton.svelte';
+	import { goto } from '$app/navigation';
 	import { base } from '$app/paths';
 	import { isoToday, formatRu } from '$utils/dates';
 
@@ -14,6 +15,11 @@
 		if (content.trim().length === 0 && mood === null) return;
 		await journalStore.upsertDay({ date: today, content, mood });
 		await ensureJournalCompleted();
+	}
+
+	function openEntry(event: MouseEvent, date: string) {
+		event.preventDefault();
+		void goto(`${base}/journal/${date}`);
 	}
 </script>
 
@@ -42,6 +48,7 @@
 					<li>
 						<a
 							href={`${base}/journal/${entry.date}`}
+							onclick={(event) => openEntry(event, entry.date)}
 							class="hairline flex flex-col gap-1.5 rounded-2xl bg-(--color-bg-soft) p-3 active:scale-[0.99]"
 						>
 							<div class="flex items-center justify-between text-xs">

@@ -1,10 +1,10 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { env } from '$env/dynamic/public';
+import { PUBLIC_SUPABASE_ANON_KEY, PUBLIC_SUPABASE_URL } from '$env/static/public';
 
 export type AppSupabaseClient = SupabaseClient;
 
-const url = env.PUBLIC_SUPABASE_URL ?? '';
-const key = env.PUBLIC_SUPABASE_ANON_KEY ?? '';
+const url = PUBLIC_SUPABASE_URL ?? '';
+const key = PUBLIC_SUPABASE_ANON_KEY ?? '';
 
 const isPlaceholder = !url || !key || url.includes('your-project-ref');
 
