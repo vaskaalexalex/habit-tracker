@@ -5,7 +5,8 @@
 </script>
 
 <div
-	class="pointer-events-none fixed inset-x-0 top-2 z-50 flex flex-col items-center gap-2 px-3 sm:top-4"
+	class="pointer-events-none fixed inset-x-0 top-0 z-50 flex flex-col items-center gap-2 px-3"
+	style="padding-top: calc(env(safe-area-inset-top) + 0.5rem);"
 	role="region"
 	aria-live="polite"
 >

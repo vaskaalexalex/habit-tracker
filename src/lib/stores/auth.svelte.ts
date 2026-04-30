@@ -46,7 +46,7 @@ class AuthStore {
 			email,
 			options: redirectTo ? { emailRedirectTo: redirectTo } : undefined
 		});
-		if (error) return { error: error.message };
+		if (error) return { error: localizeAuthError(error.message, error.status) };
 		return {};
 	}
 
@@ -60,6 +60,29 @@ class AuthStore {
 		this.#unsubscribe?.();
 		this.#unsubscribe = null;
 	}
+}
+
+function localizeAuthError(message: string, status?: number): string {
+	const m = message.toLowerCase();
+	if (status === 429 || m.includes('rate limit') || m.includes('too many')) {
+		return 'Слишком много запросов. Попробуй через минуту.';
+	}
+	if (m.includes('invalid email') || m.includes('email_address_invalid')) {
+		return 'Некорректный email.';
+	}
+	if (m.includes('email not confirmed') || m.includes('email_not_confirmed')) {
+		return 'Email не подтверждён. Проверь почту.';
+	}
+	if (m.includes('signups not allowed') || m.includes('signup is disabled')) {
+		return 'Регистрация отключена.';
+	}
+	if (m.includes('network') || m.includes('failed to fetch')) {
+		return 'Нет связи. Проверь интернет.';
+	}
+	if (m.includes('user not found')) {
+		return 'Пользователь не найден.';
+	}
+	return 'Не удалось войти. Попробуй позже.';
 }
 
 export const authStore = new AuthStore();

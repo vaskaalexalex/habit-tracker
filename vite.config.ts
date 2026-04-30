@@ -25,12 +25,12 @@ export default defineConfig({
 				start_url: startUrl,
 				scope: startUrl,
 				icons: [
-					{ src: `${BASE}/icons/192.svg`, sizes: '192x192', type: 'image/svg+xml' },
-					{ src: `${BASE}/icons/512.svg`, sizes: '512x512', type: 'image/svg+xml' },
+					{ src: `${BASE}/icons/192.png`, sizes: '192x192', type: 'image/png' },
+					{ src: `${BASE}/icons/512.png`, sizes: '512x512', type: 'image/png' },
 					{
-						src: `${BASE}/icons/maskable.svg`,
+						src: `${BASE}/icons/maskable.png`,
 						sizes: '512x512',
-						type: 'image/svg+xml',
+						type: 'image/png',
 						purpose: 'maskable'
 					}
 				]
