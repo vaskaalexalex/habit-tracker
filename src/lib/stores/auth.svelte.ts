@@ -50,6 +50,15 @@ class AuthStore {
 		return {};
 	}
 
+	async signInWithPassword(email: string, password: string): Promise<{ error?: string }> {
+		if (!isSupabaseConfigured) {
+			return { error: 'Supabase не настроен. Заполни PUBLIC_SUPABASE_* в .env' };
+		}
+		const { error } = await supabase.auth.signInWithPassword({ email, password });
+		if (error) return { error: localizeAuthError(error.message, error.status) };
+		return {};
+	}
+
 	async signOut(): Promise<void> {
 		await supabase.auth.signOut();
 		this.user = null;
@@ -81,6 +90,9 @@ function localizeAuthError(message: string, status?: number): string {
 	}
 	if (m.includes('user not found')) {
 		return 'Пользователь не найден.';
+	}
+	if (m.includes('invalid login credentials') || m.includes('invalid_credentials')) {
+		return 'Неверный email или пароль.';
 	}
 	return 'Не удалось войти. Попробуй позже.';
 }
