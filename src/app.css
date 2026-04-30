@@ -70,6 +70,7 @@
 	select {
 		font: inherit;
 		color: inherit;
+		font-size: max(16px, 1em);
 	}
 
 	input[type='number']::-webkit-outer-spin-button,
