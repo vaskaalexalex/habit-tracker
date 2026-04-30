@@ -42,7 +42,7 @@
 			</div>
 			<div>
 				<h1 class="text-xl font-semibold tracking-tight">Habit</h1>
-				<p class="text-sm text-(--color-fg-mute)">Войди по магической ссылке</p>
+				<p class="text-sm text-(--color-fg-mute)">Введи email — пришлём ссылку для входа</p>
 			</div>
 		</div>
 
@@ -89,7 +89,7 @@
 					{#if sending}
 						<Loader2 size={18} class="animate-spin" />
 					{/if}
-					<span>Отправить magic link</span>
+					<span>Отправить на почту</span>
 				</button>
 			</form>
 		{/if}
