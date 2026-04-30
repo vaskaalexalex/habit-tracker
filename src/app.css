@@ -1,0 +1,116 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/inter/wght.css';
+
+@theme {
+	--color-bg: oklch(0.18 0.02 260);
+	--color-bg-soft: oklch(0.22 0.02 260);
+	--color-bg-mute: oklch(0.26 0.02 260);
+	--color-fg: oklch(0.96 0.01 260);
+	--color-fg-soft: oklch(0.78 0.02 260);
+	--color-fg-mute: oklch(0.6 0.02 260);
+	--color-border: oklch(0.32 0.02 260);
+	--color-accent: oklch(0.72 0.18 220);
+	--color-accent-soft: oklch(0.68 0.14 220 / 0.18);
+
+	--color-sport: oklch(0.7 0.18 30);
+	--color-coding: oklch(0.7 0.18 150);
+	--color-reading: oklch(0.7 0.18 280);
+	--color-journal: oklch(0.78 0.16 80);
+
+	--font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+
+	--radius-2xl: 1.25rem;
+	--radius-3xl: 1.75rem;
+}
+
+[data-theme='light'] {
+	--color-bg: oklch(0.99 0.005 260);
+	--color-bg-soft: oklch(0.96 0.01 260);
+	--color-bg-mute: oklch(0.92 0.01 260);
+	--color-fg: oklch(0.18 0.02 260);
+	--color-fg-soft: oklch(0.34 0.02 260);
+	--color-fg-mute: oklch(0.5 0.02 260);
+	--color-border: oklch(0.86 0.01 260);
+}
+
+@layer base {
+	html {
+		font-family: var(--font-sans);
+		-webkit-font-smoothing: antialiased;
+		-webkit-tap-highlight-color: transparent;
+		-webkit-text-size-adjust: 100%;
+	}
+
+	html,
+	body {
+		min-height: 100dvh;
+		background: var(--color-bg);
+		color: var(--color-fg);
+	}
+
+	body {
+		font-feature-settings: 'cv11', 'ss01', 'ss03';
+		overscroll-behavior-y: none;
+	}
+
+	::selection {
+		background: var(--color-accent-soft);
+		color: var(--color-fg);
+	}
+
+	button,
+	[role='button'] {
+		-webkit-user-select: none;
+		user-select: none;
+		touch-action: manipulation;
+	}
+
+	input,
+	textarea,
+	select {
+		font: inherit;
+		color: inherit;
+	}
+
+	input[type='number']::-webkit-outer-spin-button,
+	input[type='number']::-webkit-inner-spin-button {
+		-webkit-appearance: none;
+		appearance: none;
+		margin: 0;
+	}
+	input[type='number'] {
+		-moz-appearance: textfield;
+		appearance: textfield;
+	}
+
+	input:focus-visible,
+	textarea:focus-visible,
+	button:focus-visible,
+	[role='button']:focus-visible {
+		outline: 2px solid var(--color-accent);
+		outline-offset: 2px;
+	}
+}
+
+@utility safe-bottom {
+	padding-bottom: max(env(safe-area-inset-bottom), 0.5rem);
+}
+
+@utility safe-top {
+	padding-top: max(env(safe-area-inset-top), 0.5rem);
+}
+
+@utility tap-target {
+	min-height: 44px;
+	min-width: 44px;
+}
+
+@utility glass {
+	background: color-mix(in oklch, var(--color-bg-soft) 70%, transparent);
+	backdrop-filter: saturate(160%) blur(18px);
+	-webkit-backdrop-filter: saturate(160%) blur(18px);
+}
+
+@utility hairline {
+	border: 1px solid var(--color-border);
+}

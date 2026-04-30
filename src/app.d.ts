@@ -1,0 +1,18 @@
+/// <reference types="@sveltejs/kit" />
+/// <reference types="vite-plugin-pwa/info" />
+/// <reference types="vite-plugin-pwa/svelte" />
+
+declare global {
+	namespace App {
+		// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+		interface Locals {}
+		// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+		interface PageData {}
+		// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+		interface PageState {}
+		// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+		interface Platform {}
+	}
+}
+
+export {};
