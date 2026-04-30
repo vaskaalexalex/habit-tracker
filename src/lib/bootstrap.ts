@@ -8,8 +8,14 @@ let started = false;
 export async function bootstrap(): Promise<void> {
 	if (started) return;
 	started = true;
+	await clearLegacyApiCache();
 	themeStore.init();
 	profileStore.init();
 	await authStore.init();
 	startSyncWatchers();
+}
+
+async function clearLegacyApiCache(): Promise<void> {
+	if (typeof window === 'undefined' || !('caches' in window)) return;
+	await window.caches.delete('supabase-api');
 }

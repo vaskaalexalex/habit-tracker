@@ -2,6 +2,7 @@ import { db, type SyncOp, type SyncTable, type SyncTask } from './dexie';
 import { supabase, isSupabaseConfigured } from '$supabase/client';
 
 const MAX_ATTEMPTS = 6;
+const EMPTY_RESULT = { ok: 0, failed: 0 } as const;
 
 export async function enqueue(
 	table: SyncTable,
@@ -12,42 +13,46 @@ export async function enqueue(
 	await db.sync_queue.add(task as SyncTask);
 }
 
-let draining = false;
+let drainingPromise: Promise<{ ok: number; failed: number }> | null = null;
 
 export async function drainQueue(): Promise<{ ok: number; failed: number }> {
-	if (!isSupabaseConfigured) return { ok: 0, failed: 0 };
-	if (draining) return { ok: 0, failed: 0 };
-	if (typeof navigator !== 'undefined' && navigator.onLine === false) return { ok: 0, failed: 0 };
+	if (!isSupabaseConfigured) return EMPTY_RESULT;
+	if (typeof navigator !== 'undefined' && navigator.onLine === false) return EMPTY_RESULT;
+	if (drainingPromise) return drainingPromise;
 
-	draining = true;
+	drainingPromise = drainQueueNow().finally(() => {
+		drainingPromise = null;
+	});
+
+	return drainingPromise;
+}
+
+async function drainQueueNow(): Promise<{ ok: number; failed: number }> {
 	let ok = 0;
 	let failed = 0;
-	try {
-		const tasks = await db.sync_queue.orderBy('ts').limit(50).toArray();
-		for (const task of tasks) {
-			const id = task.id;
-			if (id === undefined) continue;
-			try {
-				await runTask(task);
+
+	const tasks = await db.sync_queue.orderBy('ts').limit(50).toArray();
+	for (const task of tasks) {
+		const id = task.id;
+		if (id === undefined) continue;
+		try {
+			await runTask(task);
+			await db.sync_queue.delete(id);
+			ok++;
+		} catch (err) {
+			failed++;
+			const attempts = task.attempts + 1;
+			if (attempts >= MAX_ATTEMPTS) {
 				await db.sync_queue.delete(id);
-				ok++;
-			} catch (err) {
-				failed++;
-				const attempts = task.attempts + 1;
-				if (attempts >= MAX_ATTEMPTS) {
-					await db.sync_queue.delete(id);
-				} else {
-					await db.sync_queue.update(id, {
-						attempts,
-						last_error: err instanceof Error ? err.message : String(err)
-					});
-				}
-				const backoff = Math.min(2_000 * 2 ** task.attempts, 60_000);
-				await new Promise((r) => setTimeout(r, backoff));
+			} else {
+				await db.sync_queue.update(id, {
+					attempts,
+					last_error: err instanceof Error ? err.message : String(err)
+				});
 			}
+			const backoff = Math.min(2_000 * 2 ** task.attempts, 60_000);
+			await new Promise((r) => setTimeout(r, backoff));
 		}
-	} finally {
-		draining = false;
 	}
 	return { ok, failed };
 }

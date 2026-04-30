@@ -43,12 +43,7 @@ export default defineConfig({
 				runtimeCaching: [
 					{
 						urlPattern: ({ url }) => url.hostname.endsWith('.supabase.co'),
-						handler: 'NetworkFirst',
-						options: {
-							cacheName: 'supabase-api',
-							networkTimeoutSeconds: 3,
-							expiration: { maxEntries: 100, maxAgeSeconds: 60 * 60 * 24 }
-						}
+						handler: 'NetworkOnly'
 					},
 					{
 						urlPattern: ({ request }) =>
