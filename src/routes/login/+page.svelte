@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { base } from '$app/paths';
 	import { authStore } from '$stores/auth.svelte';
 	import { toasts } from '$stores/toast.svelte';
 	import { Mail, Loader2, Sparkles } from 'lucide-svelte';
@@ -17,7 +18,9 @@
 		}
 		sending = true;
 		const redirectTo =
-			typeof window === 'undefined' ? undefined : `${window.location.origin}/auth/callback`;
+			typeof window === 'undefined'
+				? undefined
+				: `${window.location.origin}${base}/auth/callback`;
 		const { error } = await authStore.signInWithEmail(trimmed, redirectTo);
 		sending = false;
 		if (error) {
