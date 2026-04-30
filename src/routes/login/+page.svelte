@@ -41,7 +41,7 @@
 				<Sparkles size={22} />
 			</div>
 			<div>
-				<h1 class="text-xl font-semibold tracking-tight">Habit Tracker</h1>
+				<h1 class="text-xl font-semibold tracking-tight">Habit</h1>
 				<p class="text-sm text-(--color-fg-mute)">Войди по магической ссылке</p>
 			</div>
 		</div>
@@ -91,9 +91,6 @@
 					{/if}
 					<span>Отправить magic link</span>
 				</button>
-				<p class="text-center text-xs text-(--color-fg-mute)">
-					Мы используем Supabase Auth. Никаких паролей.
-				</p>
 			</form>
 		{/if}
 	</div>

@@ -46,7 +46,9 @@
 	const allDone = $derived(completedToday.size === HABIT_ORDER.length);
 </script>
 
-<div class="mx-auto flex h-[calc(100dvh-7rem)] w-full max-w-xl flex-col gap-3 overflow-hidden px-4 pt-6 sm:pt-8">
+<div
+	class="mx-auto flex w-full max-w-xl flex-col gap-3 px-4 pt-6 pb-4 sm:h-[calc(100dvh-7rem)] sm:overflow-hidden sm:pt-8"
+>
 	<header class="flex items-baseline justify-between gap-2">
 		<h1 class="min-w-0 truncate text-2xl font-semibold tracking-tight">
 			{#if profileStore.name.trim()}
