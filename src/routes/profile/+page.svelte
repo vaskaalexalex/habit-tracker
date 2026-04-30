@@ -5,6 +5,7 @@
 	import { toasts } from '$stores/toast.svelte';
 	import { LogOut, Sun, Moon, Github } from 'lucide-svelte';
 	import { goto } from '$app/navigation';
+	import { base } from '$app/paths';
 
 	let localName = $state(profileStore.name);
 
@@ -22,7 +23,7 @@
 	async function logout() {
 		await authStore.signOut();
 		toasts.push('Вы вышли');
-		void goto('/login', { replaceState: true });
+		void goto(`${base}/login`, { replaceState: true });
 	}
 </script>
 

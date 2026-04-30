@@ -1,28 +1,34 @@
 <script lang="ts">
 	import { page } from '$app/stores';
+	import { base } from '$app/paths';
 	import { Home, Dumbbell, BookOpenText, User } from 'lucide-svelte';
 
-	const items = [
-		{ href: '/', label: 'Главная', icon: Home, match: (p: string) => p === '/' },
+	const items = $derived([
 		{
-			href: '/sport',
+			href: `${base}/`,
+			label: 'Главная',
+			icon: Home,
+			match: (p: string) => p === `${base}/` || p === `${base}`
+		},
+		{
+			href: `${base}/sport`,
 			label: 'Спорт',
 			icon: Dumbbell,
-			match: (p: string) => p.startsWith('/sport')
+			match: (p: string) => p.startsWith(`${base}/sport`)
 		},
 		{
-			href: '/journal',
+			href: `${base}/journal`,
 			label: 'Дневник',
 			icon: BookOpenText,
-			match: (p: string) => p.startsWith('/journal')
+			match: (p: string) => p.startsWith(`${base}/journal`)
 		},
 		{
-			href: '/profile',
+			href: `${base}/profile`,
 			label: 'Профиль',
 			icon: User,
-			match: (p: string) => p.startsWith('/profile')
+			match: (p: string) => p.startsWith(`${base}/profile`)
 		}
-	] as const;
+	]);
 </script>
 
 <nav

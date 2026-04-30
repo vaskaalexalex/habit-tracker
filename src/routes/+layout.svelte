@@ -2,6 +2,7 @@
 	import '../app.css';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
+	import { base } from '$app/paths';
 	import { page } from '$app/stores';
 	import { authStore } from '$stores/auth.svelte';
 	import { habitsStore } from '$stores/habits.svelte';
@@ -41,18 +42,19 @@
 	$effect(() => {
 		if (!booted || !authStore.initialized) return;
 		const path = $page.url.pathname;
-		const isAuthRoute = path.startsWith('/login') || path.startsWith('/auth');
+		const isAuthRoute =
+			path.startsWith(`${base}/login`) || path.startsWith(`${base}/auth`);
 		if (!authStore.user && !isAuthRoute) {
-			void goto('/login', { replaceState: true });
-		} else if (authStore.user && path.startsWith('/login')) {
-			void goto('/', { replaceState: true });
+			void goto(`${base}/login`, { replaceState: true });
+		} else if (authStore.user && path.startsWith(`${base}/login`)) {
+			void goto(`${base}/`, { replaceState: true });
 		}
 	});
 
 	const showNav = $derived(
 		!!authStore.user &&
-			!$page.url.pathname.startsWith('/login') &&
-			!$page.url.pathname.startsWith('/auth')
+			!$page.url.pathname.startsWith(`${base}/login`) &&
+			!$page.url.pathname.startsWith(`${base}/auth`)
 	);
 </script>
 

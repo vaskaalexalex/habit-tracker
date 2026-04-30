@@ -1,13 +1,14 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
+	import { base } from '$app/paths';
 	import { authStore } from '$stores/auth.svelte';
 	import { Loader2 } from 'lucide-svelte';
 
 	onMount(async () => {
 		await authStore.init();
 		setTimeout(() => {
-			void goto('/', { replaceState: true });
+			void goto(`${base}/`, { replaceState: true });
 		}, 600);
 	});
 </script>

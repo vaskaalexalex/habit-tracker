@@ -6,6 +6,7 @@
 	import WorkoutLog from '$components/WorkoutLog.svelte';
 	import ProgressChart from '$components/ProgressChart.svelte';
 	import BackButton from '$components/BackButton.svelte';
+	import { base } from '$app/paths';
 	import { isoToday, formatRu } from '$utils/dates';
 	import { uuid } from '$utils/uuid';
 	import {
@@ -214,7 +215,7 @@
 		<div class="mb-2 flex items-center justify-between px-1">
 			<h2 class="text-sm font-medium text-(--color-fg-mute)">Сегодня уже записано</h2>
 			<a
-				href="/sport/strength/exercises"
+				href={`${base}/sport/strength/exercises`}
 				class="inline-flex items-center gap-1 text-xs text-(--color-fg-mute) hover:text-(--color-fg)"
 			>
 				<ListChecks size={12} /> Каталог

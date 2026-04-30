@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { base } from '$app/paths';
 	import { Dumbbell, HeartPulse, ListChecks, ChevronRight } from 'lucide-svelte';
 	import { isoToday } from '$utils/dates';
 	import { strengthStore } from '$stores/strength.svelte';
@@ -11,7 +12,7 @@
 
 	const tiles = $derived([
 		{
-			href: '/sport/strength',
+			href: `${base}/sport/strength`,
 			label: 'Силовая',
 			desc: 'подходы, прогресс',
 			icon: Dumbbell,
@@ -20,7 +21,7 @@
 			count: strengthCount
 		},
 		{
-			href: '/sport/cardio',
+			href: `${base}/sport/cardio`,
 			label: 'Другая',
 			desc: 'зарядка, бег, плавание',
 			icon: HeartPulse,
@@ -40,7 +41,7 @@
 			</p>
 		</div>
 		<a
-			href="/sport/strength/exercises"
+			href={`${base}/sport/strength/exercises`}
 			class="tap-target inline-flex items-center gap-1.5 rounded-2xl border border-(--color-border) bg-(--color-bg-soft) px-3 py-2 text-sm"
 		>
 			<ListChecks size={16} />

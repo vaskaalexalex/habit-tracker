@@ -3,6 +3,7 @@
 	import { ensureJournalCompleted } from '$stores/auto-complete';
 	import JournalEditor from '$components/JournalEditor.svelte';
 	import BackButton from '$components/BackButton.svelte';
+	import { base } from '$app/paths';
 	import { isoToday, formatRu } from '$utils/dates';
 
 	const today = $derived(isoToday());
@@ -40,7 +41,7 @@
 				{#each past as entry (entry.id)}
 					<li>
 						<a
-							href={`/journal/${entry.date}`}
+							href={`${base}/journal/${entry.date}`}
 							class="hairline flex flex-col gap-1.5 rounded-2xl bg-(--color-bg-soft) p-3 active:scale-[0.99]"
 						>
 							<div class="flex items-center justify-between text-xs">

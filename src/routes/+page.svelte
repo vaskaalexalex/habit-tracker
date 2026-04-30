@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { base } from '$app/paths';
 	import { habitsStore } from '$stores/habits.svelte';
 	import { strengthStore } from '$stores/strength.svelte';
 	import { cardioStore } from '$stores/cardio.svelte';
@@ -18,13 +19,13 @@
 		if (habit === 'sport') {
 			const hasStrength = strengthStore.setsForDate(today).length > 0;
 			const hasCardio = cardioStore.items.some((c) => c.date === today);
-			if (hasStrength && !hasCardio) void goto('/sport/strength');
-			else if (!hasStrength && hasCardio) void goto('/sport/cardio');
-			else void goto('/sport');
+			if (hasStrength && !hasCardio) void goto(`${base}/sport/strength`);
+			else if (!hasStrength && hasCardio) void goto(`${base}/sport/cardio`);
+			else void goto(`${base}/sport`);
 			return;
 		}
 		if (habit === 'journal') {
-			void goto('/journal');
+			void goto(`${base}/journal`);
 			return;
 		}
 		void habitsStore.toggle(habit, today);

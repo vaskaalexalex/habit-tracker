@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { base } from '$app/paths';
 	import { ChevronLeft } from 'lucide-svelte';
 
 	interface Props {
@@ -8,11 +9,13 @@
 
 	let { fallback }: Props = $props();
 
+	const target = $derived(fallback.startsWith('/') ? `${base}${fallback}` : fallback);
+
 	function goBack() {
 		if (typeof window !== 'undefined' && window.history.length > 1) {
 			window.history.back();
 		} else {
-			void goto(fallback);
+			void goto(target);
 		}
 	}
 </script>
