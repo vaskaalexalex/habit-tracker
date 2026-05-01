@@ -6,6 +6,7 @@ import type { HabitCompletion, HabitType, ISODate, UUID } from '$supabase/types'
 import { uuid } from '$utils/uuid';
 import { isoToday, lastNMonthsRange, toISO } from '$utils/dates';
 import { mergeByKey } from '$utils/merge';
+import { syncDebug } from '$utils/sync-debug';
 
 class HabitsStore {
 	completions = $state<HabitCompletion[]>([]);
@@ -28,27 +29,30 @@ class HabitsStore {
 		const { from, to } = lastNMonthsRange(monthsBack);
 		const fromISO = toISO(from);
 		const toISO2 = toISO(to);
+		syncDebug('habits-refresh-start', { userId: this.#userId, from: fromISO, to: toISO2 });
 		try {
 			const local = await db.habit_completions
 				.where('[user_id+date]')
 				.between([this.#userId, fromISO], [this.#userId, toISO2], true, true)
 				.toArray();
 			this.completions = local;
+			syncDebug('habits-local-loaded', { count: local.length });
 
 			if (isSupabaseConfigured) {
 				await drainQueue();
 				const remote = await fetchHabitCompletionsRange(this.#userId, fromISO, toISO2);
+				syncDebug('habits-remote-loaded', { count: remote.length });
 				await db.habit_completions.bulkPut(remote);
 				this.completions = (await hasPendingSync('habit_completions'))
-					? mergeByKey(
-							local,
-							remote,
-							(item) => `${item.user_id}:${item.habit_type}:${item.date}`
-						)
+					? mergeByKey(local, remote, (item) => `${item.user_id}:${item.habit_type}:${item.date}`)
 					: remote;
 			}
 			this.loaded = true;
+			syncDebug('habits-refresh-finish', { count: this.completions.length });
 		} catch (err) {
+			syncDebug('habits-refresh-error', {
+				error: err instanceof Error ? err.message : String(err)
+			});
 			console.error('[habits.refresh]', err);
 		} finally {
 			this.loading = false;

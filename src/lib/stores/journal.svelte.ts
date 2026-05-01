@@ -6,6 +6,7 @@ import type { ISODate, JournalEntry, UUID } from '$supabase/types';
 import { uuid } from '$utils/uuid';
 import { isoToday, lastNMonthsRange, toISO } from '$utils/dates';
 import { mergeByKey } from '$utils/merge';
+import { syncDebug } from '$utils/sync-debug';
 
 class JournalStore {
 	entries = $state<JournalEntry[]>([]);
@@ -28,30 +29,38 @@ class JournalStore {
 		const { from, to } = lastNMonthsRange(monthsBack);
 		const fromISO = toISO(from);
 		const toISO2 = toISO(to);
+		syncDebug('journal-refresh-start', { userId: this.#userId, from: fromISO, to: toISO2 });
 		try {
 			const local = await db.journal_entries
 				.where('[user_id+date]')
 				.between([this.#userId, fromISO], [this.#userId, toISO2], true, true)
 				.toArray();
 			this.entries = local.sort((a, b) => b.date.localeCompare(a.date));
+			syncDebug('journal-local-loaded', { count: local.length });
 
 			if (isSupabaseConfigured) {
 				await drainQueue();
 				const remote = await fetchJournal(this.#userId, fromISO, toISO2);
+				syncDebug('journal-remote-loaded', { count: remote.length });
 				await db.journal_entries.bulkPut(remote);
-				this.entries = ((await hasPendingSync('journal_entries'))
-					? mergeByKey(
-							local,
-							remote,
-							(item) => `${item.user_id}:${item.date}`,
-							(localItem, remoteItem) =>
-								localItem.updated_at > remoteItem.updated_at ? localItem : remoteItem
-						)
-					: remote
+				this.entries = (
+					(await hasPendingSync('journal_entries'))
+						? mergeByKey(
+								local,
+								remote,
+								(item) => `${item.user_id}:${item.date}`,
+								(localItem, remoteItem) =>
+									localItem.updated_at > remoteItem.updated_at ? localItem : remoteItem
+							)
+						: remote
 				).sort((a, b) => b.date.localeCompare(a.date));
 			}
 			this.loaded = true;
+			syncDebug('journal-refresh-finish', { count: this.entries.length });
 		} catch (err) {
+			syncDebug('journal-refresh-error', {
+				error: err instanceof Error ? err.message : String(err)
+			});
 			console.error('[journal.refresh]', err);
 		} finally {
 			this.loading = false;

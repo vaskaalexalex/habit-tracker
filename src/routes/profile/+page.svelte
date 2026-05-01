@@ -1,16 +1,25 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { authStore } from '$stores/auth.svelte';
 	import { themeStore } from '$stores/theme.svelte';
 	import { profileStore } from '$stores/profile.svelte';
 	import { toasts } from '$stores/toast.svelte';
-	import { LogOut, Sun, Moon, Github } from 'lucide-svelte';
+	import { LogOut, Sun, Moon, Github, Clipboard, RefreshCw, Trash2 } from 'lucide-svelte';
 	import { goto } from '$app/navigation';
 	import { base } from '$app/paths';
+	import { clearSyncDebugLog, getSyncDebugLogText, syncDebug } from '$utils/sync-debug';
 
 	let localName = $state(profileStore.name);
+	let debugLog = $state('');
 
 	$effect(() => {
 		localName = profileStore.name;
+	});
+
+	onMount(() => {
+		refreshDebugLog();
+		const interval = window.setInterval(refreshDebugLog, 2_000);
+		return () => window.clearInterval(interval);
 	});
 
 	function save() {
@@ -18,6 +27,23 @@
 		if (next === profileStore.name) return;
 		profileStore.setName(next);
 		toasts.push('Сохранено');
+	}
+
+	function refreshDebugLog() {
+		debugLog = getSyncDebugLogText();
+	}
+
+	async function copyDebugLog() {
+		refreshDebugLog();
+		await navigator.clipboard.writeText(debugLog || 'Лог пуст');
+		toasts.push('Лог скопирован');
+	}
+
+	function clearDebugLog() {
+		clearSyncDebugLog();
+		syncDebug('debug-profile-open');
+		refreshDebugLog();
+		toasts.push('Лог очищен');
 	}
 
 	async function logout() {
@@ -88,5 +114,47 @@
 			</span>
 			<span>Выйти</span>
 		</button>
+	</section>
+
+	<section class="hairline rounded-3xl bg-(--color-bg-soft) p-4">
+		<div class="flex items-start justify-between gap-3">
+			<div>
+				<h2 class="font-medium">Sync debug log</h2>
+				<p class="mt-1 text-xs text-(--color-fg-mute)">
+					Открой PWA, дождись проблемы, потом скопируй лог сюда.
+				</p>
+			</div>
+			<div class="flex shrink-0 gap-1">
+				<button
+					type="button"
+					aria-label="Обновить лог"
+					class="tap-target rounded-xl bg-(--color-bg-mute) p-2 active:scale-95"
+					onclick={refreshDebugLog}
+				>
+					<RefreshCw size={16} />
+				</button>
+				<button
+					type="button"
+					aria-label="Скопировать лог"
+					class="tap-target rounded-xl bg-(--color-accent) p-2 text-white active:scale-95"
+					onclick={copyDebugLog}
+				>
+					<Clipboard size={16} />
+				</button>
+				<button
+					type="button"
+					aria-label="Очистить лог"
+					class="tap-target rounded-xl bg-rose-500/15 p-2 text-rose-400 active:scale-95"
+					onclick={clearDebugLog}
+				>
+					<Trash2 size={16} />
+				</button>
+			</div>
+		</div>
+		<textarea
+			readonly
+			value={debugLog || 'Лог пуст'}
+			class="hairline mt-3 h-64 w-full resize-none rounded-2xl bg-(--color-bg-mute) p-3 font-mono text-[11px] leading-relaxed text-(--color-fg-mute) outline-none"
+		></textarea>
 	</section>
 </div>

@@ -12,6 +12,7 @@
 	import { todayStore } from '$stores/today.svelte';
 	import { reconcileSportCompletions } from '$stores/auto-complete';
 	import { bootstrap } from '$lib/bootstrap';
+	import { syncDebug } from '$utils/sync-debug';
 	import BottomNav from '$components/BottomNav.svelte';
 	import ToastHost from '$components/ToastHost.svelte';
 	import InstallPrompt from '$components/InstallPrompt.svelte';
@@ -24,7 +25,14 @@
 		let stopRemoteRefresh: (() => void) | null = null;
 		let stopTodayRefresh: (() => void) | null = null;
 
+		syncDebug('layout-mount', {
+			online: navigator.onLine,
+			visibility: document.visibilityState,
+			standalone: window.matchMedia('(display-mode: standalone)').matches
+		});
+
 		void bootstrap().then(() => {
+			syncDebug('bootstrap-done', { hasUser: !!authStore.user, userId: authStore.user?.id });
 			setStoresUser(authStore.user?.id ?? null);
 			booted = true;
 			stopTodayRefresh = todayStore.start();
@@ -38,6 +46,7 @@
 	});
 
 	function setStoresUser(userId: string | null) {
+		syncDebug('stores-set-user', { hasUser: !!userId, userId });
 		habitsStore.setUser(userId);
 		strengthStore.setUser(userId);
 		cardioStore.setUser(userId);
@@ -45,18 +54,39 @@
 	}
 
 	function refreshRemoteData(force = false) {
-		if (!authStore.user) return;
-		if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+		if (!authStore.user) {
+			syncDebug('remote-refresh-skip-no-user', { force });
+			return;
+		}
+		if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+			syncDebug('remote-refresh-skip-hidden', { force });
+			return;
+		}
 		const now = Date.now();
-		if (!force && now - lastRemoteRefresh < 15_000) return;
+		if (!force && now - lastRemoteRefresh < 15_000) {
+			syncDebug('remote-refresh-skip-throttle', { force, elapsedMs: now - lastRemoteRefresh });
+			return;
+		}
 		lastRemoteRefresh = now;
+		syncDebug('remote-refresh-start', {
+			force,
+			userId: authStore.user.id,
+			online: navigator.onLine,
+			visibility: document.visibilityState
+		});
 
 		void Promise.allSettled([
 			habitsStore.refresh(),
 			strengthStore.refresh(),
 			cardioStore.refresh(),
 			journalStore.refresh()
-		]).then(() => {
+		]).then((results) => {
+			syncDebug('remote-refresh-finish', {
+				habits: results[0].status,
+				strength: results[1].status,
+				cardio: results[2].status,
+				journal: results[3].status
+			});
 			void reconcileSportCompletions();
 		});
 	}
@@ -64,7 +94,10 @@
 	function startRemoteRefresh() {
 		if (typeof window === 'undefined') return () => undefined;
 
-		const refreshNow = () => refreshRemoteData(true);
+		const refreshNow = () => {
+			syncDebug('remote-refresh-event');
+			refreshRemoteData(true);
+		};
 		const refreshWhenVisible = () => {
 			if (document.visibilityState === 'visible') refreshRemoteData(true);
 		};

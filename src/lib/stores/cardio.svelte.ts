@@ -6,6 +6,7 @@ import type { CardioWorkout, CardioType, ISODate, UUID } from '$supabase/types';
 import { uuid } from '$utils/uuid';
 import { isoToday, lastNMonthsRange, toISO } from '$utils/dates';
 import { mergeByKey } from '$utils/merge';
+import { syncDebug } from '$utils/sync-debug';
 
 class CardioStore {
 	items = $state<CardioWorkout[]>([]);
@@ -28,24 +29,32 @@ class CardioStore {
 		const { from, to } = lastNMonthsRange(monthsBack);
 		const fromISO = toISO(from);
 		const toISO2 = toISO(to);
+		syncDebug('cardio-refresh-start', { userId: this.#userId, from: fromISO, to: toISO2 });
 		try {
 			const local = await db.cardio_workouts
 				.where('[user_id+date]')
 				.between([this.#userId, fromISO], [this.#userId, toISO2], true, true)
 				.toArray();
 			this.items = local.sort((a, b) => b.date.localeCompare(a.date));
+			syncDebug('cardio-local-loaded', { count: local.length });
 
 			if (isSupabaseConfigured) {
 				await drainQueue();
 				const remote = await fetchCardio(this.#userId, fromISO, toISO2);
+				syncDebug('cardio-remote-loaded', { count: remote.length });
 				await db.cardio_workouts.bulkPut(remote);
-				this.items = ((await hasPendingSync('cardio_workouts'))
-					? mergeByKey(local, remote, (item) => item.id)
-					: remote
+				this.items = (
+					(await hasPendingSync('cardio_workouts'))
+						? mergeByKey(local, remote, (item) => item.id)
+						: remote
 				).sort((a, b) => b.date.localeCompare(a.date));
 			}
 			this.loaded = true;
+			syncDebug('cardio-refresh-finish', { count: this.items.length });
 		} catch (err) {
+			syncDebug('cardio-refresh-error', {
+				error: err instanceof Error ? err.message : String(err)
+			});
 			console.error('[cardio.refresh]', err);
 		} finally {
 			this.loading = false;

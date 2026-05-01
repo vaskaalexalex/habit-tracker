@@ -1,5 +1,6 @@
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase, isSupabaseConfigured } from '$supabase/client';
+import { syncDebug } from '$utils/sync-debug';
 
 export interface AuthState {
 	user: User | null;
@@ -19,6 +20,7 @@ class AuthStore {
 	async init(): Promise<void> {
 		if (this.initialized) return;
 		if (!isSupabaseConfigured) {
+			syncDebug('auth-init-unconfigured');
 			this.initialized = true;
 			this.loading = false;
 			return;
@@ -28,10 +30,12 @@ class AuthStore {
 		const { data } = await supabase.auth.getSession();
 		this.session = data.session;
 		this.user = data.session?.user ?? null;
+		syncDebug('auth-session-loaded', { hasSession: !!this.session, userId: this.user?.id });
 
 		const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
 			this.session = session;
 			this.user = session?.user ?? null;
+			syncDebug('auth-state-change', { hasSession: !!session, userId: this.user?.id });
 		});
 		this.#unsubscribe = () => sub.subscription.unsubscribe();
 		this.initialized = true;

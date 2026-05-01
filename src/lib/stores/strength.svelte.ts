@@ -14,6 +14,7 @@ import type { Exercise, ISODate, UUID, WorkoutSet } from '$supabase/types';
 import { uuid } from '$utils/uuid';
 import { isoToday, lastNMonthsRange, toISO } from '$utils/dates';
 import { mergeByKey } from '$utils/merge';
+import { syncDebug } from '$utils/sync-debug';
 
 class StrengthStore {
 	exercises = $state<Exercise[]>([]);
@@ -38,6 +39,7 @@ class StrengthStore {
 		const { from, to } = lastNMonthsRange(monthsBack);
 		const fromISO = toISO(from);
 		const toISO2 = toISO(to);
+		syncDebug('strength-refresh-start', { userId: this.#userId, from: fromISO, to: toISO2 });
 		try {
 			const localEx = await db.exercises.toArray();
 			const localSets = await db.workout_sets
@@ -46,6 +48,7 @@ class StrengthStore {
 				.toArray();
 			this.exercises = localEx;
 			this.sets = localSets;
+			syncDebug('strength-local-loaded', { exercises: localEx.length, sets: localSets.length });
 
 			if (isSupabaseConfigured) {
 				await drainQueue();
@@ -53,6 +56,10 @@ class StrengthStore {
 					fetchExercises(this.#userId),
 					fetchWorkoutSets(this.#userId, fromISO, toISO2)
 				]);
+				syncDebug('strength-remote-loaded', {
+					exercises: remoteEx.length,
+					sets: remoteSets.length
+				});
 				await db.exercises.bulkPut(remoteEx);
 				await db.workout_sets.bulkPut(remoteSets);
 				this.exercises = (await hasPendingSync('exercises'))
@@ -63,7 +70,14 @@ class StrengthStore {
 					: remoteSets;
 			}
 			this.loaded = true;
+			syncDebug('strength-refresh-finish', {
+				exercises: this.exercises.length,
+				sets: this.sets.length
+			});
 		} catch (err) {
+			syncDebug('strength-refresh-error', {
+				error: err instanceof Error ? err.message : String(err)
+			});
 			console.error('[strength.refresh]', err);
 		} finally {
 			this.loading = false;

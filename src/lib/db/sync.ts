@@ -1,5 +1,6 @@
 import { db, type SyncOp, type SyncTable, type SyncTask } from './dexie';
 import { supabase, isSupabaseConfigured } from '$supabase/client';
+import { syncDebug } from '$utils/sync-debug';
 
 const MAX_ATTEMPTS = 6;
 const EMPTY_RESULT = { ok: 0, failed: 0 } as const;
@@ -10,15 +11,25 @@ export async function enqueue(
 	payload: Record<string, unknown>
 ): Promise<void> {
 	const task: Omit<SyncTask, 'id'> = { table, op, payload, ts: Date.now(), attempts: 0 };
-	await db.sync_queue.add(task as SyncTask);
+	const id = await db.sync_queue.add(task as SyncTask);
+	syncDebug('queue-enqueue', { table, op, id });
 }
 
 let drainingPromise: Promise<{ ok: number; failed: number }> | null = null;
 
 export async function drainQueue(): Promise<{ ok: number; failed: number }> {
-	if (!isSupabaseConfigured) return EMPTY_RESULT;
-	if (typeof navigator !== 'undefined' && navigator.onLine === false) return EMPTY_RESULT;
-	if (drainingPromise) return drainingPromise;
+	if (!isSupabaseConfigured) {
+		syncDebug('queue-skip-unconfigured');
+		return EMPTY_RESULT;
+	}
+	if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+		syncDebug('queue-skip-offline');
+		return EMPTY_RESULT;
+	}
+	if (drainingPromise) {
+		syncDebug('queue-reuse-active-drain');
+		return drainingPromise;
+	}
 
 	drainingPromise = drainQueueNow().finally(() => {
 		drainingPromise = null;
@@ -37,16 +48,25 @@ async function drainQueueNow(): Promise<{ ok: number; failed: number }> {
 	let failed = 0;
 
 	const tasks = await db.sync_queue.orderBy('ts').limit(50).toArray();
+	syncDebug('queue-drain-start', { count: tasks.length });
 	for (const task of tasks) {
 		const id = task.id;
 		if (id === undefined) continue;
 		try {
 			await runTask(task);
 			await db.sync_queue.delete(id);
+			syncDebug('queue-task-ok', { id, table: task.table, op: task.op });
 			ok++;
 		} catch (err) {
 			failed++;
 			const attempts = task.attempts + 1;
+			syncDebug('queue-task-failed', {
+				id,
+				table: task.table,
+				op: task.op,
+				attempts,
+				error: err instanceof Error ? err.message : String(err)
+			});
 			if (attempts >= MAX_ATTEMPTS) {
 				await db.sync_queue.delete(id);
 			} else {
@@ -59,6 +79,7 @@ async function drainQueueNow(): Promise<{ ok: number; failed: number }> {
 			await new Promise((r) => setTimeout(r, backoff));
 		}
 	}
+	syncDebug('queue-drain-finish', { ok, failed });
 	return { ok, failed };
 }
 
@@ -109,7 +130,12 @@ let stopWatchers: (() => void) | null = null;
 export function startSyncWatchers(): () => void {
 	if (typeof window === 'undefined') return () => undefined;
 	if (stopWatchers) return stopWatchers;
+	syncDebug('queue-watchers-start', {
+		online: navigator.onLine,
+		visibility: document.visibilityState
+	});
 	const onOnline = () => {
+		syncDebug('queue-online-event');
 		void drainQueue();
 	};
 	window.addEventListener('online', onOnline);
@@ -118,6 +144,7 @@ export function startSyncWatchers(): () => void {
 	}, 30_000);
 	void drainQueue();
 	stopWatchers = () => {
+		syncDebug('queue-watchers-stop');
 		window.removeEventListener('online', onOnline);
 		window.clearInterval(interval);
 		stopWatchers = null;
