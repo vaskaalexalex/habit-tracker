@@ -1,5 +1,5 @@
 import { db } from '$db/dexie';
-import { drainQueue, enqueue } from '$db/sync';
+import { drainQueue, enqueue, hasPendingSync } from '$db/sync';
 import { isSupabaseConfigured } from '$supabase/client';
 import { deleteCardio as apiDelete, fetchCardio, insertCardio } from '$supabase/api';
 import type { CardioWorkout, CardioType, ISODate, UUID } from '$supabase/types';
@@ -39,9 +39,10 @@ class CardioStore {
 				await drainQueue();
 				const remote = await fetchCardio(this.#userId, fromISO, toISO2);
 				await db.cardio_workouts.bulkPut(remote);
-				this.items = mergeByKey(local, remote, (item) => item.id).sort((a, b) =>
-					b.date.localeCompare(a.date)
-				);
+				this.items = ((await hasPendingSync('cardio_workouts'))
+					? mergeByKey(local, remote, (item) => item.id)
+					: remote
+				).sort((a, b) => b.date.localeCompare(a.date));
 			}
 			this.loaded = true;
 		} catch (err) {

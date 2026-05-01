@@ -1,5 +1,5 @@
 import { db } from '$db/dexie';
-import { drainQueue, enqueue } from '$db/sync';
+import { drainQueue, enqueue, hasPendingSync } from '$db/sync';
 import { isSupabaseConfigured } from '$supabase/client';
 import { fetchJournal, fetchJournalDay, upsertJournal } from '$supabase/api';
 import type { ISODate, JournalEntry, UUID } from '$supabase/types';
@@ -39,12 +39,15 @@ class JournalStore {
 				await drainQueue();
 				const remote = await fetchJournal(this.#userId, fromISO, toISO2);
 				await db.journal_entries.bulkPut(remote);
-				this.entries = mergeByKey(
-					local,
-					remote,
-					(item) => `${item.user_id}:${item.date}`,
-					(localItem, remoteItem) =>
-						localItem.updated_at > remoteItem.updated_at ? localItem : remoteItem
+				this.entries = ((await hasPendingSync('journal_entries'))
+					? mergeByKey(
+							local,
+							remote,
+							(item) => `${item.user_id}:${item.date}`,
+							(localItem, remoteItem) =>
+								localItem.updated_at > remoteItem.updated_at ? localItem : remoteItem
+						)
+					: remote
 				).sort((a, b) => b.date.localeCompare(a.date));
 			}
 			this.loaded = true;

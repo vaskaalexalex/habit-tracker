@@ -1,5 +1,5 @@
 import { db } from '$db/dexie';
-import { drainQueue, enqueue } from '$db/sync';
+import { drainQueue, enqueue, hasPendingSync } from '$db/sync';
 import { isSupabaseConfigured } from '$supabase/client';
 import { fetchHabitCompletionsRange } from '$supabase/api';
 import type { HabitCompletion, HabitType, ISODate, UUID } from '$supabase/types';
@@ -39,11 +39,13 @@ class HabitsStore {
 				await drainQueue();
 				const remote = await fetchHabitCompletionsRange(this.#userId, fromISO, toISO2);
 				await db.habit_completions.bulkPut(remote);
-				this.completions = mergeByKey(
-					local,
-					remote,
-					(item) => `${item.user_id}:${item.habit_type}:${item.date}`
-				);
+				this.completions = (await hasPendingSync('habit_completions'))
+					? mergeByKey(
+							local,
+							remote,
+							(item) => `${item.user_id}:${item.habit_type}:${item.date}`
+						)
+					: remote;
 			}
 			this.loaded = true;
 		} catch (err) {

@@ -27,6 +27,11 @@ export async function drainQueue(): Promise<{ ok: number; failed: number }> {
 	return drainingPromise;
 }
 
+export async function hasPendingSync(table: SyncTable): Promise<boolean> {
+	const pending = await db.sync_queue.where('table').equals(table).first();
+	return pending !== undefined;
+}
+
 async function drainQueueNow(): Promise<{ ok: number; failed: number }> {
 	let ok = 0;
 	let failed = 0;

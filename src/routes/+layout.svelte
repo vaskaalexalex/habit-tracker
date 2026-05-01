@@ -17,11 +17,62 @@
 
 	let { children } = $props();
 	let booted = $state(false);
+	let lastRemoteRefresh = 0;
 
-	onMount(async () => {
-		await bootstrap();
-		booted = true;
+	onMount(() => {
+		let stopRemoteRefresh: (() => void) | null = null;
+
+		void bootstrap().then(() => {
+			booted = true;
+			stopRemoteRefresh = startRemoteRefresh();
+		});
+
+		return () => {
+			stopRemoteRefresh?.();
+		};
 	});
+
+	function refreshRemoteData(force = false) {
+		if (!authStore.user) return;
+		if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+		const now = Date.now();
+		if (!force && now - lastRemoteRefresh < 15_000) return;
+		lastRemoteRefresh = now;
+
+		void Promise.allSettled([
+			habitsStore.refresh(),
+			strengthStore.refresh(),
+			cardioStore.refresh(),
+			journalStore.refresh()
+		]).then(() => {
+			void reconcileSportCompletions();
+		});
+	}
+
+	function startRemoteRefresh() {
+		if (typeof window === 'undefined') return () => undefined;
+
+		const refreshNow = () => refreshRemoteData(true);
+		const refreshWhenVisible = () => {
+			if (document.visibilityState === 'visible') refreshRemoteData(true);
+		};
+
+		window.addEventListener('focus', refreshNow);
+		window.addEventListener('pageshow', refreshNow);
+		window.addEventListener('online', refreshNow);
+		document.addEventListener('visibilitychange', refreshWhenVisible);
+		const interval = window.setInterval(() => refreshRemoteData(), 15_000);
+
+		refreshRemoteData(true);
+
+		return () => {
+			window.removeEventListener('focus', refreshNow);
+			window.removeEventListener('pageshow', refreshNow);
+			window.removeEventListener('online', refreshNow);
+			document.removeEventListener('visibilitychange', refreshWhenVisible);
+			window.clearInterval(interval);
+		};
+	}
 
 	$effect(() => {
 		const userId = authStore.user?.id ?? null;
