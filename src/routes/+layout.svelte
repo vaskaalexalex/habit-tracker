@@ -41,6 +41,15 @@
 			stopRemoteRefresh = startRemoteRefresh();
 		});
 
+		// Manual SW registration (avoids virtual:pwa-register → workbox-window in SSR bundle).
+		if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+			window.addEventListener('load', () => {
+				const swPath = `${base}/sw.js`;
+				const scope = base ? `${base}/` : '/';
+				void navigator.serviceWorker.register(swPath, { scope }).catch(() => undefined);
+			});
+		}
+
 		return () => {
 			stopRemoteRefresh?.();
 			stopTodayRefresh?.();

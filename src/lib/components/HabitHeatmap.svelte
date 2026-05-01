@@ -155,15 +155,7 @@
 	<div class="mb-3 flex flex-col gap-2">
 		<h3 class="text-sm font-medium">Активность</h3>
 
-		<div class="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-2">
-			<div class="flex shrink-0 items-center gap-1.5 text-[10px] text-(--color-fg-mute)">
-				<span>0</span>
-				{#each SHADES as shade, i (i)}
-					<span class="size-2.5 rounded-[2px]" style="background: {shade}"></span>
-				{/each}
-				<span>4</span>
-			</div>
-
+		<div class="flex min-w-0 flex-nowrap items-center justify-between gap-2">
 			<div class="hairline flex shrink-0 rounded-xl bg-(--color-bg-mute) p-0.5 text-[11px] leading-none">
 				{#each PERIOD_ORDER as p (p)}
 					<button
@@ -180,7 +172,7 @@
 
 			{#if period === 'year'}
 				<div
-					class="hairline flex basis-full shrink-0 items-center justify-end rounded-xl bg-(--color-bg-mute) p-0.5 text-[11px] sm:basis-auto sm:justify-start"
+					class="hairline flex shrink-0 items-center rounded-xl bg-(--color-bg-mute) p-0.5 text-[11px]"
 				>
 					<button
 						type="button"
@@ -191,7 +183,7 @@
 					>
 						<ChevronLeft size={12} />
 					</button>
-					<span class="min-w-[2.5rem] px-1 text-center font-medium tabular-nums sm:min-w-0 sm:px-2">{year}</span>
+					<span class="min-w-[2.75rem] px-1 text-center font-medium tabular-nums">{year}</span>
 					<button
 						type="button"
 						onclick={() => (year = Math.min(currentYear, year + 1))}
