@@ -4,6 +4,7 @@
 	import { themeStore } from '$stores/theme.svelte';
 	import { profileStore } from '$stores/profile.svelte';
 	import { toasts } from '$stores/toast.svelte';
+	import { forcePushLocalData } from '$db/force-sync';
 	import { LogOut, Sun, Moon, Github, Clipboard, RefreshCw, Trash2 } from 'lucide-svelte';
 	import { goto } from '$app/navigation';
 	import { base } from '$app/paths';
@@ -11,6 +12,7 @@
 
 	let localName = $state(profileStore.name);
 	let debugLog = $state('');
+	let pushingLocalData = $state(false);
 
 	$effect(() => {
 		localName = profileStore.name;
@@ -44,6 +46,23 @@
 		syncDebug('debug-profile-open');
 		refreshDebugLog();
 		toasts.push('Лог очищен');
+	}
+
+	async function pushLocalData() {
+		if (!authStore.user || pushingLocalData) return;
+		pushingLocalData = true;
+		try {
+			const result = await forcePushLocalData(authStore.user.id);
+			toasts.push(
+				`Выгружено: привычки ${result.habits}, дневник ${result.journal}, силовые ${result.sets}, кардио ${result.cardio}`
+			);
+		} catch (err) {
+			syncDebug('force-push-error', { error: err });
+			toasts.push('Не удалось выгрузить локальные данные');
+		} finally {
+			pushingLocalData = false;
+			refreshDebugLog();
+		}
 	}
 
 	async function logout() {
@@ -113,6 +132,21 @@
 				<LogOut size={18} />
 			</span>
 			<span>Выйти</span>
+		</button>
+	</section>
+
+	<section class="hairline rounded-3xl bg-(--color-bg-soft) p-4">
+		<h2 class="font-medium">Восстановление синхронизации</h2>
+		<p class="mt-1 text-sm text-(--color-fg-mute)">
+			Если в этом браузере история видна, но PWA её не видит, выгрузи локальные данные в Supabase.
+		</p>
+		<button
+			type="button"
+			disabled={!authStore.user || pushingLocalData}
+			onclick={pushLocalData}
+			class="tap-target mt-3 flex w-full items-center justify-center rounded-2xl bg-(--color-accent) px-4 py-3 font-medium text-white disabled:opacity-50 active:scale-[0.99]"
+		>
+			{pushingLocalData ? 'Выгружаю...' : 'Выгрузить локальные данные'}
 		</button>
 	</section>
 
