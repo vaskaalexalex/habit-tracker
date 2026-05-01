@@ -20,7 +20,6 @@ class HabitsStore {
 		this.#userId = userId;
 		this.completions = [];
 		this.loaded = false;
-		if (userId) void this.refresh();
 	}
 
 	async refresh(monthsBack = 6): Promise<void> {

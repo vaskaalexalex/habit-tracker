@@ -30,7 +30,6 @@ class StrengthStore {
 		this.exercises = [];
 		this.sets = [];
 		this.loaded = false;
-		if (userId) void this.refresh();
 	}
 
 	async refresh(monthsBack = 6): Promise<void> {

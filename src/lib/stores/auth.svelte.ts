@@ -16,6 +16,7 @@ class AuthStore {
 	initialized = $state<boolean>(false);
 
 	#unsubscribe: (() => void) | null = null;
+	#stopSessionWatchers: (() => void) | null = null;
 
 	async init(): Promise<void> {
 		if (this.initialized) return;
@@ -38,6 +39,7 @@ class AuthStore {
 			syncDebug('auth-state-change', { hasSession: !!session, userId: this.user?.id });
 		});
 		this.#unsubscribe = () => sub.subscription.unsubscribe();
+		this.#startSessionWatchers();
 		this.initialized = true;
 		this.loading = false;
 	}
@@ -72,6 +74,40 @@ class AuthStore {
 	dispose(): void {
 		this.#unsubscribe?.();
 		this.#unsubscribe = null;
+		this.#stopSessionWatchers?.();
+		this.#stopSessionWatchers = null;
+	}
+
+	#startSessionWatchers(): void {
+		if (typeof window === 'undefined' || this.#stopSessionWatchers) return;
+
+		const syncSession = async (reason: string) => {
+			const { data, error } = await supabase.auth.getSession();
+			if (error) {
+				syncDebug('auth-session-sync-error', { reason, error });
+				return;
+			}
+			this.session = data.session;
+			this.user = data.session?.user ?? null;
+			syncDebug('auth-session-sync', { reason, hasSession: !!this.session, userId: this.user?.id });
+		};
+
+		const syncVisibleSession = () => {
+			if (document.visibilityState === 'visible') void syncSession('visible');
+		};
+		const syncActiveSession = () => void syncSession('active');
+
+		window.addEventListener('focus', syncActiveSession);
+		window.addEventListener('pageshow', syncActiveSession);
+		window.addEventListener('online', syncActiveSession);
+		document.addEventListener('visibilitychange', syncVisibleSession);
+
+		this.#stopSessionWatchers = () => {
+			window.removeEventListener('focus', syncActiveSession);
+			window.removeEventListener('pageshow', syncActiveSession);
+			window.removeEventListener('online', syncActiveSession);
+			document.removeEventListener('visibilitychange', syncVisibleSession);
+		};
 	}
 }
 

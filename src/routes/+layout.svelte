@@ -11,6 +11,7 @@
 	import { journalStore } from '$stores/journal.svelte';
 	import { todayStore } from '$stores/today.svelte';
 	import { reconcileSportCompletions } from '$stores/auto-complete';
+	import { forcePushLocalData } from '$db/force-sync';
 	import { bootstrap } from '$lib/bootstrap';
 	import { syncDebug } from '$utils/sync-debug';
 	import BottomNav from '$components/BottomNav.svelte';
@@ -20,6 +21,7 @@
 	let { children } = $props();
 	let booted = $state(false);
 	let lastRemoteRefresh = 0;
+	let lastAutoPushUserId: string | null = null;
 
 	onMount(() => {
 		let stopRemoteRefresh: (() => void) | null = null;
@@ -47,13 +49,14 @@
 
 	function setStoresUser(userId: string | null) {
 		syncDebug('stores-set-user', { hasUser: !!userId, userId });
+		if (!userId) lastAutoPushUserId = null;
 		habitsStore.setUser(userId);
 		strengthStore.setUser(userId);
 		cardioStore.setUser(userId);
 		journalStore.setUser(userId);
 	}
 
-	function refreshRemoteData(force = false) {
+	async function refreshRemoteData(force = false) {
 		if (!authStore.user) {
 			syncDebug('remote-refresh-skip-no-user', { force });
 			return;
@@ -74,6 +77,15 @@
 			online: navigator.onLine,
 			visibility: document.visibilityState
 		});
+
+		if (lastAutoPushUserId !== authStore.user.id) {
+			try {
+				await forcePushLocalData(authStore.user.id);
+				lastAutoPushUserId = authStore.user.id;
+			} catch (err) {
+				syncDebug('auto-local-push-error', { error: err });
+			}
+		}
 
 		void Promise.allSettled([
 			habitsStore.refresh(),
@@ -96,19 +108,19 @@
 
 		const refreshNow = () => {
 			syncDebug('remote-refresh-event');
-			refreshRemoteData(true);
+			void refreshRemoteData(true);
 		};
 		const refreshWhenVisible = () => {
-			if (document.visibilityState === 'visible') refreshRemoteData(true);
+			if (document.visibilityState === 'visible') void refreshRemoteData(true);
 		};
 
 		window.addEventListener('focus', refreshNow);
 		window.addEventListener('pageshow', refreshNow);
 		window.addEventListener('online', refreshNow);
 		document.addEventListener('visibilitychange', refreshWhenVisible);
-		const interval = window.setInterval(() => refreshRemoteData(), 15_000);
+		const interval = window.setInterval(() => void refreshRemoteData(), 15_000);
 
-		refreshRemoteData(true);
+		void refreshRemoteData(true);
 
 		return () => {
 			window.removeEventListener('focus', refreshNow);
@@ -121,6 +133,7 @@
 
 	$effect(() => {
 		setStoresUser(authStore.user?.id ?? null);
+		if (booted && authStore.user) void refreshRemoteData(true);
 	});
 
 	$effect(() => {

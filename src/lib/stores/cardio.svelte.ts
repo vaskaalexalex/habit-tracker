@@ -20,7 +20,6 @@ class CardioStore {
 		this.#userId = userId;
 		this.items = [];
 		this.loaded = false;
-		if (userId) void this.refresh();
 	}
 
 	async refresh(monthsBack = 6): Promise<void> {

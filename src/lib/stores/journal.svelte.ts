@@ -20,7 +20,6 @@ class JournalStore {
 		this.#userId = userId;
 		this.entries = [];
 		this.loaded = false;
-		if (userId) void this.refresh();
 	}
 
 	async refresh(monthsBack = 12): Promise<void> {
