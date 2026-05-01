@@ -5,9 +5,10 @@
 	import BackButton from '$components/BackButton.svelte';
 	import { goto } from '$app/navigation';
 	import { base } from '$app/paths';
-	import { isoToday, formatRu } from '$utils/dates';
+	import { todayStore } from '$stores/today.svelte';
+	import { formatRu } from '$utils/dates';
 
-	const today = $derived(isoToday());
+	const today = $derived(todayStore.today);
 	const todayEntry = $derived(journalStore.getByDate(today) ?? null);
 	const past = $derived(journalStore.entries.filter((e) => e.date !== today));
 

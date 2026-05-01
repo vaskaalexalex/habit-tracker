@@ -11,9 +11,10 @@
 	import TodayRing from '$components/TodayRing.svelte';
 	import { HABIT_ORDER } from '$supabase/types';
 	import type { HabitType } from '$supabase/types';
-	import { isoToday, formatRu } from '$utils/dates';
+	import { todayStore } from '$stores/today.svelte';
+	import { formatRu, fromISO } from '$utils/dates';
 
-	const today = $derived(isoToday());
+	const today = $derived(todayStore.today);
 
 	function handle(habit: HabitType) {
 		if (habit === 'sport') {
@@ -97,5 +98,5 @@
 	</section>
 
 	<HabitHeatmap completions={habitsStore.completions} months={6} />
-	<MonthChart completions={habitsStore.completions} />
+	<MonthChart completions={habitsStore.completions} month={fromISO(today)} />
 </div>

@@ -2,11 +2,11 @@
 	import { goto } from '$app/navigation';
 	import { base } from '$app/paths';
 	import { Dumbbell, HeartPulse, ListChecks, ChevronRight } from 'lucide-svelte';
-	import { isoToday } from '$utils/dates';
+	import { todayStore } from '$stores/today.svelte';
 	import { strengthStore } from '$stores/strength.svelte';
 	import { cardioStore } from '$stores/cardio.svelte';
 
-	const today = $derived(isoToday());
+	const today = $derived(todayStore.today);
 	const strengthCount = $derived(strengthStore.setsForDate(today).length);
 	const cardioToday = $derived(cardioStore.items.filter((c) => c.date === today).length);
 

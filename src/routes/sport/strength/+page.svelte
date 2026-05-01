@@ -8,16 +8,13 @@
 	import BackButton from '$components/BackButton.svelte';
 	import { goto } from '$app/navigation';
 	import { base } from '$app/paths';
-	import { isoToday, formatRu } from '$utils/dates';
+	import { todayStore } from '$stores/today.svelte';
+	import { formatRu } from '$utils/dates';
 	import { uuid } from '$utils/uuid';
-	import {
-		MUSCLE_GROUP_LABELS,
-		type MuscleGroup,
-		type UUID
-	} from '$supabase/types';
+	import { MUSCLE_GROUP_LABELS, type MuscleGroup, type UUID } from '$supabase/types';
 	import { Plus, Save, Trash2, Loader2, ListChecks } from 'lucide-svelte';
 
-	const today = $derived(isoToday());
+	const today = $derived(todayStore.today);
 
 	type Row = {
 		id: string;
@@ -109,9 +106,7 @@
 		}
 	}
 
-	const setsForProgress = $derived(
-		progressExId ? strengthStore.setsByExercise(progressExId) : []
-	);
+	const setsForProgress = $derived(progressExId ? strengthStore.setsByExercise(progressExId) : []);
 
 	$effect(() => {
 		if (!progressExId && strengthStore.exercises.length > 0) {
@@ -144,7 +139,9 @@
 	</header>
 
 	<section class="hairline flex flex-col gap-3 rounded-3xl bg-(--color-bg-soft) p-3">
-		<div class="grid grid-cols-[minmax(0,1fr)_72px_64px_32px] items-center gap-2 px-1 text-[10px] font-medium uppercase tracking-wide text-(--color-fg-mute)">
+		<div
+			class="grid grid-cols-[minmax(0,1fr)_72px_64px_32px] items-center gap-2 px-1 text-[10px] font-medium uppercase tracking-wide text-(--color-fg-mute)"
+		>
 			<span>Упражнение</span>
 			<span class="text-center">Вес, кг</span>
 			<span class="text-center">Подх.</span>

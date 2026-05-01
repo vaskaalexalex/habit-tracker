@@ -9,6 +9,7 @@
 	import { strengthStore } from '$stores/strength.svelte';
 	import { cardioStore } from '$stores/cardio.svelte';
 	import { journalStore } from '$stores/journal.svelte';
+	import { todayStore } from '$stores/today.svelte';
 	import { reconcileSportCompletions } from '$stores/auto-complete';
 	import { bootstrap } from '$lib/bootstrap';
 	import BottomNav from '$components/BottomNav.svelte';
@@ -21,16 +22,27 @@
 
 	onMount(() => {
 		let stopRemoteRefresh: (() => void) | null = null;
+		let stopTodayRefresh: (() => void) | null = null;
 
 		void bootstrap().then(() => {
+			setStoresUser(authStore.user?.id ?? null);
 			booted = true;
+			stopTodayRefresh = todayStore.start();
 			stopRemoteRefresh = startRemoteRefresh();
 		});
 
 		return () => {
 			stopRemoteRefresh?.();
+			stopTodayRefresh?.();
 		};
 	});
+
+	function setStoresUser(userId: string | null) {
+		habitsStore.setUser(userId);
+		strengthStore.setUser(userId);
+		cardioStore.setUser(userId);
+		journalStore.setUser(userId);
+	}
 
 	function refreshRemoteData(force = false) {
 		if (!authStore.user) return;
@@ -75,11 +87,7 @@
 	}
 
 	$effect(() => {
-		const userId = authStore.user?.id ?? null;
-		habitsStore.setUser(userId);
-		strengthStore.setUser(userId);
-		cardioStore.setUser(userId);
-		journalStore.setUser(userId);
+		setStoresUser(authStore.user?.id ?? null);
 	});
 
 	$effect(() => {
@@ -93,8 +101,7 @@
 	$effect(() => {
 		if (!booted || !authStore.initialized) return;
 		const path = $page.url.pathname;
-		const isAuthRoute =
-			path.startsWith(`${base}/login`) || path.startsWith(`${base}/auth`);
+		const isAuthRoute = path.startsWith(`${base}/login`) || path.startsWith(`${base}/auth`);
 		if (!authStore.user && !isAuthRoute) {
 			void goto(`${base}/login`, { replaceState: true });
 		} else if (authStore.user && path.startsWith(`${base}/login`)) {
