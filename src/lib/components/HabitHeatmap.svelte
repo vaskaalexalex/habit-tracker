@@ -1,5 +1,14 @@
 <script lang="ts">
-	import { eachDayOfInterval, endOfYear, format, parseISO, setYear, startOfYear } from 'date-fns';
+	import {
+		eachDayOfInterval,
+		endOfMonth,
+		endOfYear,
+		format,
+		parseISO,
+		setYear,
+		startOfMonth,
+		startOfYear
+	} from 'date-fns';
 	import { ru } from 'date-fns/locale';
 	import { untrack } from 'svelte';
 	import type { HabitCompletion } from '$supabase/types';
@@ -46,6 +55,10 @@
 		if (period === 'year') {
 			const ref = setYear(new Date(), year);
 			return { from: startOfYear(ref), to: endOfYear(ref) };
+		}
+		if (period === 'month') {
+			const ref = new Date();
+			return { from: startOfMonth(ref), to: endOfMonth(ref) };
 		}
 		return lastNMonthsRange(periodMonths);
 	});
@@ -139,11 +152,11 @@
 </script>
 
 <div class="hairline rounded-3xl bg-(--color-bg-soft) p-4">
-	<div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+	<div class="mb-3 flex flex-col gap-2">
 		<h3 class="text-sm font-medium">Активность</h3>
 
-		<div class="flex items-center gap-3">
-			<div class="flex items-center gap-1.5 text-[10px] text-(--color-fg-mute)">
+		<div class="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-2">
+			<div class="flex shrink-0 items-center gap-1.5 text-[10px] text-(--color-fg-mute)">
 				<span>0</span>
 				{#each SHADES as shade, i (i)}
 					<span class="size-2.5 rounded-[2px]" style="background: {shade}"></span>
@@ -151,12 +164,12 @@
 				<span>4</span>
 			</div>
 
-			<div class="hairline flex rounded-xl bg-(--color-bg-mute) p-0.5 text-xs">
+			<div class="hairline flex shrink-0 rounded-xl bg-(--color-bg-mute) p-0.5 text-[11px] leading-none">
 				{#each PERIOD_ORDER as p (p)}
 					<button
 						type="button"
 						onclick={() => (period = p)}
-						class="rounded-lg px-2.5 py-1 transition active:scale-95"
+						class="rounded-lg px-2 py-1 transition active:scale-95 sm:px-2.5 sm:py-1"
 						class:active={period === p}
 						aria-pressed={period === p}
 					>
@@ -166,25 +179,27 @@
 			</div>
 
 			{#if period === 'year'}
-				<div class="hairline flex items-center rounded-xl bg-(--color-bg-mute) p-0.5 text-xs">
+				<div
+					class="hairline flex basis-full shrink-0 items-center justify-end rounded-xl bg-(--color-bg-mute) p-0.5 text-[11px] sm:basis-auto sm:justify-start"
+				>
 					<button
 						type="button"
 						onclick={() => (year = Math.max(minYear, year - 1))}
-						class="grid size-7 place-items-center rounded-lg hover:bg-(--color-bg-soft) disabled:opacity-30"
+						class="grid size-6 place-items-center rounded-lg hover:bg-(--color-bg-soft) disabled:opacity-30 sm:size-7"
 						disabled={year <= minYear}
 						aria-label="Предыдущий год"
 					>
-						<ChevronLeft size={14} />
+						<ChevronLeft size={12} />
 					</button>
-					<span class="px-2 font-medium tabular-nums">{year}</span>
+					<span class="min-w-[2.5rem] px-1 text-center font-medium tabular-nums sm:min-w-0 sm:px-2">{year}</span>
 					<button
 						type="button"
 						onclick={() => (year = Math.min(currentYear, year + 1))}
-						class="grid size-7 place-items-center rounded-lg hover:bg-(--color-bg-soft) disabled:opacity-30"
+						class="grid size-6 place-items-center rounded-lg hover:bg-(--color-bg-soft) disabled:opacity-30 sm:size-7"
 						disabled={year >= currentYear}
 						aria-label="Следующий год"
 					>
-						<ChevronRight size={14} />
+						<ChevronRight size={12} />
 					</button>
 				</div>
 			{/if}
