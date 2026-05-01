@@ -20,6 +20,16 @@ function readEntries(): SyncDebugEntry[] {
 
 function normalizeValue(value: unknown): unknown {
 	if (value instanceof Error) return { name: value.name, message: value.message };
+	if (value && typeof value === 'object') {
+		const objectValue = value as Record<string, unknown>;
+		return {
+			message: objectValue.message,
+			code: objectValue.code,
+			details: objectValue.details,
+			hint: objectValue.hint,
+			status: objectValue.status
+		};
+	}
 	if (typeof value === 'string' && value.length > 180) return `${value.slice(0, 180)}...`;
 	return value;
 }
