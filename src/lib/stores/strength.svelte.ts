@@ -1,15 +1,7 @@
 import { db } from '$db/dexie';
 import { drainQueue, enqueue, hasPendingSync } from '$db/sync';
 import { isSupabaseConfigured } from '$supabase/client';
-import {
-	createExercise as apiCreate,
-	deleteExercise as apiDelete,
-	fetchExercises,
-	fetchWorkoutSets,
-	insertWorkoutSet,
-	deleteWorkoutSet,
-	setExerciseHidden as apiSetHidden
-} from '$supabase/api';
+import { fetchExercises, fetchWorkoutSets } from '$supabase/api';
 import type { Exercise, ISODate, UUID, WorkoutSet } from '$supabase/types';
 import { uuid } from '$utils/uuid';
 import { isoToday, lastNMonthsRange, toISO } from '$utils/dates';
@@ -39,17 +31,28 @@ class StrengthStore {
 		const fromISO = toISO(from);
 		const toISO2 = toISO(to);
 		syncDebug('strength-refresh-start', { userId: this.#userId, from: fromISO, to: toISO2 });
+		let localEx: Exercise[] = [];
+		let localSets: WorkoutSet[] = [];
 		try {
-			const localEx = await db.exercises.toArray();
-			const localSets = await db.workout_sets
+			localEx = await db.exercises.toArray();
+			localSets = await db.workout_sets
 				.where('[user_id+date]')
 				.between([this.#userId, fromISO], [this.#userId, toISO2], true, true)
 				.toArray();
 			this.exercises = localEx;
 			this.sets = localSets;
+			this.loaded = true;
 			syncDebug('strength-local-loaded', { exercises: localEx.length, sets: localSets.length });
+		} catch (err) {
+			syncDebug('strength-local-error', {
+				error: err instanceof Error ? err.message : String(err)
+			});
+			console.error('[strength.refresh:local]', err);
+		}
 
-			if (isSupabaseConfigured) {
+		const online = typeof navigator === 'undefined' || navigator.onLine !== false;
+		if (isSupabaseConfigured && online) {
+			try {
 				await drainQueue();
 				const [remoteEx, remoteSets] = await Promise.all([
 					fetchExercises(this.#userId),
@@ -67,20 +70,21 @@ class StrengthStore {
 				this.sets = (await hasPendingSync('workout_sets'))
 					? mergeByKey(localSets, remoteSets, (item) => item.id)
 					: remoteSets;
+			} catch (err) {
+				syncDebug('strength-remote-error', {
+					error: err instanceof Error ? err.message : String(err)
+				});
+				console.error('[strength.refresh:remote]', err);
 			}
-			this.loaded = true;
-			syncDebug('strength-refresh-finish', {
-				exercises: this.exercises.length,
-				sets: this.sets.length
-			});
-		} catch (err) {
-			syncDebug('strength-refresh-error', {
-				error: err instanceof Error ? err.message : String(err)
-			});
-			console.error('[strength.refresh]', err);
-		} finally {
-			this.loading = false;
+		} else {
+			syncDebug('strength-remote-skip', { configured: isSupabaseConfigured, online });
 		}
+
+		this.loading = false;
+		syncDebug('strength-refresh-finish', {
+			exercises: this.exercises.length,
+			sets: this.sets.length
+		});
 	}
 
 	visibleExercises(): Exercise[] {
@@ -115,24 +119,8 @@ class StrengthStore {
 		};
 		this.exercises = [...this.exercises, row];
 		await db.exercises.put(row);
-		if (isSupabaseConfigured) {
-			try {
-				const real = await apiCreate({
-					user_id: this.#userId,
-					name: row.name,
-					muscle_group: row.muscle_group
-				});
-				await db.exercises.delete(row.id);
-				await db.exercises.put(real);
-				this.exercises = this.exercises.map((e) => (e.id === row.id ? real : e));
-				return real;
-			} catch (err) {
-				console.error('[strength.createExercise:remote]', err);
-				await enqueue('exercises', 'upsert', row as unknown as Record<string, unknown>);
-				return row;
-			}
-		}
 		await enqueue('exercises', 'upsert', row as unknown as Record<string, unknown>);
+		void drainQueue();
 		return row;
 	}
 
@@ -142,14 +130,8 @@ class StrengthStore {
 		const next: Exercise = { ...ex, hidden };
 		this.exercises = this.exercises.map((e) => (e.id === id ? next : e));
 		await db.exercises.put(next);
-		if (isSupabaseConfigured) {
-			try {
-				await apiSetHidden(id, hidden);
-			} catch (err) {
-				console.error('[strength.setExerciseHidden]', err);
-				await enqueue('exercises', 'upsert', next as unknown as Record<string, unknown>);
-			}
-		}
+		await enqueue('exercises', 'upsert', next as unknown as Record<string, unknown>);
+		void drainQueue();
 	}
 
 	async deleteExercise(id: UUID): Promise<void> {
@@ -157,16 +139,8 @@ class StrengthStore {
 		if (!ex || ex.is_preset) return;
 		this.exercises = this.exercises.filter((e) => e.id !== id);
 		await db.exercises.delete(id);
-		if (isSupabaseConfigured) {
-			try {
-				await apiDelete(id);
-			} catch (err) {
-				console.error('[strength.deleteExercise]', err);
-				await enqueue('exercises', 'delete', { id });
-			}
-		} else {
-			await enqueue('exercises', 'delete', { id });
-		}
+		await enqueue('exercises', 'delete', { id });
+		void drainQueue();
 	}
 
 	async addSet(input: {
@@ -192,16 +166,7 @@ class StrengthStore {
 		};
 		this.sets = [...this.sets, row];
 		await db.workout_sets.put(row);
-		if (isSupabaseConfigured) {
-			try {
-				await insertWorkoutSet(row);
-			} catch (err) {
-				console.error('[strength.addSet]', err);
-				await enqueue('workout_sets', 'upsert', row as unknown as Record<string, unknown>);
-			}
-		} else {
-			await enqueue('workout_sets', 'upsert', row as unknown as Record<string, unknown>);
-		}
+		await enqueue('workout_sets', 'upsert', row as unknown as Record<string, unknown>);
 		void drainQueue();
 		return row;
 	}
@@ -209,16 +174,8 @@ class StrengthStore {
 	async deleteSet(id: UUID): Promise<void> {
 		this.sets = this.sets.filter((s) => s.id !== id);
 		await db.workout_sets.delete(id);
-		if (isSupabaseConfigured) {
-			try {
-				await deleteWorkoutSet(id);
-			} catch (err) {
-				console.error('[strength.deleteSet]', err);
-				await enqueue('workout_sets', 'delete', { id });
-			}
-		} else {
-			await enqueue('workout_sets', 'delete', { id });
-		}
+		await enqueue('workout_sets', 'delete', { id });
+		void drainQueue();
 	}
 }
 

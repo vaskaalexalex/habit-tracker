@@ -1,7 +1,7 @@
 import { db } from '$db/dexie';
 import { drainQueue, enqueue, hasPendingSync } from '$db/sync';
 import { isSupabaseConfigured } from '$supabase/client';
-import { fetchJournal, fetchJournalDay, upsertJournal } from '$supabase/api';
+import { fetchJournal, fetchJournalDay } from '$supabase/api';
 import type { ISODate, JournalEntry, UUID } from '$supabase/types';
 import { uuid } from '$utils/uuid';
 import { isoToday, lastNMonthsRange, toISO } from '$utils/dates';
@@ -29,15 +29,25 @@ class JournalStore {
 		const fromISO = toISO(from);
 		const toISO2 = toISO(to);
 		syncDebug('journal-refresh-start', { userId: this.#userId, from: fromISO, to: toISO2 });
+		let local: JournalEntry[] = [];
 		try {
-			const local = await db.journal_entries
+			local = await db.journal_entries
 				.where('[user_id+date]')
 				.between([this.#userId, fromISO], [this.#userId, toISO2], true, true)
 				.toArray();
-			this.entries = local.sort((a, b) => b.date.localeCompare(a.date));
+			this.entries = [...local].sort((a, b) => b.date.localeCompare(a.date));
+			this.loaded = true;
 			syncDebug('journal-local-loaded', { count: local.length });
+		} catch (err) {
+			syncDebug('journal-local-error', {
+				error: err instanceof Error ? err.message : String(err)
+			});
+			console.error('[journal.refresh:local]', err);
+		}
 
-			if (isSupabaseConfigured) {
+		const online = typeof navigator === 'undefined' || navigator.onLine !== false;
+		if (isSupabaseConfigured && online) {
+			try {
 				await drainQueue();
 				const remote = await fetchJournal(this.#userId, fromISO, toISO2);
 				syncDebug('journal-remote-loaded', { count: remote.length });
@@ -53,17 +63,18 @@ class JournalStore {
 							)
 						: remote
 				).sort((a, b) => b.date.localeCompare(a.date));
+			} catch (err) {
+				syncDebug('journal-remote-error', {
+					error: err instanceof Error ? err.message : String(err)
+				});
+				console.error('[journal.refresh:remote]', err);
 			}
-			this.loaded = true;
-			syncDebug('journal-refresh-finish', { count: this.entries.length });
-		} catch (err) {
-			syncDebug('journal-refresh-error', {
-				error: err instanceof Error ? err.message : String(err)
-			});
-			console.error('[journal.refresh]', err);
-		} finally {
-			this.loading = false;
+		} else {
+			syncDebug('journal-remote-skip', { configured: isSupabaseConfigured, online });
 		}
+
+		this.loading = false;
+		syncDebug('journal-refresh-finish', { count: this.entries.length });
 	}
 
 	getByDate(date: ISODate): JournalEntry | undefined {
@@ -83,12 +94,25 @@ class JournalStore {
 			return cached;
 		}
 		if (!isSupabaseConfigured) return null;
-		const remote = await fetchJournalDay(this.#userId, date);
-		if (remote) {
-			await db.journal_entries.put(remote);
-			this.entries = [remote, ...this.entries.filter((e) => e.date !== date)];
+		const online = typeof navigator === 'undefined' || navigator.onLine !== false;
+		if (!online) {
+			syncDebug('journal-load-day-offline', { date });
+			return null;
 		}
-		return remote;
+		try {
+			const remote = await fetchJournalDay(this.#userId, date);
+			if (remote) {
+				await db.journal_entries.put(remote);
+				this.entries = [remote, ...this.entries.filter((e) => e.date !== date)];
+			}
+			return remote;
+		} catch (err) {
+			syncDebug('journal-load-day-error', {
+				date,
+				error: err instanceof Error ? err.message : String(err)
+			});
+			return null;
+		}
 	}
 
 	async upsertDay(input: {
@@ -112,16 +136,7 @@ class JournalStore {
 				};
 		this.entries = [row, ...this.entries.filter((e) => e.date !== input.date)];
 		await db.journal_entries.put(row);
-		if (isSupabaseConfigured) {
-			try {
-				await upsertJournal(row);
-			} catch (err) {
-				console.error('[journal.upsertDay]', err);
-				await enqueue('journal_entries', 'upsert', row as unknown as Record<string, unknown>);
-			}
-		} else {
-			await enqueue('journal_entries', 'upsert', row as unknown as Record<string, unknown>);
-		}
+		await enqueue('journal_entries', 'upsert', row as unknown as Record<string, unknown>);
 		void drainQueue();
 		return row;
 	}

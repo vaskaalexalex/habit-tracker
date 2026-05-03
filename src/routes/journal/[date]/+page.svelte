@@ -11,12 +11,16 @@
 	let loading = $state(true);
 
 	$effect(() => {
-		if (date) {
-			loading = true;
-			void journalStore.loadDay(date).finally(() => {
-				loading = false;
-			});
+		if (!date) return;
+		const local = journalStore.getByDate(date);
+		if (local) {
+			loading = false;
+			return;
 		}
+		loading = true;
+		void journalStore.loadDay(date).finally(() => {
+			loading = false;
+		});
 	});
 
 	async function handleSave({ content, mood }: { content: string; mood: number | null }) {

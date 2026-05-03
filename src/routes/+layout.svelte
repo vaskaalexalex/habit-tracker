@@ -17,6 +17,7 @@
 	import BottomNav from '$components/BottomNav.svelte';
 	import ToastHost from '$components/ToastHost.svelte';
 	import InstallPrompt from '$components/InstallPrompt.svelte';
+	import SyncStatus from '$components/SyncStatus.svelte';
 
 	let { children } = $props();
 	let booted = $state(false);
@@ -33,13 +34,19 @@
 			standalone: window.matchMedia('(display-mode: standalone)').matches
 		});
 
-		void bootstrap().then(() => {
-			syncDebug('bootstrap-done', { hasUser: !!authStore.user, userId: authStore.user?.id });
-			setStoresUser(authStore.user?.id ?? null);
-			booted = true;
-			stopTodayRefresh = todayStore.start();
-			stopRemoteRefresh = startRemoteRefresh();
-		});
+		void bootstrap()
+			.catch((err) => {
+				syncDebug('bootstrap-error', {
+					error: err instanceof Error ? err.message : String(err)
+				});
+			})
+			.finally(() => {
+				syncDebug('bootstrap-done', { hasUser: !!authStore.user, userId: authStore.user?.id });
+				setStoresUser(authStore.user?.id ?? null);
+				booted = true;
+				stopTodayRefresh = todayStore.start();
+				stopRemoteRefresh = startRemoteRefresh();
+			});
 
 		// Manual SW registration (avoids virtual:pwa-register → workbox-window in SSR bundle).
 		if (import.meta.env.PROD && 'serviceWorker' in navigator) {
@@ -87,7 +94,9 @@
 			visibility: document.visibilityState
 		});
 
-		if (lastAutoPushUserId !== authStore.user.id) {
+		const canReachNetwork =
+			typeof navigator === 'undefined' || navigator.onLine !== false;
+		if (canReachNetwork && lastAutoPushUserId !== authStore.user.id) {
 			try {
 				await forcePushLocalData(authStore.user.id);
 				lastAutoPushUserId = authStore.user.id;
@@ -188,4 +197,5 @@
 	{/if}
 	<ToastHost />
 	<InstallPrompt />
+	<SyncStatus />
 </div>

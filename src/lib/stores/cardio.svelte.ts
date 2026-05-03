@@ -1,7 +1,7 @@
 import { db } from '$db/dexie';
 import { drainQueue, enqueue, hasPendingSync } from '$db/sync';
 import { isSupabaseConfigured } from '$supabase/client';
-import { deleteCardio as apiDelete, fetchCardio, insertCardio } from '$supabase/api';
+import { fetchCardio } from '$supabase/api';
 import type { CardioWorkout, CardioType, ISODate, UUID } from '$supabase/types';
 import { uuid } from '$utils/uuid';
 import { isoToday, lastNMonthsRange, toISO } from '$utils/dates';
@@ -29,15 +29,25 @@ class CardioStore {
 		const fromISO = toISO(from);
 		const toISO2 = toISO(to);
 		syncDebug('cardio-refresh-start', { userId: this.#userId, from: fromISO, to: toISO2 });
+		let local: CardioWorkout[] = [];
 		try {
-			const local = await db.cardio_workouts
+			local = await db.cardio_workouts
 				.where('[user_id+date]')
 				.between([this.#userId, fromISO], [this.#userId, toISO2], true, true)
 				.toArray();
-			this.items = local.sort((a, b) => b.date.localeCompare(a.date));
+			this.items = [...local].sort((a, b) => b.date.localeCompare(a.date));
+			this.loaded = true;
 			syncDebug('cardio-local-loaded', { count: local.length });
+		} catch (err) {
+			syncDebug('cardio-local-error', {
+				error: err instanceof Error ? err.message : String(err)
+			});
+			console.error('[cardio.refresh:local]', err);
+		}
 
-			if (isSupabaseConfigured) {
+		const online = typeof navigator === 'undefined' || navigator.onLine !== false;
+		if (isSupabaseConfigured && online) {
+			try {
 				await drainQueue();
 				const remote = await fetchCardio(this.#userId, fromISO, toISO2);
 				syncDebug('cardio-remote-loaded', { count: remote.length });
@@ -47,17 +57,18 @@ class CardioStore {
 						? mergeByKey(local, remote, (item) => item.id)
 						: remote
 				).sort((a, b) => b.date.localeCompare(a.date));
+			} catch (err) {
+				syncDebug('cardio-remote-error', {
+					error: err instanceof Error ? err.message : String(err)
+				});
+				console.error('[cardio.refresh:remote]', err);
 			}
-			this.loaded = true;
-			syncDebug('cardio-refresh-finish', { count: this.items.length });
-		} catch (err) {
-			syncDebug('cardio-refresh-error', {
-				error: err instanceof Error ? err.message : String(err)
-			});
-			console.error('[cardio.refresh]', err);
-		} finally {
-			this.loading = false;
+		} else {
+			syncDebug('cardio-remote-skip', { configured: isSupabaseConfigured, online });
 		}
+
+		this.loading = false;
+		syncDebug('cardio-refresh-finish', { count: this.items.length });
 	}
 
 	async add(input: {
@@ -80,16 +91,7 @@ class CardioStore {
 		};
 		this.items = [row, ...this.items];
 		await db.cardio_workouts.put(row);
-		if (isSupabaseConfigured) {
-			try {
-				await insertCardio(row);
-			} catch (err) {
-				console.error('[cardio.add]', err);
-				await enqueue('cardio_workouts', 'upsert', row as unknown as Record<string, unknown>);
-			}
-		} else {
-			await enqueue('cardio_workouts', 'upsert', row as unknown as Record<string, unknown>);
-		}
+		await enqueue('cardio_workouts', 'upsert', row as unknown as Record<string, unknown>);
 		void drainQueue();
 		return row;
 	}
@@ -97,16 +99,8 @@ class CardioStore {
 	async remove(id: UUID): Promise<void> {
 		this.items = this.items.filter((c) => c.id !== id);
 		await db.cardio_workouts.delete(id);
-		if (isSupabaseConfigured) {
-			try {
-				await apiDelete(id);
-			} catch (err) {
-				console.error('[cardio.remove]', err);
-				await enqueue('cardio_workouts', 'delete', { id });
-			}
-		} else {
-			await enqueue('cardio_workouts', 'delete', { id });
-		}
+		await enqueue('cardio_workouts', 'delete', { id });
+		void drainQueue();
 	}
 }
 

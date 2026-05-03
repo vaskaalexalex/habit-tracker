@@ -2,11 +2,29 @@ import type { Session, User } from '@supabase/supabase-js';
 import { supabase, isSupabaseConfigured } from '$supabase/client';
 import { syncDebug } from '$utils/sync-debug';
 
+const SESSION_TIMEOUT_MS = 3_000;
+
 export interface AuthState {
 	user: User | null;
 	session: Session | null;
 	loading: boolean;
 	initialized: boolean;
+}
+
+async function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+	return new Promise<T>((resolve, reject) => {
+		const timer = setTimeout(() => reject(new Error(`${label}: timeout after ${ms}ms`)), ms);
+		promise.then(
+			(value) => {
+				clearTimeout(timer);
+				resolve(value);
+			},
+			(err) => {
+				clearTimeout(timer);
+				reject(err);
+			}
+		);
+	});
 }
 
 class AuthStore {
@@ -28,17 +46,39 @@ class AuthStore {
 		}
 
 		this.loading = true;
-		const { data } = await supabase.auth.getSession();
-		this.session = data.session;
-		this.user = data.session?.user ?? null;
-		syncDebug('auth-session-loaded', { hasSession: !!this.session, userId: this.user?.id });
+		const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
+		const sessionTimeout = offline ? 800 : SESSION_TIMEOUT_MS;
+		try {
+			if (offline) {
+				syncDebug('auth-init-offline', { sessionTimeout });
+			}
+			const { data } = await withTimeout(
+				supabase.auth.getSession(),
+				sessionTimeout,
+				'auth.getSession'
+			);
+			this.session = data.session;
+			this.user = data.session?.user ?? null;
+			syncDebug('auth-session-loaded', { hasSession: !!this.session, userId: this.user?.id });
+		} catch (err) {
+			syncDebug('auth-session-timeout', {
+				error: err instanceof Error ? err.message : String(err)
+			});
+		}
 
-		const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-			this.session = session;
-			this.user = session?.user ?? null;
-			syncDebug('auth-state-change', { hasSession: !!session, userId: this.user?.id });
-		});
-		this.#unsubscribe = () => sub.subscription.unsubscribe();
+		try {
+			const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+				this.session = session;
+				this.user = session?.user ?? null;
+				syncDebug('auth-state-change', { hasSession: !!session, userId: this.user?.id });
+			});
+			this.#unsubscribe = () => sub.subscription.unsubscribe();
+		} catch (err) {
+			syncDebug('auth-onchange-error', {
+				error: err instanceof Error ? err.message : String(err)
+			});
+		}
+
 		this.#startSessionWatchers();
 		this.initialized = true;
 		this.loading = false;
@@ -82,14 +122,33 @@ class AuthStore {
 		if (typeof window === 'undefined' || this.#stopSessionWatchers) return;
 
 		const syncSession = async (reason: string) => {
-			const { data, error } = await supabase.auth.getSession();
-			if (error) {
-				syncDebug('auth-session-sync-error', { reason, error });
+			if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+				syncDebug('auth-session-sync-skip-offline', { reason });
 				return;
 			}
-			this.session = data.session;
-			this.user = data.session?.user ?? null;
-			syncDebug('auth-session-sync', { reason, hasSession: !!this.session, userId: this.user?.id });
+			try {
+				const { data, error } = await withTimeout(
+					supabase.auth.getSession(),
+					SESSION_TIMEOUT_MS,
+					'auth.getSession'
+				);
+				if (error) {
+					syncDebug('auth-session-sync-error', { reason, error });
+					return;
+				}
+				this.session = data.session;
+				this.user = data.session?.user ?? null;
+				syncDebug('auth-session-sync', {
+					reason,
+					hasSession: !!this.session,
+					userId: this.user?.id
+				});
+			} catch (err) {
+				syncDebug('auth-session-sync-timeout', {
+					reason,
+					error: err instanceof Error ? err.message : String(err)
+				});
+			}
 		};
 
 		const syncVisibleSession = () => {

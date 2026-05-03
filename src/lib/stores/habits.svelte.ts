@@ -29,15 +29,25 @@ class HabitsStore {
 		const fromISO = toISO(from);
 		const toISO2 = toISO(to);
 		syncDebug('habits-refresh-start', { userId: this.#userId, from: fromISO, to: toISO2 });
+		let local: HabitCompletion[] = [];
 		try {
-			const local = await db.habit_completions
+			local = await db.habit_completions
 				.where('[user_id+date]')
 				.between([this.#userId, fromISO], [this.#userId, toISO2], true, true)
 				.toArray();
 			this.completions = local;
+			this.loaded = true;
 			syncDebug('habits-local-loaded', { count: local.length });
+		} catch (err) {
+			syncDebug('habits-local-error', {
+				error: err instanceof Error ? err.message : String(err)
+			});
+			console.error('[habits.refresh:local]', err);
+		}
 
-			if (isSupabaseConfigured) {
+		const online = typeof navigator === 'undefined' || navigator.onLine !== false;
+		if (isSupabaseConfigured && online) {
+			try {
 				await drainQueue();
 				const remote = await fetchHabitCompletionsRange(this.#userId, fromISO, toISO2);
 				syncDebug('habits-remote-loaded', { count: remote.length });
@@ -45,17 +55,18 @@ class HabitsStore {
 				this.completions = (await hasPendingSync('habit_completions'))
 					? mergeByKey(local, remote, (item) => `${item.user_id}:${item.habit_type}:${item.date}`)
 					: remote;
+			} catch (err) {
+				syncDebug('habits-remote-error', {
+					error: err instanceof Error ? err.message : String(err)
+				});
+				console.error('[habits.refresh:remote]', err);
 			}
-			this.loaded = true;
-			syncDebug('habits-refresh-finish', { count: this.completions.length });
-		} catch (err) {
-			syncDebug('habits-refresh-error', {
-				error: err instanceof Error ? err.message : String(err)
-			});
-			console.error('[habits.refresh]', err);
-		} finally {
-			this.loading = false;
+		} else {
+			syncDebug('habits-remote-skip', { configured: isSupabaseConfigured, online });
 		}
+
+		this.loading = false;
+		syncDebug('habits-refresh-finish', { count: this.completions.length });
 	}
 
 	isCompleted(habit: HabitType, date: ISODate): boolean {
