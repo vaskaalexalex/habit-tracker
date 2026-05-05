@@ -99,6 +99,11 @@
 	padding-bottom: max(env(safe-area-inset-bottom), 0.5rem);
 }
 
+/** Отступ контента над фиксированным BottomNav (pt-2 + ряд иконок/подписей + тот же нижний inset, что и у nav). */
+@utility pb-bottom-nav {
+	padding-bottom: calc(0.5rem + 4.5rem + max(env(safe-area-inset-bottom), 0.5rem));
+}
+
 @utility safe-top {
 	padding-top: max(env(safe-area-inset-top), 0.5rem);
 }

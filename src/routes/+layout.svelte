@@ -183,7 +183,7 @@
 <div class="relative flex h-dvh max-h-dvh flex-col overflow-hidden">
 	<main
 		class="safe-top flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain"
-		class:pb-28={showNav}
+		class:pb-bottom-nav={showNav}
 	>
 		{#if booted}
 			{@render children?.()}
