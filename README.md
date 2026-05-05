@@ -30,7 +30,7 @@ Progressive web app для отслеживания четырёх привыч�
 │   │   ├── supabase/      (client.ts, types.ts, api.ts)
 │   │   ├── db/            (dexie.ts, sync.ts)
 │   │   ├── stores/        (auth, habits, strength, cardio, journal, theme, toast — все на runes)
-│   │   ├── components/    (HabitCard, HabitHeatmap, MonthChart, BottomNav, ExerciseDropdown, SetRow, WorkoutLog, JournalEditor, ProgressChart, ToastHost, InstallPrompt)
+│   │   ├── components/    (HabitCard, HabitHeatmap, BottomNav, ExerciseDropdown, SetRow, WorkoutLog, JournalEditor, ProgressChart, ToastHost, InstallPrompt)
 │   │   ├── utils/         (dates, uuid, strength)
 │   │   └── bootstrap.ts
 │   └── routes/

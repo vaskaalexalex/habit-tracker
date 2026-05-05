@@ -44,11 +44,13 @@
 	html,
 	body {
 		min-height: 100dvh;
+		height: 100%;
 		background: var(--color-bg);
 		color: var(--color-fg);
 	}
 
 	body {
+		overflow: hidden;
 		font-feature-settings: 'cv11', 'ss01', 'ss03';
 		overscroll-behavior-y: none;
 	}

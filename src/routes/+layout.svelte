@@ -180,12 +180,15 @@
 	);
 </script>
 
-<div class="relative flex min-h-dvh flex-col">
-	<main class="safe-top flex-1" class:pb-28={showNav}>
+<div class="relative flex h-dvh max-h-dvh flex-col overflow-hidden">
+	<main
+		class="safe-top flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain"
+		class:pb-28={showNav}
+	>
 		{#if booted}
 			{@render children?.()}
 		{:else}
-			<div class="flex min-h-dvh items-center justify-center">
+			<div class="flex flex-1 items-center justify-center">
 				<div
 					class="size-10 animate-spin rounded-full border-2 border-(--color-fg-mute) border-t-(--color-accent)"
 				></div>

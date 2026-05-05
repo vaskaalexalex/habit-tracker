@@ -76,20 +76,13 @@
 		return map;
 	});
 
-	const MIN_CELL = 8;
-	const MAX_CELL = 18;
+	/** Фиксированный формат ячейки во всех режимах (месяц / 6 мес / год); год скроллится по X. */
+	const CELL_SIZE = 12;
 	const cellGap = 3;
 	const headerH = 18;
 	const ROW_LABEL_W = 22;
 
-	let containerWidth = $state(0);
-
-	const cellSize = $derived.by(() => {
-		if (containerWidth <= 0 || totalCols <= 0) return 12;
-		const avail = containerWidth - ROW_LABEL_W;
-		const raw = (avail - (totalCols - 1) * cellGap) / totalCols;
-		return Math.max(MIN_CELL, Math.min(MAX_CELL, Math.floor(raw)));
-	});
+	const cellSize = CELL_SIZE;
 
 	const SHADES = [
 		'var(--color-bg-mute)',
@@ -149,13 +142,15 @@
 
 	const hoverDate = $derived(hover ? format(parseISO(hover.iso), 'd MMMM yyyy', { locale: ru }) : '');
 	const hoverDone = $derived(hover ? doneList(hover.iso) : []);
+
+	const gridSvgHeight = headerH + 7 * (cellSize + cellGap) - cellGap;
 </script>
 
 <div class="hairline rounded-3xl bg-(--color-bg-soft) p-4">
 	<div class="mb-3 flex flex-col gap-2">
 		<h3 class="text-sm font-medium">Активность</h3>
 
-		<div class="flex min-w-0 flex-nowrap items-center justify-between gap-2">
+		<div class="flex min-h-8 min-w-0 flex-nowrap items-center justify-between gap-2">
 			<div class="hairline flex shrink-0 rounded-xl bg-(--color-bg-mute) p-0.5 text-[11px] leading-none">
 				{#each PERIOD_ORDER as p (p)}
 					<button
@@ -170,39 +165,48 @@
 				{/each}
 			</div>
 
-			{#if period === 'year'}
-				<div
-					class="hairline flex shrink-0 items-center rounded-xl bg-(--color-bg-mute) p-0.5 text-[11px]"
-				>
-					<button
-						type="button"
-						onclick={() => (year = Math.max(minYear, year - 1))}
-						class="grid size-6 place-items-center rounded-lg hover:bg-(--color-bg-soft) disabled:opacity-30 sm:size-7"
-						disabled={year <= minYear}
-						aria-label="Предыдущий год"
+			<!-- Фиксированная ширина: переключатель года не появляется/не исчезает → блок не прыгает -->
+			<div
+				class="flex h-8 min-w-[7.25rem] shrink-0 items-center justify-end sm:min-w-[7.5rem]"
+				aria-hidden={period !== 'year'}
+			>
+				{#if period === 'year'}
+					<div
+						class="hairline flex items-center rounded-xl bg-(--color-bg-mute) p-0.5 text-[11px]"
 					>
-						<ChevronLeft size={12} />
-					</button>
-					<span class="min-w-[2.75rem] px-1 text-center font-medium tabular-nums">{year}</span>
-					<button
-						type="button"
-						onclick={() => (year = Math.min(currentYear, year + 1))}
-						class="grid size-6 place-items-center rounded-lg hover:bg-(--color-bg-soft) disabled:opacity-30 sm:size-7"
-						disabled={year >= currentYear}
-						aria-label="Следующий год"
-					>
-						<ChevronRight size={12} />
-					</button>
-				</div>
-			{/if}
+						<button
+							type="button"
+							onclick={() => (year = Math.max(minYear, year - 1))}
+							class="grid size-6 place-items-center rounded-lg hover:bg-(--color-bg-soft) disabled:opacity-30 sm:size-7"
+							disabled={year <= minYear}
+							aria-label="Предыдущий год"
+						>
+							<ChevronLeft size={12} />
+						</button>
+						<span class="min-w-[2.75rem] px-1 text-center font-medium tabular-nums">{year}</span>
+						<button
+							type="button"
+							onclick={() => (year = Math.min(currentYear, year + 1))}
+							class="grid size-6 place-items-center rounded-lg hover:bg-(--color-bg-soft) disabled:opacity-30 sm:size-7"
+							disabled={year >= currentYear}
+							aria-label="Следующий год"
+						>
+							<ChevronRight size={12} />
+						</button>
+					</div>
+				{/if}
+			</div>
 		</div>
 	</div>
 
-	<div class="relative" bind:this={wrapperEl} bind:clientWidth={containerWidth}>
-		<div class="overflow-x-auto">
+	<div class="relative" bind:this={wrapperEl}>
+		<div
+			class="overflow-x-auto overflow-y-hidden [scrollbar-gutter:stable]"
+			style="min-height: {gridSvgHeight}px;"
+		>
 			<svg
 				width={ROW_LABEL_W + totalCols * (cellSize + cellGap) - cellGap}
-				height={headerH + 7 * (cellSize + cellGap) - cellGap}
+				height={gridSvgHeight}
 				class="block"
 				role="img"
 				aria-label="Активность привычек"

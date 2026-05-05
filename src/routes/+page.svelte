@@ -7,12 +7,11 @@
 	import { profileStore } from '$stores/profile.svelte';
 	import HabitCard from '$components/HabitCard.svelte';
 	import HabitHeatmap from '$components/HabitHeatmap.svelte';
-	import MonthChart from '$components/MonthChart.svelte';
 	import TodayRing from '$components/TodayRing.svelte';
 	import { HABIT_ORDER } from '$supabase/types';
 	import type { HabitType } from '$supabase/types';
 	import { todayStore } from '$stores/today.svelte';
-	import { formatRu, fromISO } from '$utils/dates';
+	import { formatRu } from '$utils/dates';
 
 	const today = $derived(todayStore.today);
 
@@ -48,9 +47,9 @@
 </script>
 
 <div
-	class="mx-auto flex w-full max-w-xl flex-col gap-3 px-4 pt-6 pb-4 sm:h-[calc(100dvh-7rem)] sm:overflow-hidden sm:pt-8"
+	class="mx-auto flex w-full max-w-xl flex-col gap-3 px-4 pb-4 pt-6 sm:pt-8"
 >
-	<header class="flex items-baseline justify-between gap-2">
+	<header class="shrink-0 flex items-baseline justify-between gap-2">
 		<h1 class="min-w-0 truncate text-2xl font-semibold tracking-tight">
 			{#if profileStore.name.trim()}
 				<span class="text-(--color-fg-mute)">{profileStore.name}:</span>
@@ -62,7 +61,7 @@
 		<span class="shrink-0 text-sm text-(--color-fg-mute)">{formatRu(today)}</span>
 	</header>
 
-	<section class="grid grid-cols-4 gap-2">
+	<section class="grid shrink-0 grid-cols-4 gap-2">
 		{#each HABIT_ORDER as habit (habit)}
 			<HabitCard
 				{habit}
@@ -75,7 +74,7 @@
 	</section>
 
 	<section
-		class="hairline relative flex items-center gap-4 overflow-hidden rounded-3xl bg-(--color-bg-soft) p-4"
+		class="hairline relative flex shrink-0 items-center gap-4 overflow-hidden rounded-3xl bg-(--color-bg-soft) p-4"
 	>
 		{#if allDone}
 			<div
@@ -98,5 +97,4 @@
 	</section>
 
 	<HabitHeatmap completions={habitsStore.completions} months={6} />
-	<MonthChart completions={habitsStore.completions} month={fromISO(today)} />
 </div>
