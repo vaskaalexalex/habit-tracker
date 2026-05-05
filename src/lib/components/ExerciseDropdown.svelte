@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Search, Plus, Check, X } from 'lucide-svelte';
 	import { fly } from 'svelte/transition';
-	import type { Exercise } from '$supabase/types';
+	import type { Exercise, MuscleGroup } from '$supabase/types';
 	import { MUSCLE_GROUP_LABELS, MUSCLE_GROUP_ORDER } from '$supabase/types';
 
 	interface Props {
@@ -11,7 +11,8 @@
 		oncreate?: (name: string) => void | Promise<void>;
 		placeholder?: string;
 		compact?: boolean;
-		groupFilter?: string | null;
+		/** Limit list to this muscle group (e.g. row in «Грудь»). User can expand via chips. */
+		groupFilter?: MuscleGroup | null;
 	}
 
 	let {
@@ -32,6 +33,15 @@
 	let inputEl = $state<HTMLInputElement | null>(null);
 	let rootEl = $state<HTMLDivElement | null>(null);
 	let alignRight = $state(false);
+	/** When parent passes groupFilter: false = only that group; true = full catalog + chips */
+	let expandAllGroups = $state(false);
+	/** When no row-level groupFilter: narrow list by muscle */
+	let chipFilter = $state<MuscleGroup | 'all'>('all');
+
+	function normalizeMuscle(raw: string | null): MuscleGroup {
+		const r = raw ?? 'other';
+		return (MUSCLE_GROUP_ORDER as readonly string[]).includes(r) ? (r as MuscleGroup) : 'other';
+	}
 
 	$effect(() => {
 		if (open && inputEl) requestAnimationFrame(() => inputEl?.focus());
@@ -52,17 +62,26 @@
 		return () => document.removeEventListener('mousedown', onDocClick);
 	});
 
+	// New row scope → start collapsed to that group again
+	$effect(() => {
+		groupFilter;
+		expandAllGroups = false;
+		chipFilter = 'all';
+	});
+
 	const selected = $derived(exercises.find((e) => e.id === value) ?? null);
 
 	const filtered = $derived(
 		exercises.filter((e) => {
 			if (e.hidden) return false;
 			if (!e.name.toLowerCase().includes(query.trim().toLowerCase())) return false;
-			if (groupFilter) {
-				const raw = e.muscle_group ?? 'other';
-				const g = (MUSCLE_GROUP_ORDER as readonly string[]).includes(raw) ? raw : 'other';
-				if (g !== groupFilter) return false;
+			const g = normalizeMuscle(e.muscle_group);
+
+			if (groupFilter && !expandAllGroups) {
+				return g === groupFilter;
 			}
+
+			if (chipFilter !== 'all' && g !== chipFilter) return false;
 			return true;
 		})
 	);
@@ -70,8 +89,7 @@
 	const grouped = $derived.by(() => {
 		const m = new Map<string, Exercise[]>();
 		for (const ex of filtered) {
-			const raw = ex.muscle_group ?? 'other';
-			const g = (MUSCLE_GROUP_ORDER as readonly string[]).includes(raw) ? raw : 'other';
+			const g = normalizeMuscle(ex.muscle_group);
 			const arr = m.get(g) ?? [];
 			arr.push(ex);
 			m.set(g, arr);
@@ -142,6 +160,65 @@
 					</button>
 				{/if}
 			</div>
+
+			<div class="flex flex-wrap gap-1 border-b border-(--color-border) px-2 py-2" role="radiogroup" aria-label="Группа мышц">
+				{#if groupFilter && !expandAllGroups}
+					<button
+						type="button"
+						disabled
+						class="rounded-full bg-(--color-accent) px-2.5 py-1 text-xs font-medium text-white opacity-90"
+					>
+						{GROUP_LABELS[groupFilter]}
+					</button>
+					<button
+						type="button"
+						onclick={() => {
+							expandAllGroups = true;
+							chipFilter = groupFilter;
+						}}
+						class="rounded-full bg-(--color-bg-mute) px-2.5 py-1 text-xs font-medium text-(--color-fg) hover:bg-(--color-bg-soft)"
+					>
+						Все группы
+					</button>
+				{:else}
+					{#if groupFilter && expandAllGroups}
+						<button
+							type="button"
+							onclick={() => {
+								expandAllGroups = false;
+								chipFilter = 'all';
+							}}
+							class="rounded-full bg-(--color-bg-mute) px-2 py-1 text-[11px] font-medium text-(--color-fg-mute) hover:text-(--color-fg)"
+						>
+							← только «{GROUP_LABELS[groupFilter]}»
+						</button>
+					{/if}
+					<button
+						type="button"
+						onclick={() => (chipFilter = 'all')}
+						class="rounded-full px-2.5 py-1 text-xs font-medium transition"
+						class:bg-(--color-accent)={chipFilter === 'all'}
+						class:text-white={chipFilter === 'all'}
+						class:bg-(--color-bg-mute)={chipFilter !== 'all'}
+					>
+						Все
+					</button>
+					{#each GROUP_ORDER as g (g)}
+						<button
+							type="button"
+							onclick={() => (chipFilter = g)}
+							class="rounded-full px-2.5 py-1 text-xs font-medium transition"
+							class:bg-(--color-accent)={chipFilter === g}
+							class:text-white={chipFilter === g}
+							class:bg-(--color-bg-mute)={chipFilter !== g}
+							aria-pressed={chipFilter === g}
+						>
+							{GROUP_LABELS[g]}
+						</button>
+					{/each}
+				{/if}
+			</div>
+
 			<div class="max-h-64 overflow-y-auto py-1">
 				{#each GROUP_ORDER as g (g)}
 					{@const list = grouped.get(g) ?? []}

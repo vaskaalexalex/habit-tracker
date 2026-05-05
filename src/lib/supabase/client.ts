@@ -3,6 +3,9 @@ import { PUBLIC_SUPABASE_ANON_KEY, PUBLIC_SUPABASE_URL } from '$env/static/publi
 
 export type AppSupabaseClient = SupabaseClient;
 
+/** Must match `auth.storageKey` — used for offline session recovery */
+export const AUTH_STORAGE_KEY = 'habits-auth';
+
 const url = PUBLIC_SUPABASE_URL ?? '';
 const key = PUBLIC_SUPABASE_ANON_KEY ?? '';
 
@@ -23,7 +26,7 @@ export const supabase: AppSupabaseClient = createClient(
 			autoRefreshToken: true,
 			detectSessionInUrl: true,
 			flowType: 'pkce',
-			storageKey: 'habits-auth'
+			storageKey: AUTH_STORAGE_KEY
 		},
 		global: {
 			headers: { 'x-client-info': 'habit-tracker' }
