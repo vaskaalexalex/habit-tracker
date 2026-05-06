@@ -17,9 +17,55 @@
 		<link rel="apple-touch-icon" sizes="180x180" href="%sveltekit.assets%/apple-touch-icon.png" />
 		<link rel="apple-touch-icon" sizes="192x192" href="%sveltekit.assets%/icons/192.png" />
 		<link rel="apple-touch-icon" sizes="512x512" href="%sveltekit.assets%/icons/512.png" />
+		<script>
+			(() => {
+				const RESET_KEY = 'habit-pwa-asset-reset';
+				const IMPORT_FAILURE_RE =
+					/Importing a module script failed|Failed to fetch dynamically imported module|Load failed/i;
+
+				async function resetPwaCaches() {
+					if (sessionStorage.getItem(RESET_KEY) === '1') return;
+					sessionStorage.setItem(RESET_KEY, '1');
+
+					try {
+						const registrations = await navigator.serviceWorker?.getRegistrations?.();
+						await Promise.all(
+							(registrations ?? []).map((registration) => registration.unregister())
+						);
+					} catch {
+						/* ignore */
+					}
+
+					try {
+						const keys = await caches?.keys?.();
+						await Promise.all((keys ?? []).map((key) => caches.delete(key)));
+					} catch {
+						/* ignore */
+					}
+
+					const url = new URL(window.location.href);
+					url.searchParams.set('pwa_reset', String(Date.now()));
+					window.location.replace(url);
+				}
+
+				window.addEventListener('unhandledrejection', (event) => {
+					if (IMPORT_FAILURE_RE.test(String(event.reason))) void resetPwaCaches();
+				});
+
+				window.addEventListener(
+					'error',
+					(event) => {
+						if (event.target instanceof HTMLScriptElement && event.target.type === 'module') {
+							void resetPwaCaches();
+						}
+					},
+					true
+				);
+			})();
+		</script>
 		%sveltekit.head%
 	</head>
-	<body data-sveltekit-preload-data="hover" class="bg-bg text-fg antialiased">
+	<body data-sveltekit-preload-data="hover" class="text-fg antialiased">
 		<div id="app" style="display: contents">%sveltekit.body%</div>
 	</body>
 </html>

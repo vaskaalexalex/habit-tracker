@@ -13,7 +13,7 @@ export default defineConfig({
 		SvelteKitPWA({
 			registerType: 'autoUpdate',
 			strategies: 'generateSW',
-			injectRegister: 'auto',
+			injectRegister: false,
 			manifest: {
 				name: 'Habit',
 				short_name: 'Habit',
@@ -38,8 +38,11 @@ export default defineConfig({
 				]
 			},
 			workbox: {
+				cleanupOutdatedCaches: true,
 				globPatterns: ['client/**/*.{js,css,ico,png,svg,webp,woff,woff2}'],
+				clientsClaim: true,
 				navigateFallback: startUrl,
+				skipWaiting: true,
 				runtimeCaching: [
 					{
 						urlPattern: ({ url }) => url.hostname.endsWith('.supabase.co'),

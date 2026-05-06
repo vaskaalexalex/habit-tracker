@@ -6,6 +6,7 @@
 	--color-bg: oklch(0.14 0.01 260);
 	--color-bg-soft: oklch(0.18 0.015 260);
 	--color-bg-mute: oklch(0.22 0.02 260);
+	--color-bottom-nav-surface: color-mix(in oklch, var(--color-bg-soft) 92%, black 8%);
 	--color-fg: oklch(0.99 0 0);
 	--color-fg-soft: oklch(0.82 0.01 260);
 	--color-fg-mute: oklch(0.62 0.02 260);
@@ -37,12 +38,16 @@
 
 @layer base {
 	/**
-	 * iPhone / PWA: avoid 100svh for the shell — svh is the *smallest* viewport and often
-	 * leaves an unpainted strip under fixed bottom UI. Use min-height: -webkit-fill-available
-	 * + flex column body so .app-shell fills the real viewport.
-	 * +layout pins document.documentElement.style.height only while the keyboard is open.
+	 * iPhone / PWA: keep the shell on the dynamic viewport, then let BottomNav paint
+	 * the unsafe home-indicator area itself. +layout pins documentElement height only
+	 * while the keyboard is open and clears it on viewport return events.
 	 */
 	html {
+		--safe-area-bottom: env(safe-area-inset-bottom, 0px);
+		--safe-area-bottom-max: env(safe-area-max-inset-bottom, var(--safe-area-bottom));
+		--bottom-nav-safe-area: max(var(--safe-area-bottom), var(--safe-area-bottom-max), 0px);
+		--bottom-nav-bleed: max(var(--bottom-nav-safe-area), 2rem);
+		--app-viewport-height: 100dvh;
 		font-family: var(--font-sans);
 		-webkit-font-smoothing: antialiased;
 		-webkit-tap-highlight-color: transparent;
@@ -50,11 +55,13 @@
 		height: auto;
 		min-height: 100%;
 		min-height: -webkit-fill-available;
+		min-height: var(--app-viewport-height);
 	}
 
 	html,
 	body {
-		background: var(--color-bg);
+		/* iOS paints viewport-fit unsafe areas from page background, not fixed children. */
+		background: var(--color-bottom-nav-surface);
 		color: var(--color-fg);
 	}
 
@@ -65,6 +72,7 @@
 		height: auto;
 		min-height: 100%;
 		min-height: -webkit-fill-available;
+		min-height: var(--app-viewport-height);
 		overflow: hidden;
 		font-feature-settings: 'cv11', 'ss01', 'ss03';
 		overscroll-behavior-y: none;
@@ -111,18 +119,18 @@
 }
 
 @utility safe-bottom {
-	padding-bottom: max(env(safe-area-inset-bottom), 0.5rem);
+	padding-bottom: max(var(--safe-area-bottom), 0.5rem);
 }
 
 /** Отступ контента над фиксированным BottomNav; высота nav задаётся ResizeObserver в BottomNav.svelte. */
 @utility pb-bottom-nav {
 	padding-bottom: calc(
-		0.5rem + var(--bottom-nav-outer-height, calc(4.5rem + max(env(safe-area-inset-bottom), 0.5rem)))
+		0.5rem + var(--bottom-nav-outer-height, calc(4.5rem + max(var(--safe-area-bottom), 0.5rem)))
 	);
 }
 
 @utility safe-top {
-	padding-top: max(env(safe-area-inset-top), 0.5rem);
+	padding-top: max(env(safe-area-inset-top, 0px), 0.5rem);
 }
 
 @utility tap-target {
@@ -132,6 +140,12 @@
 
 @utility glass {
 	background: color-mix(in oklch, var(--color-bg-soft) 70%, transparent);
+	backdrop-filter: saturate(160%) blur(18px);
+	-webkit-backdrop-filter: saturate(160%) blur(18px);
+}
+
+@utility bottom-nav-surface {
+	background: color-mix(in oklch, var(--color-bottom-nav-surface) 88%, transparent);
 	backdrop-filter: saturate(160%) blur(18px);
 	-webkit-backdrop-filter: saturate(160%) blur(18px);
 }
@@ -147,8 +161,8 @@
 	flex: 1 1 auto;
 	min-height: 100%;
 	min-height: -webkit-fill-available;
+	min-height: var(--app-viewport-height);
 	flex-direction: column;
 	overflow: hidden;
 	background: var(--color-bg);
 }
-

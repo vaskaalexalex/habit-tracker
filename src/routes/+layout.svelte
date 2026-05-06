@@ -27,24 +27,29 @@
 	onMount(() => {
 		let stopRemoteRefresh: (() => void) | null = null;
 		let stopTodayRefresh: (() => void) | null = null;
+		let stopServiceWorkerUpdate: (() => void) | null = null;
 		let keyboardSettleTimers: number[] = [];
 
 		/** Layout vs visual viewport delta above this ⇒ keyboard / heavy chrome overlay — pin height to vv. */
 		const VIEWPORT_KEYBOARD_DELTA_PX = 100;
+
+		function clearAppHeight() {
+			document.documentElement.style.removeProperty('height');
+		}
 
 		function syncAppHeight() {
 			if (typeof window === 'undefined') return;
 			const vv = window.visualViewport;
 			const layoutH = window.innerHeight;
 			if (!vv) {
-				document.documentElement.style.removeProperty('height');
+				clearAppHeight();
 				return;
 			}
 			const delta = layoutH - vv.height;
 			if (delta > VIEWPORT_KEYBOARD_DELTA_PX) {
 				document.documentElement.style.height = `${vv.height}px`;
 			} else {
-				document.documentElement.style.removeProperty('height');
+				clearAppHeight();
 			}
 		}
 
@@ -68,8 +73,14 @@
 			scheduleKeyboardSettleSync();
 		}
 
+		function onViewportReturn() {
+			if (document.visibilityState !== 'hidden') scheduleKeyboardSettleSync();
+		}
+
 		syncAppHeight();
 		window.addEventListener('resize', syncAppHeight);
+		window.addEventListener('pageshow', onViewportReturn);
+		document.addEventListener('visibilitychange', onViewportReturn);
 		document.addEventListener('focusout', onFocusOutCapture, true);
 		const vv = window.visualViewport;
 		vv?.addEventListener('resize', syncAppHeight);
@@ -97,19 +108,51 @@
 
 		// Manual SW registration (avoids virtual:pwa-register → workbox-window in SSR bundle).
 		if (import.meta.env.PROD && 'serviceWorker' in navigator) {
-			window.addEventListener('load', () => {
+			let didReloadForServiceWorker = false;
+			const reloadOnControllerChange = () => {
+				if (didReloadForServiceWorker) return;
+				didReloadForServiceWorker = true;
+				window.location.reload();
+			};
+			const activateWaitingWorker = (registration: ServiceWorkerRegistration) => {
+				registration.waiting?.postMessage({ type: 'SKIP_WAITING' });
+			};
+			const registerServiceWorker = () => {
 				const swPath = `${base}/sw.js`;
 				const scope = base ? `${base}/` : '/';
-				void navigator.serviceWorker.register(swPath, { scope }).catch(() => undefined);
-			});
+				void navigator.serviceWorker
+					.register(swPath, { scope })
+					.then((registration) => {
+						activateWaitingWorker(registration);
+						registration.addEventListener('updatefound', () => {
+							const worker = registration.installing;
+							worker?.addEventListener('statechange', () => {
+								if (worker.state === 'installed' && navigator.serviceWorker.controller) {
+									worker.postMessage({ type: 'SKIP_WAITING' });
+								}
+							});
+						});
+						void registration.update().then(() => activateWaitingWorker(registration));
+					})
+					.catch(() => undefined);
+			};
+			navigator.serviceWorker.addEventListener('controllerchange', reloadOnControllerChange);
+			window.addEventListener('load', registerServiceWorker);
+			stopServiceWorkerUpdate = () => {
+				navigator.serviceWorker.removeEventListener('controllerchange', reloadOnControllerChange);
+				window.removeEventListener('load', registerServiceWorker);
+			};
 		}
 
 		return () => {
 			clearKeyboardSettleTimers();
 			window.removeEventListener('resize', syncAppHeight);
+			window.removeEventListener('pageshow', onViewportReturn);
+			document.removeEventListener('visibilitychange', onViewportReturn);
 			document.removeEventListener('focusout', onFocusOutCapture, true);
 			vv?.removeEventListener('resize', syncAppHeight);
 			vv?.removeEventListener('scroll', syncAppHeight);
+			stopServiceWorkerUpdate?.();
 			stopRemoteRefresh?.();
 			stopTodayRefresh?.();
 		};
@@ -232,7 +275,6 @@
 			!$page.url.pathname.startsWith(`${base}/login`) &&
 			!$page.url.pathname.startsWith(`${base}/auth`)
 	);
-
 </script>
 
 <div class="app-shell relative flex min-h-0 w-full flex-col overflow-hidden">
