@@ -89,7 +89,9 @@
 					>
 						<item.icon size={20} strokeWidth={active ? 2.4 : 1.8} />
 					</span>
-					<span class="font-medium">{item.label}</span>
+					<span class="text-[10px] font-bold uppercase tracking-wide sm:text-[11px]"
+						>{item.label}</span
+					>
 				</a>
 			</li>
 		{/each}

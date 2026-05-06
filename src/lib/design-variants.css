@@ -1,0 +1,206 @@
+/**
+ * Варианты редизайна для /design-preview (?v=1..5).
+ * html[data-design-variant] задаётся со страницы превью (включая палитру для BottomNav).
+ *
+ * PROMOTE: после выбора варианта скопируйте блок токенов этого номера в @theme в src/app.css.
+ */
+
+/* Layout-only shells (геометрия превью, не только цвета). */
+.preview-root {
+	padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+.preview-shell-v1 {
+	display: flex;
+	flex-direction: column;
+	gap: var(--preview-gap-section, 2rem);
+}
+
+.preview-shell-v2 {
+	display: flex;
+	flex-direction: column;
+	gap: var(--preview-gap-section, 1.5rem);
+}
+
+.preview-shell-v3 {
+	display: flex;
+	flex-direction: column;
+	gap: var(--preview-gap-section, 1.25rem);
+}
+
+.preview-shell-v4 {
+	display: flex;
+	flex-direction: column;
+	gap: var(--preview-gap-section, 2rem);
+}
+
+.preview-shell-v5 {
+	display: flex;
+	flex-direction: column;
+	gap: var(--preview-gap-section, 1.5rem);
+}
+
+/* --- 1 Clinical Minimal --- */
+html[data-design-variant='1'] {
+	--color-bg: oklch(0.2 0.02 240);
+	--color-bg-soft: oklch(0.24 0.02 240);
+	--color-bg-mute: oklch(0.28 0.015 240);
+	--color-fg: oklch(0.96 0.01 240);
+	--color-fg-soft: oklch(0.78 0.02 240);
+	--color-fg-mute: oklch(0.58 0.02 240);
+	--color-border: oklch(0.36 0.02 240);
+	--color-accent: oklch(0.72 0.12 210);
+	--color-accent-soft: oklch(0.7 0.1 210 / 0.2);
+	--color-sport: oklch(0.62 0.08 240);
+	--color-coding: oklch(0.62 0.08 240);
+	--color-reading: oklch(0.62 0.08 240);
+	--color-journal: oklch(0.62 0.08 240);
+	--preview-gap-section: 2rem;
+	--preview-title-size: 1.75rem;
+	--preview-radius-card: 1rem;
+}
+
+html[data-theme='light'][data-design-variant='1'] {
+	--color-bg: oklch(0.99 0.005 240);
+	--color-bg-soft: oklch(0.97 0.01 240);
+	--color-bg-mute: oklch(0.93 0.01 240);
+	--color-fg: oklch(0.2 0.02 240);
+	--color-fg-soft: oklch(0.38 0.02 240);
+	--color-fg-mute: oklch(0.5 0.02 240);
+	--color-border: oklch(0.88 0.01 240);
+}
+
+/* --- 2 Bold Dashboard --- */
+html[data-design-variant='2'] {
+	--color-bg: oklch(0.14 0.01 260);
+	--color-bg-soft: oklch(0.18 0.015 260);
+	--color-bg-mute: oklch(0.22 0.02 260);
+	--color-fg: oklch(0.99 0 0);
+	--color-fg-soft: oklch(0.82 0.01 260);
+	--color-fg-mute: oklch(0.62 0.02 260);
+	--color-border: oklch(0.38 0.03 260);
+	--color-accent: oklch(0.75 0.2 250);
+	--color-accent-soft: oklch(0.72 0.16 250 / 0.22);
+	--color-sport: oklch(0.78 0.2 30);
+	--color-coding: oklch(0.78 0.2 145);
+	--color-reading: oklch(0.78 0.2 290);
+	--color-journal: oklch(0.82 0.18 85);
+	--preview-gap-section: 1.5rem;
+}
+
+html[data-theme='light'][data-design-variant='2'] {
+	--color-bg: oklch(0.98 0.005 260);
+	--color-bg-soft: oklch(0.95 0.01 260);
+	--color-bg-mute: oklch(0.9 0.015 260);
+	--color-fg: oklch(0.12 0.02 260);
+	--color-fg-soft: oklch(0.32 0.02 260);
+	--color-fg-mute: oklch(0.48 0.02 260);
+	--color-border: oklch(0.82 0.02 260);
+}
+
+/* --- 3 Glass OS --- */
+html[data-design-variant='3'] {
+	--color-bg: oklch(0.17 0.04 265);
+	--color-bg-soft: oklch(0.22 0.05 265 / 0.55);
+	--color-bg-mute: oklch(0.28 0.04 265 / 0.45);
+	--color-fg: oklch(0.97 0.02 265);
+	--color-fg-soft: oklch(0.8 0.03 265);
+	--color-fg-mute: oklch(0.62 0.04 265);
+	--color-border: oklch(0.45 0.06 265 / 0.45);
+	--color-accent: oklch(0.78 0.16 230);
+	--color-accent-soft: oklch(0.75 0.14 230 / 0.28);
+	--color-sport: oklch(0.75 0.2 35);
+	--color-coding: oklch(0.72 0.18 155);
+	--color-reading: oklch(0.74 0.2 285);
+	--color-journal: oklch(0.82 0.16 90);
+	--preview-gap-section: 1.25rem;
+}
+
+html[data-theme='light'][data-design-variant='3'] {
+	--color-bg: oklch(0.96 0.02 265);
+	--color-bg-soft: oklch(0.94 0.03 265 / 0.72);
+	--color-bg-mute: oklch(0.9 0.03 265 / 0.65);
+	--color-fg: oklch(0.22 0.04 265);
+	--color-border: oklch(0.82 0.05 265 / 0.55);
+}
+
+html[data-design-variant='3'] .glass {
+	background: color-mix(in oklch, var(--color-bg-soft) 55%, transparent);
+	backdrop-filter: saturate(180%) blur(28px);
+	-webkit-backdrop-filter: saturate(180%) blur(28px);
+	border-color: color-mix(in oklch, var(--color-border) 80%, transparent);
+}
+
+/* --- 4 Paper Journal --- */
+html[data-design-variant='4'] {
+	--color-bg: oklch(0.22 0.03 75);
+	--color-bg-soft: oklch(0.26 0.035 75);
+	--color-bg-mute: oklch(0.3 0.04 75);
+	--color-fg: oklch(0.93 0.03 75);
+	--color-fg-soft: oklch(0.78 0.04 75);
+	--color-fg-mute: oklch(0.62 0.05 75);
+	--color-border: oklch(0.4 0.04 75);
+	--color-accent: oklch(0.78 0.14 85);
+	--color-accent-soft: oklch(0.76 0.12 85 / 0.25);
+	--color-sport: oklch(0.72 0.16 45);
+	--color-coding: oklch(0.7 0.14 145);
+	--color-reading: oklch(0.72 0.16 300);
+	--color-journal: oklch(0.84 0.16 90);
+	--preview-gap-section: 2rem;
+}
+
+html[data-theme='light'][data-design-variant='4'] {
+	--color-bg: oklch(0.99 0.02 85);
+	--color-bg-soft: oklch(0.97 0.025 85);
+	--color-bg-mute: oklch(0.93 0.03 85);
+	--color-fg: oklch(0.28 0.04 75);
+	--color-fg-soft: oklch(0.42 0.04 75);
+	--color-fg-mute: oklch(0.52 0.05 75);
+	--color-border: oklch(0.88 0.03 85);
+}
+
+html[data-design-variant='4'] .paper-sheet {
+	background: color-mix(in oklch, var(--color-bg-soft) 92%, oklch(0.99 0.01 85));
+	box-shadow:
+		0 1px 0 oklch(0.35 0.03 75 / 0.2),
+		inset 0 1px 0 oklch(1 0 0 / 0.06);
+}
+
+/* --- 5 Sport Neon Pulse --- */
+html[data-design-variant='5'] {
+	--color-bg: oklch(0.14 0.06 290);
+	--color-bg-soft: oklch(0.18 0.08 285);
+	--color-bg-mute: oklch(0.22 0.07 280);
+	--color-fg: oklch(0.98 0.02 280);
+	--color-fg-soft: oklch(0.82 0.06 40);
+	--color-fg-mute: oklch(0.65 0.05 280);
+	--color-border: oklch(0.42 0.12 295 / 0.55);
+	--color-accent: oklch(0.72 0.22 35);
+	--color-accent-soft: oklch(0.7 0.2 35 / 0.35);
+	--color-sport: oklch(0.78 0.24 35);
+	--color-coding: oklch(0.68 0.16 160);
+	--color-reading: oklch(0.72 0.2 300);
+	--color-journal: oklch(0.8 0.18 85);
+	--preview-gap-section: 1.5rem;
+}
+
+html[data-theme='light'][data-design-variant='5'] {
+	--color-bg: oklch(0.98 0.02 280);
+	--color-bg-soft: oklch(0.95 0.04 280);
+	--color-bg-mute: oklch(0.9 0.05 280);
+	--color-fg: oklch(0.18 0.05 290);
+	--color-border: oklch(0.85 0.06 300);
+}
+
+html[data-design-variant='5'] .neon-ring-wrap {
+	box-shadow:
+		0 0 0 1px oklch(0.55 0.18 35 / 0.45),
+		0 0 32px oklch(0.62 0.22 35 / 0.35);
+	border-radius: 9999px;
+}
+
+html[data-design-variant='5'] .neon-heatmap-frame {
+	box-shadow:
+		0 0 0 1px oklch(0.58 0.2 35 / 0.45),
+		0 0 36px oklch(0.55 0.22 35 / 0.22);
+}

@@ -2,20 +2,21 @@
 @import '@fontsource-variable/inter/wght.css';
 
 @theme {
-	--color-bg: oklch(0.18 0.02 260);
-	--color-bg-soft: oklch(0.22 0.02 260);
-	--color-bg-mute: oklch(0.26 0.02 260);
-	--color-fg: oklch(0.96 0.01 260);
-	--color-fg-soft: oklch(0.78 0.02 260);
-	--color-fg-mute: oklch(0.6 0.02 260);
-	--color-border: oklch(0.32 0.02 260);
-	--color-accent: oklch(0.72 0.18 220);
-	--color-accent-soft: oklch(0.68 0.14 220 / 0.18);
+	/* Bold Dashboard (dark): высокий контраст, геометричные границы */
+	--color-bg: oklch(0.14 0.01 260);
+	--color-bg-soft: oklch(0.18 0.015 260);
+	--color-bg-mute: oklch(0.22 0.02 260);
+	--color-fg: oklch(0.99 0 0);
+	--color-fg-soft: oklch(0.82 0.01 260);
+	--color-fg-mute: oklch(0.62 0.02 260);
+	--color-border: oklch(0.38 0.03 260);
+	--color-accent: oklch(0.75 0.2 250);
+	--color-accent-soft: oklch(0.72 0.16 250 / 0.22);
 
-	--color-sport: oklch(0.7 0.18 30);
-	--color-coding: oklch(0.7 0.18 150);
-	--color-reading: oklch(0.7 0.18 280);
-	--color-journal: oklch(0.78 0.16 80);
+	--color-sport: oklch(0.78 0.2 30);
+	--color-coding: oklch(0.78 0.2 145);
+	--color-reading: oklch(0.78 0.2 290);
+	--color-journal: oklch(0.82 0.18 85);
 
 	--font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
 
@@ -24,13 +25,14 @@
 }
 
 [data-theme='light'] {
-	--color-bg: oklch(0.99 0.005 260);
-	--color-bg-soft: oklch(0.96 0.01 260);
-	--color-bg-mute: oklch(0.92 0.01 260);
-	--color-fg: oklch(0.18 0.02 260);
-	--color-fg-soft: oklch(0.34 0.02 260);
-	--color-fg-mute: oklch(0.5 0.02 260);
-	--color-border: oklch(0.86 0.01 260);
+	--color-bg: oklch(0.98 0.005 260);
+	--color-bg-soft: oklch(0.95 0.01 260);
+	--color-bg-mute: oklch(0.9 0.015 260);
+	--color-fg: oklch(0.12 0.02 260);
+	--color-fg-soft: oklch(0.32 0.02 260);
+	--color-fg-mute: oklch(0.48 0.02 260);
+	--color-border: oklch(0.82 0.02 260);
+	--color-accent-soft: oklch(0.55 0.18 250 / 0.18);
 }
 
 @layer base {
@@ -146,9 +148,3 @@
 	overflow: hidden;
 }
 
-/*
-  Редизайн: после выбора варианта на /design-preview перенесите соответствующий блок
-  токенов (секции dark + html[data-theme='light'] для номера 1..5) из
-  src/lib/design-variants.css в @theme выше в этом файле, затем при необходимости
-  подправьте src/lib/components/HabitCard.svelte, BottomNav.svelte, routes/+page.svelte.
-*/

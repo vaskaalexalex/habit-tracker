@@ -26,6 +26,10 @@
 
 	const doneCount = $derived(HABIT_ORDER.filter((h) => completed.has(h)).length);
 	const allDone = $derived(doneCount === HABIT_ORDER.length);
+
+	const numFontPx = $derived(Math.round(size * 0.26));
+	const subFontPx = $derived(Math.max(10, Math.round(size * 0.122)));
+	const labelNudgeY = $derived(Math.round(size * 0.035));
 </script>
 
 <div class="relative" style="width:{size}px;height:{size}px">
@@ -54,9 +58,22 @@
 		{#if allDone}
 			<Check size={Math.round(size * 0.42)} class="text-white" strokeWidth={3} />
 		{:else}
-			<div class="text-center leading-none">
-				<div class="text-2xl font-semibold tabular-nums">{doneCount}</div>
-				<div class="text-[10px] text-(--color-fg-mute)">из {HABIT_ORDER.length}</div>
+			<div
+				class="flex flex-col items-center justify-center text-center text-(--color-fg)"
+				style="transform: translateY(-{labelNudgeY}px);"
+			>
+				<div
+					class="font-semibold tabular-nums leading-none"
+					style="font-size: {numFontPx}px;"
+				>
+					{doneCount}
+				</div>
+				<div
+					class="mt-[0.12em] font-medium leading-none tracking-tight text-(--color-fg-soft)"
+					style="font-size: {subFontPx}px;"
+				>
+					из {HABIT_ORDER.length}
+				</div>
 			</div>
 		{/if}
 	</div>

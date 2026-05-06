@@ -2,11 +2,7 @@
 	import { strengthStore } from '$stores/strength.svelte';
 	import { authStore } from '$stores/auth.svelte';
 	import { toasts } from '$stores/toast.svelte';
-	import {
-		MUSCLE_GROUP_LABELS,
-		MUSCLE_GROUP_ORDER,
-		type MuscleGroup
-	} from '$supabase/types';
+	import { MUSCLE_GROUP_LABELS, MUSCLE_GROUP_ORDER, type MuscleGroup } from '$supabase/types';
 	import { Plus, EyeOff, Eye, Trash2 } from 'lucide-svelte';
 	import BackButton from '$components/BackButton.svelte';
 
@@ -35,7 +31,10 @@
 <div class="mx-auto flex w-full max-w-xl flex-col gap-4 px-4 pt-6 sm:pt-10">
 	<header class="flex items-center gap-2">
 		<BackButton fallback="/sport/strength" />
-		<h1 class="text-2xl font-semibold tracking-tight">Каталог упражнений</h1>
+		<div class="min-w-0 flex-1">
+			<p class="text-xs font-bold uppercase tracking-wider text-(--color-accent)">Библиотека</p>
+			<h1 class="mt-0.5 text-2xl font-black tracking-tight">Каталог упражнений</h1>
+		</div>
 	</header>
 
 	<form onsubmit={add} class="hairline flex flex-col gap-3 rounded-3xl bg-(--color-bg-soft) p-3">
@@ -114,7 +113,6 @@
 			</ul>
 		{/if}
 	</section>
-
 </div>
 
 <style>

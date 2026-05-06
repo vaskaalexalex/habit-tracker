@@ -32,11 +32,12 @@
 <div class="mx-auto flex w-full max-w-xl flex-col gap-4 px-4 pt-6 sm:pt-10">
 	<header class="flex items-center gap-2">
 		<BackButton fallback="/journal" />
-		<div>
-			<h1 class="text-2xl font-semibold tracking-tight">
+		<div class="min-w-0 flex-1">
+			<p class="text-xs font-bold uppercase tracking-wider text-(--color-accent)">День</p>
+			<h1 class="mt-0.5 text-2xl font-black tracking-tight">
 				{date ? formatRu(date) : '—'}
 			</h1>
-			<p class="text-sm text-(--color-fg-mute)">{date}</p>
+			<p class="mt-1 font-mono text-xs font-medium text-(--color-fg-mute)">{date}</p>
 		</div>
 	</header>
 

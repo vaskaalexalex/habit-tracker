@@ -19,9 +19,15 @@
 	interface Props {
 		completions: HabitCompletion[];
 		months?: number;
+		/** Ширина ячейки дня (px). По умолчанию как в проде. */
+		cellSize?: number;
+		/** Зазор между ячейками (px). */
+		cellGap?: number;
+		/** Дополнительные классы корневой карточки (превью / вложенный режим). */
+		sectionClass?: string;
 	}
 
-	let { completions, months = 6 }: Props = $props();
+	let { completions, months = 6, cellSize = 12, cellGap = 3, sectionClass = '' }: Props = $props();
 
 	type Period = 'month' | '6m' | 'year';
 	const PERIOD_MONTHS: Record<Period, number> = { month: 1, '6m': 6, year: 12 };
@@ -49,7 +55,9 @@
 		return [...set].sort((a, b) => b - a);
 	});
 
-	const minYear = $derived(yearOptions.length > 0 ? yearOptions[yearOptions.length - 1]! : currentYear);
+	const minYear = $derived(
+		yearOptions.length > 0 ? yearOptions[yearOptions.length - 1]! : currentYear
+	);
 
 	const range = $derived.by(() => {
 		if (period === 'year') {
@@ -76,13 +84,8 @@
 		return map;
 	});
 
-	/** Фиксированный формат ячейки во всех режимах (месяц / 6 мес / год); год скроллится по X. */
-	const CELL_SIZE = 12;
-	const cellGap = 3;
 	const headerH = 18;
 	const ROW_LABEL_W = 22;
-
-	const cellSize = CELL_SIZE;
 
 	const SHADES = [
 		'var(--color-bg-mute)',
@@ -140,18 +143,22 @@
 		hover = null;
 	}
 
-	const hoverDate = $derived(hover ? format(parseISO(hover.iso), 'd MMMM yyyy', { locale: ru }) : '');
+	const hoverDate = $derived(
+		hover ? format(parseISO(hover.iso), 'd MMMM yyyy', { locale: ru }) : ''
+	);
 	const hoverDone = $derived(hover ? doneList(hover.iso) : []);
 
-	const gridSvgHeight = headerH + 7 * (cellSize + cellGap) - cellGap;
+	const gridSvgHeight = $derived(headerH + 7 * (cellSize + cellGap) - cellGap);
 </script>
 
-<div class="hairline rounded-3xl bg-(--color-bg-soft) p-4">
+<div class="hairline rounded-3xl bg-(--color-bg-soft) p-4 {sectionClass}">
 	<div class="mb-3 flex flex-col gap-2">
 		<h3 class="text-sm font-medium">Активность</h3>
 
 		<div class="flex min-h-8 min-w-0 flex-nowrap items-center justify-between gap-2">
-			<div class="hairline flex shrink-0 rounded-xl bg-(--color-bg-mute) p-0.5 text-[11px] leading-none">
+			<div
+				class="hairline flex shrink-0 rounded-xl bg-(--color-bg-mute) p-0.5 text-[11px] leading-none"
+			>
 				{#each PERIOD_ORDER as p (p)}
 					<button
 						type="button"
@@ -171,9 +178,7 @@
 				aria-hidden={period !== 'year'}
 			>
 				{#if period === 'year'}
-					<div
-						class="hairline flex items-center rounded-xl bg-(--color-bg-mute) p-0.5 text-[11px]"
-					>
+					<div class="hairline flex items-center rounded-xl bg-(--color-bg-mute) p-0.5 text-[11px]">
 						<button
 							type="button"
 							onclick={() => (year = Math.max(minYear, year - 1))}
@@ -211,55 +216,55 @@
 				role="img"
 				aria-label="Активность привычек"
 			>
-			<g transform="translate({ROW_LABEL_W}, 12)">
-				{#each monthMarkers as m, i (i)}
-					<text x={m.x} y={0} class="fill-(--color-fg-mute)" font-size="10">
-						{m.label}
-					</text>
-				{/each}
-			</g>
-
-			<g transform="translate(0, {headerH})">
-				{#each ROW_LABELS as label, row (row)}
-					{#if label}
-						<text
-							x={0}
-							y={row * (cellSize + cellGap) + cellSize * 0.75}
-							class="fill-(--color-fg-mute)"
-							font-size="9"
-						>
-							{label}
+				<g transform="translate({ROW_LABEL_W}, 12)">
+					{#each monthMarkers as m, i (i)}
+						<text x={m.x} y={0} class="fill-(--color-fg-mute)" font-size="10">
+							{m.label}
 						</text>
-					{/if}
-				{/each}
-			</g>
+					{/each}
+				</g>
 
-			<g transform="translate({ROW_LABEL_W}, {headerH})">
-				{#each days as day, i (i)}
-					{@const slot = i + startDow}
-					{@const col = Math.floor(slot / 7)}
-					{@const row = slot % 7}
-					{@const iso = toISO(day)}
-					{@const lvl = level(iso)}
-					<rect
-						x={col * (cellSize + cellGap)}
-						y={row * (cellSize + cellGap)}
-						width={cellSize}
-						height={cellSize}
-						rx={2.5}
-						ry={2.5}
-						fill={SHADES[lvl]}
-						role="img"
-						aria-label={iso}
-						class="cell"
-						class:active={hover?.iso === iso}
-						onpointerenter={(e) => showTooltip(iso, e)}
-						onpointerleave={hideTooltip}
-						onpointercancel={hideTooltip}
-					/>
-				{/each}
-			</g>
-		</svg>
+				<g transform="translate(0, {headerH})">
+					{#each ROW_LABELS as label, row (row)}
+						{#if label}
+							<text
+								x={0}
+								y={row * (cellSize + cellGap) + cellSize * 0.75}
+								class="fill-(--color-fg-mute)"
+								font-size="9"
+							>
+								{label}
+							</text>
+						{/if}
+					{/each}
+				</g>
+
+				<g transform="translate({ROW_LABEL_W}, {headerH})">
+					{#each days as day, i (i)}
+						{@const slot = i + startDow}
+						{@const col = Math.floor(slot / 7)}
+						{@const row = slot % 7}
+						{@const iso = toISO(day)}
+						{@const lvl = level(iso)}
+						<rect
+							x={col * (cellSize + cellGap)}
+							y={row * (cellSize + cellGap)}
+							width={cellSize}
+							height={cellSize}
+							rx={2.5}
+							ry={2.5}
+							fill={SHADES[lvl]}
+							role="img"
+							aria-label={iso}
+							class="cell"
+							class:active={hover?.iso === iso}
+							onpointerenter={(e) => showTooltip(iso, e)}
+							onpointerleave={hideTooltip}
+							onpointercancel={hideTooltip}
+						/>
+					{/each}
+				</g>
+			</svg>
 		</div>
 
 		{#if hover}

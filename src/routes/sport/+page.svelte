@@ -38,17 +38,18 @@
 </script>
 
 <div class="mx-auto flex w-full max-w-xl flex-col gap-4 px-4 pt-6 sm:pt-10">
-	<header class="flex items-center justify-between">
-		<div>
-			<h1 class="text-2xl font-semibold tracking-tight">Спорт</h1>
-			<p class="mt-1 text-sm text-(--color-fg-mute)">
+	<header class="flex items-center justify-between gap-3">
+		<div class="min-w-0">
+			<p class="text-xs font-bold uppercase tracking-wider text-(--color-accent)">Тренировки</p>
+			<h1 class="mt-1 text-2xl font-black tracking-tight">Спорт</h1>
+			<p class="mt-1 text-sm font-medium text-(--color-fg-mute)">
 				Сегодня: {strengthCount + cardioToday} запис(ей)
 			</p>
 		</div>
 		<a
 			href={`${base}/sport/strength/exercises`}
 			onclick={openCatalog}
-			class="tap-target inline-flex items-center gap-1.5 rounded-2xl border border-(--color-border) bg-(--color-bg-soft) px-3 py-2 text-sm"
+			class="tap-target inline-flex shrink-0 items-center gap-1.5 rounded-2xl border border-(--color-border) bg-(--color-bg-soft) px-3 py-2 text-xs font-bold uppercase tracking-wide sm:text-sm"
 		>
 			<ListChecks size={16} />
 			<span>Каталог</span>
@@ -74,7 +75,7 @@
 					</div>
 					<div class="min-w-0 flex-1">
 						<div class="flex items-center gap-2">
-							<h3 class="text-lg font-semibold tracking-tight">{tile.label}</h3>
+							<h3 class="text-lg font-bold tracking-tight">{tile.label}</h3>
 							{#if tile.count > 0}
 								<span
 									class="inline-flex items-center rounded-full bg-emerald-500/20 px-2 py-0.5 text-[11px] font-medium text-emerald-400 tabular-nums"

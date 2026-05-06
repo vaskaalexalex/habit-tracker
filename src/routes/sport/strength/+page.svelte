@@ -120,14 +120,15 @@
 	<header class="flex items-center gap-2">
 		<BackButton fallback="/sport" />
 		<div class="min-w-0 flex-1">
-			<h1 class="text-2xl font-semibold tracking-tight">Силовая</h1>
-			<p class="text-sm text-(--color-fg-mute)">{formatRu(today)}</p>
+			<p class="text-xs font-bold uppercase tracking-wider text-(--color-accent)">Сессия</p>
+			<h1 class="mt-0.5 text-2xl font-black tracking-tight">Силовая</h1>
+			<p class="mt-0.5 text-sm font-medium text-(--color-fg-mute)">{formatRu(today)}</p>
 		</div>
 		<button
 			type="button"
 			onclick={saveAll}
 			disabled={saving || filledCount === 0}
-			class="inline-flex h-10 items-center gap-1.5 rounded-2xl bg-(--color-accent) px-3 text-sm font-medium text-white transition active:scale-[0.97] disabled:opacity-50"
+			class="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-2xl bg-(--color-accent) px-3 text-sm font-bold text-white transition active:scale-[0.97] disabled:opacity-50"
 		>
 			{#if saving}
 				<Loader2 size={16} class="animate-spin" />

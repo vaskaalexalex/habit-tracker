@@ -50,7 +50,10 @@
 <div class="mx-auto flex w-full max-w-xl flex-col gap-4 px-4 pt-6 sm:pt-10">
 	<header class="flex items-center gap-2">
 		<BackButton fallback="/sport" />
-		<h1 class="text-2xl font-semibold tracking-tight">Другая активность</h1>
+		<div class="min-w-0 flex-1">
+			<p class="text-xs font-bold uppercase tracking-wider text-(--color-accent)">Кардио</p>
+			<h1 class="mt-0.5 text-2xl font-black tracking-tight">Другая активность</h1>
+		</div>
 	</header>
 
 	<form onsubmit={submit} class="hairline flex flex-col gap-3 rounded-3xl bg-(--color-bg-soft) p-4">

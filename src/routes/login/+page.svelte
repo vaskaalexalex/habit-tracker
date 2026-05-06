@@ -40,14 +40,15 @@
 				<Sparkles size={22} />
 			</div>
 			<div>
-				<h1 class="text-xl font-semibold tracking-tight">Habit</h1>
-				<p class="text-sm text-(--color-fg-mute)">Войди по email и паролю</p>
+				<p class="text-[11px] font-bold uppercase tracking-wider text-(--color-accent)">Вход</p>
+				<h1 class="mt-1 text-xl font-black tracking-tight sm:text-2xl">Habit</h1>
+				<p class="mt-1 text-sm font-medium text-(--color-fg-mute)">Email и пароль</p>
 			</div>
 		</div>
 
 		<form onsubmit={submit} class="flex flex-col gap-3">
 			<label class="flex flex-col gap-1.5">
-				<span class="text-xs font-medium uppercase tracking-wide text-(--color-fg-mute)">
+				<span class="text-xs font-bold uppercase tracking-wide text-(--color-fg-mute)">
 					Email
 				</span>
 				<div
@@ -66,7 +67,7 @@
 			</label>
 
 			<label class="flex flex-col gap-1.5">
-				<span class="text-xs font-medium uppercase tracking-wide text-(--color-fg-mute)">
+				<span class="text-xs font-bold uppercase tracking-wide text-(--color-fg-mute)">
 					Пароль
 				</span>
 				<div
@@ -100,7 +101,7 @@
 			<button
 				type="submit"
 				disabled={sending}
-				class="tap-target inline-flex items-center justify-center gap-2 rounded-2xl bg-(--color-accent) px-4 py-3 text-sm font-medium text-white transition active:scale-[0.99] disabled:opacity-60"
+				class="tap-target inline-flex items-center justify-center gap-2 rounded-2xl bg-(--color-accent) px-4 py-3 text-sm font-bold text-white transition active:scale-[0.99] disabled:opacity-60"
 			>
 				{#if sending}
 					<Loader2 size={18} class="animate-spin" />

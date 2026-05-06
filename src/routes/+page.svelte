@@ -5,7 +5,7 @@
 	import { strengthStore } from '$stores/strength.svelte';
 	import { cardioStore } from '$stores/cardio.svelte';
 	import { profileStore } from '$stores/profile.svelte';
-	import HabitCard from '$components/HabitCard.svelte';
+	import DashboardHabitTile from '$components/DashboardHabitTile.svelte';
 	import HabitHeatmap from '$components/HabitHeatmap.svelte';
 	import TodayRing from '$components/TodayRing.svelte';
 	import { HABIT_ORDER } from '$supabase/types';
@@ -31,10 +31,6 @@
 		void habitsStore.toggle(habit, today);
 	}
 
-	function isToggleable(habit: HabitType): boolean {
-		return habit === 'coding' || habit === 'reading';
-	}
-
 	const completedToday = $derived.by(() => {
 		const set = new Set<HabitType>();
 		for (const h of HABIT_ORDER) {
@@ -44,57 +40,91 @@
 	});
 
 	const allDone = $derived(completedToday.size === HABIT_ORDER.length);
+
+	function done(h: HabitType): boolean {
+		return completedToday.has(h);
+	}
+
+	function onTileClick(habit: HabitType) {
+		handle(habit);
+	}
 </script>
 
 <div
-	class="mx-auto flex w-full max-w-xl flex-col gap-3 px-4 pb-4 pt-6 sm:pt-8"
+	class="mx-auto flex min-h-0 w-full max-w-xl flex-1 flex-col gap-1 px-3 pb-1 pt-2 max-[380px]:gap-0.5 sm:gap-1.5 sm:px-4 sm:pb-2 sm:pt-4"
 >
-	<header class="shrink-0 flex items-baseline justify-between gap-2">
-		<h1 class="min-w-0 truncate text-2xl font-semibold tracking-tight">
-			{#if profileStore.name.trim()}
-				<span class="text-(--color-fg-mute)">{profileStore.name}:</span>
-				Привычки
-			{:else}
-				Привычки
-			{/if}
-		</h1>
-		<span class="shrink-0 text-sm text-(--color-fg-mute)">{formatRu(today)}</span>
-	</header>
-
-	<section class="grid shrink-0 grid-cols-4 gap-2">
-		{#each HABIT_ORDER as habit (habit)}
-			<HabitCard
-				{habit}
-				completed={habitsStore.isCompleted(habit, today)}
-				streak={habitsStore.streak(habit, today)}
-				toggleable={isToggleable(habit)}
-				onclick={() => handle(habit)}
-			/>
-		{/each}
-	</section>
-
-	<section
-		class="hairline relative flex shrink-0 items-center gap-4 overflow-hidden rounded-3xl bg-(--color-bg-soft) p-4"
-	>
-		{#if allDone}
-			<div
-				class="bg-gradient-to-br pointer-events-none absolute inset-0 from-emerald-500/20 to-emerald-500/0"
-			></div>
+	<div class="shrink-0">
+		<p class="text-[9px] font-bold uppercase tracking-wider text-(--color-accent) sm:text-[10px]">
+			Сегодня
+		</p>
+		<p
+			class="mt-0.5 font-black uppercase leading-none tracking-tighter text-(--color-fg)"
+			style="font-size: clamp(1.1rem, 5vw, 1.85rem);"
+		>
+			{formatRu(today)}
+		</p>
+		{#if profileStore.name.trim()}
+			<p class="mt-0.5 truncate text-[11px] font-medium text-(--color-fg-mute) sm:text-xs">
+				{profileStore.name}
+			</p>
 		{/if}
+	</div>
+
+	<div
+		class="hairline flex shrink-0 items-end justify-between gap-2 rounded-xl bg-(--color-bg-soft) px-2.5 py-2 sm:rounded-2xl sm:px-3 sm:py-3"
+	>
+		<div class="min-w-0">
+			<p class="text-[9px] font-semibold uppercase tracking-wide text-(--color-fg-mute) sm:text-[10px]">
+				Выполнено
+			</p>
+			<p
+				class="mt-0.5 font-black tabular-nums tracking-tight text-(--color-fg)"
+				style="font-size: clamp(1.35rem, 7vw, 2.35rem); line-height: 0.95;"
+			>
+				{completedToday.size}<span class="text-(--color-fg-mute)" style="font-size: 55%;"
+					>/{HABIT_ORDER.length}</span
+				>
+			</p>
+		</div>
 		<TodayRing completed={completedToday} size={92} />
-		<div class="relative min-w-0 flex-1">
-			{#if allDone}
-				<p class="text-lg font-semibold tracking-tight">Всё выполнено!</p>
-				<p class="text-sm text-(--color-fg-mute)">Отличный день. Поддержи серию завтра.</p>
-			{:else}
-				<p class="text-lg font-semibold tracking-tight">
-					<span class="tabular-nums">{completedToday.size}</span>
-					<span class="text-(--color-fg-mute)">из {HABIT_ORDER.length}</span>
-				</p>
-				<p class="text-sm text-(--color-fg-mute)">привычек сегодня</p>
-			{/if}
+	</div>
+
+	<section class="flex min-h-0 min-w-0 shrink flex-col" aria-label="Привычки">
+		<h2 class="mb-0.5 shrink-0 text-[9px] font-bold uppercase tracking-wider text-(--color-fg-mute) sm:mb-1 sm:text-[10px]">
+			Привычки
+		</h2>
+		<div class="grid shrink-0 grid-cols-2 gap-1 sm:gap-1.5">
+			{#each HABIT_ORDER as habit (habit)}
+				<DashboardHabitTile
+					{habit}
+					completed={done(habit)}
+					streak={habitsStore.streak(habit, today)}
+					size="compact"
+					onclick={() => onTileClick(habit)}
+				/>
+			{/each}
 		</div>
 	</section>
 
-	<HabitHeatmap completions={habitsStore.completions} months={6} />
+	{#if allDone}
+		<p class="shrink-0 text-center text-[10px] font-semibold leading-tight text-emerald-400 sm:text-[11px]">
+			Всё готово.
+		</p>
+	{/if}
+
+	<section id="activity" class="scroll-mt-4 shrink-0" aria-labelledby="home-activity-heading">
+		<h2
+			id="home-activity-heading"
+			class="mb-1 text-[9px] font-bold uppercase tracking-wider text-(--color-fg-mute) sm:text-[10px]"
+		>
+			Активность
+		</h2>
+		<HabitHeatmap
+			completions={habitsStore.completions}
+			months={6}
+			cellSize={10}
+			cellGap={2}
+			sectionClass="rounded-2xl p-3 sm:rounded-3xl sm:p-4"
+		/>
+	</section>
 </div>

@@ -28,15 +28,20 @@
 	<header class="flex items-center gap-2">
 		<BackButton fallback="/" />
 		<div class="min-w-0 flex-1">
-			<h1 class="text-2xl font-semibold tracking-tight">Дневник</h1>
-			<p class="text-sm text-(--color-fg-mute)">Сегодня — {formatRu(today, 'd MMMM')}</p>
+			<p class="text-xs font-bold uppercase tracking-wider text-(--color-accent)">Записки</p>
+			<h1 class="mt-0.5 text-2xl font-black tracking-tight">Дневник</h1>
+			<p class="mt-1 text-sm font-medium text-(--color-fg-mute)">
+				Сегодня — {formatRu(today, 'd MMMM')}
+			</p>
 		</div>
 	</header>
 
 	<JournalEditor date={today} initial={todayEntry} onsave={handleSave} />
 
 	<section>
-		<h2 class="mb-2 px-1 text-sm font-medium text-(--color-fg-mute)">Прошлые дни</h2>
+		<h2 class="mb-2 px-1 text-xs font-bold uppercase tracking-wider text-(--color-fg-mute)">
+			Прошлые дни
+		</h2>
 		{#if past.length === 0}
 			<p
 				class="hairline rounded-2xl border-dashed bg-transparent p-6 text-center text-sm text-(--color-fg-mute)"

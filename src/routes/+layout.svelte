@@ -220,11 +220,10 @@
 			!$page.url.pathname.startsWith(`${base}/login`) &&
 			!$page.url.pathname.startsWith(`${base}/auth`)
 	);
+
 </script>
 
-<div
-	class="app-shell relative flex min-h-0 w-full flex-col overflow-hidden"
->
+<div class="app-shell relative flex min-h-0 w-full flex-col overflow-hidden">
 	<main
 		class="safe-top flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain"
 		class:pb-bottom-nav={showNav}
