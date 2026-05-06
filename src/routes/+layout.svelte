@@ -36,14 +36,14 @@
 			const vv = window.visualViewport;
 			const layoutH = window.innerHeight;
 			if (!vv) {
-				document.documentElement.style.removeProperty('--app-height');
+				document.documentElement.style.removeProperty('height');
 				return;
 			}
 			const delta = layoutH - vv.height;
 			if (delta > VIEWPORT_KEYBOARD_DELTA_PX) {
-				document.documentElement.style.setProperty('--app-height', `${vv.height}px`);
+				document.documentElement.style.height = `${vv.height}px`;
 			} else {
-				document.documentElement.style.removeProperty('--app-height');
+				document.documentElement.style.removeProperty('height');
 			}
 		}
 
@@ -223,7 +223,7 @@
 </script>
 
 <div
-	class="relative flex h-[var(--app-height)] max-h-[var(--app-height)] min-h-0 flex-col overflow-hidden"
+	class="app-shell relative flex min-h-0 w-full flex-col overflow-hidden"
 >
 	<main
 		class="safe-top flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain"

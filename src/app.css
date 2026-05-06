@@ -35,27 +35,32 @@
 
 @layer base {
 	/**
-	 * Default full-screen height. +layout only sets inline --app-height (px) when
-	 * innerHeight − visualViewport.height is large (keyboard); otherwise inline is cleared
-	 * so this 100svh baseline applies — avoids permanent shrink from always using vv.height.
+	 * iPhone / PWA: avoid 100svh for the shell — svh is the *smallest* viewport and often
+	 * leaves an unpainted strip under fixed bottom UI. Use min-height: -webkit-fill-available
+	 * + flex column body so .app-shell fills the real viewport.
+	 * +layout pins document.documentElement.style.height only while the keyboard is open.
 	 */
 	html {
-		--app-height: 100svh;
 		font-family: var(--font-sans);
 		-webkit-font-smoothing: antialiased;
 		-webkit-tap-highlight-color: transparent;
 		-webkit-text-size-adjust: 100%;
+		min-height: 100%;
+		min-height: -webkit-fill-available;
 	}
 
 	html,
 	body {
-		min-height: var(--app-height);
-		height: 100%;
 		background: var(--color-bg);
 		color: var(--color-fg);
 	}
 
 	body {
+		display: flex;
+		flex-direction: column;
+		margin: 0;
+		min-height: 100%;
+		min-height: -webkit-fill-available;
 		overflow: hidden;
 		font-feature-settings: 'cv11', 'ss01', 'ss03';
 		overscroll-behavior-y: none;
@@ -129,6 +134,16 @@
 
 @utility hairline {
 	border: 1px solid var(--color-border);
+}
+
+/** Root shell: fills flex column body; keyboard height handled on documentElement in +layout. */
+.app-shell {
+	display: flex;
+	width: 100%;
+	flex: 1 1 auto;
+	min-height: 0;
+	flex-direction: column;
+	overflow: hidden;
 }
 
 /*
