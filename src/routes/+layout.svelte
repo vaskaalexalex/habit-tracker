@@ -27,6 +27,7 @@
 	onMount(() => {
 		let stopRemoteRefresh: (() => void) | null = null;
 		let stopTodayRefresh: (() => void) | null = null;
+		let keyboardSettleTimers: number[] = [];
 
 		/** Layout vs visual viewport delta above this ⇒ keyboard / heavy chrome overlay — pin height to vv. */
 		const VIEWPORT_KEYBOARD_DELTA_PX = 100;
@@ -47,14 +48,24 @@
 			}
 		}
 
+		function clearKeyboardSettleTimers() {
+			for (const timer of keyboardSettleTimers) window.clearTimeout(timer);
+			keyboardSettleTimers = [];
+		}
+
+		function scheduleKeyboardSettleSync() {
+			clearKeyboardSettleTimers();
+			for (const delay of [0, 80, 180, 360, 700]) {
+				keyboardSettleTimers.push(window.setTimeout(syncAppHeight, delay));
+			}
+		}
+
 		function onFocusOutCapture(event: FocusEvent) {
 			const t = event.target;
 			if (!(t instanceof HTMLElement)) return;
 			const tag = t.tagName;
 			if (tag !== 'INPUT' && tag !== 'TEXTAREA' && tag !== 'SELECT') return;
-			requestAnimationFrame(() => {
-				requestAnimationFrame(() => syncAppHeight());
-			});
+			scheduleKeyboardSettleSync();
 		}
 
 		syncAppHeight();
@@ -94,6 +105,7 @@
 		}
 
 		return () => {
+			clearKeyboardSettleTimers();
 			window.removeEventListener('resize', syncAppHeight);
 			document.removeEventListener('focusout', onFocusOutCapture, true);
 			vv?.removeEventListener('resize', syncAppHeight);
