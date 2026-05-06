@@ -35,8 +35,9 @@
 
 @layer base {
 	/**
-	 * Set from JS via visualViewport (+layout) so iOS Safari recomputes height after the
-	 * virtual keyboard closes; 100dvh alone can leave a gap above fixed bottom UI.
+	 * Default full-screen height. +layout only sets inline --app-height (px) when
+	 * innerHeight − visualViewport.height is large (keyboard); otherwise inline is cleared
+	 * so this 100svh baseline applies — avoids permanent shrink from always using vv.height.
 	 */
 	html {
 		--app-height: 100svh;
@@ -104,9 +105,11 @@
 	padding-bottom: max(env(safe-area-inset-bottom), 0.5rem);
 }
 
-/** Отступ контента над фиксированным BottomNav (pt-2 + ряд иконок/подписей + тот же нижний inset, что и у nav). */
+/** Отступ контента над фиксированным BottomNav; высота nav задаётся ResizeObserver в BottomNav.svelte. */
 @utility pb-bottom-nav {
-	padding-bottom: calc(0.5rem + 4.5rem + max(env(safe-area-inset-bottom), 0.5rem));
+	padding-bottom: calc(
+		0.5rem + var(--bottom-nav-outer-height, calc(4.5rem + max(env(safe-area-inset-bottom), 0.5rem)))
+	);
 }
 
 @utility safe-top {
@@ -127,3 +130,10 @@
 @utility hairline {
 	border: 1px solid var(--color-border);
 }
+
+/*
+  Редизайн: после выбора варианта на /design-preview перенесите соответствующий блок
+  токенов (секции dark + html[data-theme='light'] для номера 1..5) из
+  src/lib/design-variants.css в @theme выше в этом файле, затем при необходимости
+  подправьте src/lib/components/HabitCard.svelte, BottomNav.svelte, routes/+page.svelte.
+*/

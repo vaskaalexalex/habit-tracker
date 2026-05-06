@@ -28,14 +28,38 @@
 		let stopRemoteRefresh: (() => void) | null = null;
 		let stopTodayRefresh: (() => void) | null = null;
 
+		/** Layout vs visual viewport delta above this ⇒ keyboard / heavy chrome overlay — pin height to vv. */
+		const VIEWPORT_KEYBOARD_DELTA_PX = 100;
+
 		function syncAppHeight() {
 			if (typeof window === 'undefined') return;
 			const vv = window.visualViewport;
-			const h = vv ? vv.height : window.innerHeight;
-			document.documentElement.style.setProperty('--app-height', `${h}px`);
+			const layoutH = window.innerHeight;
+			if (!vv) {
+				document.documentElement.style.removeProperty('--app-height');
+				return;
+			}
+			const delta = layoutH - vv.height;
+			if (delta > VIEWPORT_KEYBOARD_DELTA_PX) {
+				document.documentElement.style.setProperty('--app-height', `${vv.height}px`);
+			} else {
+				document.documentElement.style.removeProperty('--app-height');
+			}
 		}
+
+		function onFocusOutCapture(event: FocusEvent) {
+			const t = event.target;
+			if (!(t instanceof HTMLElement)) return;
+			const tag = t.tagName;
+			if (tag !== 'INPUT' && tag !== 'TEXTAREA' && tag !== 'SELECT') return;
+			requestAnimationFrame(() => {
+				requestAnimationFrame(() => syncAppHeight());
+			});
+		}
+
 		syncAppHeight();
 		window.addEventListener('resize', syncAppHeight);
+		document.addEventListener('focusout', onFocusOutCapture, true);
 		const vv = window.visualViewport;
 		vv?.addEventListener('resize', syncAppHeight);
 		vv?.addEventListener('scroll', syncAppHeight);
@@ -71,6 +95,7 @@
 
 		return () => {
 			window.removeEventListener('resize', syncAppHeight);
+			document.removeEventListener('focusout', onFocusOutCapture, true);
 			vv?.removeEventListener('resize', syncAppHeight);
 			vv?.removeEventListener('scroll', syncAppHeight);
 			stopRemoteRefresh?.();
@@ -109,8 +134,7 @@
 			visibility: document.visibilityState
 		});
 
-		const canReachNetwork =
-			typeof navigator === 'undefined' || navigator.onLine !== false;
+		const canReachNetwork = typeof navigator === 'undefined' || navigator.onLine !== false;
 		if (canReachNetwork && lastAutoPushUserId !== authStore.user.id) {
 			try {
 				await forcePushLocalData(authStore.user.id);
@@ -181,21 +205,26 @@
 		if (!booted || !authStore.initialized) return;
 		const path = $page.url.pathname;
 		const isAuthRoute = path.startsWith(`${base}/login`) || path.startsWith(`${base}/auth`);
-		if (!authStore.user && !isAuthRoute) {
+		const allowWithoutAuth = path.startsWith(`${base}/design-preview`);
+		if (!authStore.user && !isAuthRoute && !allowWithoutAuth) {
 			void goto(`${base}/login`, { replaceState: true });
 		} else if (authStore.user && path.startsWith(`${base}/login`)) {
 			void goto(`${base}/`, { replaceState: true });
 		}
 	});
 
+	const isDesignPreview = $derived($page.url.pathname.startsWith(`${base}/design-preview`));
+
 	const showNav = $derived(
-		!!authStore.user &&
+		(!!authStore.user || isDesignPreview) &&
 			!$page.url.pathname.startsWith(`${base}/login`) &&
 			!$page.url.pathname.startsWith(`${base}/auth`)
 	);
 </script>
 
-<div class="relative flex h-[var(--app-height)] max-h-[var(--app-height)] min-h-0 flex-col overflow-hidden">
+<div
+	class="relative flex h-[var(--app-height)] max-h-[var(--app-height)] min-h-0 flex-col overflow-hidden"
+>
 	<main
 		class="safe-top flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain"
 		class:pb-bottom-nav={showNav}

@@ -1,8 +1,35 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
 	import { base } from '$app/paths';
 	import { goto } from '$app/navigation';
 	import { Home, Dumbbell, BookOpenText, User } from 'lucide-svelte';
+
+	let navEl: HTMLElement | undefined = $state(undefined);
+
+	onMount(() => {
+		const el = navEl;
+		if (!el || typeof ResizeObserver === 'undefined') return;
+
+		function setOuterHeightPx(h: number) {
+			document.documentElement.style.setProperty('--bottom-nav-outer-height', `${h}px`);
+		}
+
+		const ro = new ResizeObserver((entries) => {
+			for (const entry of entries) {
+				const box = entry.borderBoxSize?.[0];
+				const h = box ? box.blockSize : entry.contentRect.height;
+				setOuterHeightPx(h);
+			}
+		});
+		ro.observe(el);
+		setOuterHeightPx(el.getBoundingClientRect().height);
+
+		return () => {
+			ro.disconnect();
+			document.documentElement.style.removeProperty('--bottom-nav-outer-height');
+		};
+	});
 
 	const items = $derived([
 		{
@@ -38,6 +65,7 @@
 </script>
 
 <nav
+	bind:this={navEl}
 	class="glass fixed inset-x-0 bottom-0 z-30 mx-auto max-w-xl border-t border-(--color-border) px-3 pt-2 sm:rounded-t-3xl"
 	style="padding-bottom: max(env(safe-area-inset-bottom), 0.5rem);"
 	aria-label="Основная навигация"
