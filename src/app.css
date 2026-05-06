@@ -34,7 +34,12 @@
 }
 
 @layer base {
+	/**
+	 * Set from JS via visualViewport (+layout) so iOS Safari recomputes height after the
+	 * virtual keyboard closes; 100dvh alone can leave a gap above fixed bottom UI.
+	 */
 	html {
+		--app-height: 100svh;
 		font-family: var(--font-sans);
 		-webkit-font-smoothing: antialiased;
 		-webkit-tap-highlight-color: transparent;
@@ -43,7 +48,7 @@
 
 	html,
 	body {
-		min-height: 100dvh;
+		min-height: var(--app-height);
 		height: 100%;
 		background: var(--color-bg);
 		color: var(--color-fg);

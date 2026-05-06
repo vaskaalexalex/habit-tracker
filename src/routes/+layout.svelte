@@ -28,6 +28,18 @@
 		let stopRemoteRefresh: (() => void) | null = null;
 		let stopTodayRefresh: (() => void) | null = null;
 
+		function syncAppHeight() {
+			if (typeof window === 'undefined') return;
+			const vv = window.visualViewport;
+			const h = vv ? vv.height : window.innerHeight;
+			document.documentElement.style.setProperty('--app-height', `${h}px`);
+		}
+		syncAppHeight();
+		window.addEventListener('resize', syncAppHeight);
+		const vv = window.visualViewport;
+		vv?.addEventListener('resize', syncAppHeight);
+		vv?.addEventListener('scroll', syncAppHeight);
+
 		syncDebug('layout-mount', {
 			online: navigator.onLine,
 			visibility: document.visibilityState,
@@ -58,6 +70,9 @@
 		}
 
 		return () => {
+			window.removeEventListener('resize', syncAppHeight);
+			vv?.removeEventListener('resize', syncAppHeight);
+			vv?.removeEventListener('scroll', syncAppHeight);
 			stopRemoteRefresh?.();
 			stopTodayRefresh?.();
 		};
@@ -180,7 +195,7 @@
 	);
 </script>
 
-<div class="relative flex h-dvh max-h-dvh flex-col overflow-hidden">
+<div class="relative flex h-[var(--app-height)] max-h-[var(--app-height)] min-h-0 flex-col overflow-hidden">
 	<main
 		class="safe-top flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain"
 		class:pb-bottom-nav={showNav}
