@@ -51,7 +51,7 @@
 </script>
 
 <div
-	class="mx-auto flex min-h-0 w-full max-w-xl flex-1 flex-col gap-1 px-3 pb-1 pt-2 max-[380px]:gap-0.5 sm:gap-1.5 sm:px-4 sm:pb-2 sm:pt-4"
+	class="mx-auto flex min-h-0 w-full max-w-xl flex-1 flex-col gap-3 px-3 pb-2 pt-3 max-[380px]:gap-2 sm:gap-5 sm:px-4 sm:pb-3 sm:pt-4"
 >
 	<div class="shrink-0">
 		<p class="text-[9px] font-bold uppercase tracking-wider text-(--color-accent) sm:text-[10px]">
@@ -90,10 +90,10 @@
 	</div>
 
 	<section class="flex min-h-0 min-w-0 shrink flex-col" aria-label="Привычки">
-		<h2 class="mb-0.5 shrink-0 text-[9px] font-bold uppercase tracking-wider text-(--color-fg-mute) sm:mb-1 sm:text-[10px]">
+		<h2 class="mb-1.5 shrink-0 text-[9px] font-bold uppercase tracking-wider text-(--color-fg-mute) sm:mb-2 sm:text-[10px]">
 			Привычки
 		</h2>
-		<div class="grid shrink-0 grid-cols-2 gap-1 sm:gap-1.5">
+		<div class="grid shrink-0 grid-cols-2 gap-2 sm:gap-3">
 			{#each HABIT_ORDER as habit (habit)}
 				<DashboardHabitTile
 					{habit}
@@ -115,7 +115,7 @@
 	<section id="activity" class="scroll-mt-4 shrink-0" aria-labelledby="home-activity-heading">
 		<h2
 			id="home-activity-heading"
-			class="mb-1 text-[9px] font-bold uppercase tracking-wider text-(--color-fg-mute) sm:text-[10px]"
+			class="mb-2 text-[9px] font-bold uppercase tracking-wider text-(--color-fg-mute) sm:mb-2.5 sm:text-[10px]"
 		>
 			Активность
 		</h2>
