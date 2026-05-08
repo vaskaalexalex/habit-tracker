@@ -41,7 +41,7 @@
 	<title>Превью редизайна · Habit</title>
 </svelte:head>
 
-<div class="preview-root mx-auto w-full max-w-xl px-4 pb-4 pt-4 sm:pt-6">
+<div class="preview-root mx-auto w-full max-w-xl px-4 pb-4 pt-6 sm:pt-10">
 	<PreviewToolbar {variant} />
 
 	{#key variant}
