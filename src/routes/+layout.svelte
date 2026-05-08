@@ -57,6 +57,41 @@
 		}
 		document.addEventListener('focusin', onInputFocusIn, true);
 
+		// iOS PWA: after keyboard dismiss Safari can leave main/window scrolled — strip under fixed nav.
+		const SCROLL_RESET_FRAMES = 6;
+		function forceScrollReset() {
+			const main = document.querySelector('main');
+			let frames = 0;
+			const tick = () => {
+				if (main && main.scrollTop !== 0) main.scrollTop = 0;
+				if (window.scrollY !== 0) window.scrollTo({ top: 0 });
+				const root = document.scrollingElement ?? document.documentElement;
+				if (root && root.scrollTop !== 0) root.scrollTop = 0;
+				if (++frames < SCROLL_RESET_FRAMES) requestAnimationFrame(tick);
+			};
+			requestAnimationFrame(tick);
+		}
+
+		function onInputFocusOut(event: FocusEvent) {
+			const t = event.target;
+			if (!(t instanceof HTMLElement)) return;
+			if (
+				!t.matches(
+					'input, textarea, select, [contenteditable=""], [contenteditable="true"]'
+				)
+			)
+				return;
+			forceScrollReset();
+		}
+		document.addEventListener('focusout', onInputFocusOut, true);
+
+		const vv = window.visualViewport ?? null;
+		const onVisualViewportResize = () => {
+			if (!vv) return;
+			if (vv.height >= window.innerHeight - 1) forceScrollReset();
+		};
+		vv?.addEventListener('resize', onVisualViewportResize);
+
 		syncDebug('layout-mount', {
 			online: navigator.onLine,
 			visibility: document.visibilityState,
@@ -117,6 +152,8 @@
 
 		return () => {
 			document.removeEventListener('focusin', onInputFocusIn, true);
+			document.removeEventListener('focusout', onInputFocusOut, true);
+			vv?.removeEventListener('resize', onVisualViewportResize);
 			stopServiceWorkerUpdate?.();
 			stopRemoteRefresh?.();
 			stopTodayRefresh?.();

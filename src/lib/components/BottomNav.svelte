@@ -66,7 +66,8 @@
 
 <nav
 	bind:this={navEl}
-	class="bottom-nav-surface fixed inset-x-0 bottom-0 z-30 mx-auto max-w-xl border-t border-(--color-border) px-3 pb-2 pt-2 sm:rounded-t-3xl"
+	class="bottom-nav-surface fixed inset-x-0 bottom-0 z-30 mx-auto max-w-xl border-t border-(--color-border) px-3 pt-2 sm:rounded-t-3xl"
+	style="padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0px));"
 	aria-label="Основная навигация"
 >
 	<ul class="grid grid-cols-4 gap-1">
