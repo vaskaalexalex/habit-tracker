@@ -9,7 +9,6 @@
 	import { todayStore } from '$stores/today.svelte';
 	import { formatRu } from '$utils/dates';
 	import { uuid } from '$utils/uuid';
-	import { noFocusScroll } from '$utils/no-focus-scroll';
 	import {
 		MUSCLE_GROUP_LABELS,
 		MUSCLE_GROUP_ORDER,
@@ -358,8 +357,7 @@
 								step="0.5"
 								bind:value={row.weight}
 								placeholder="0"
-								use:noFocusScroll
-								class="hairline rounded-xl bg-(--color-bg-mute) px-2 py-1.5 text-center text-sm tabular-nums outline-none placeholder:text-(--color-fg-mute)"
+								class="hairline rounded-xl bg-(--color-bg-mute) px-2 py-1 text-center text-base tabular-nums outline-none placeholder:text-(--color-fg-mute)"
 							/>
 							<input
 								type="number"
@@ -368,8 +366,7 @@
 								step="1"
 								bind:value={row.sets}
 								placeholder="0"
-								use:noFocusScroll
-								class="hairline rounded-xl bg-(--color-bg-mute) px-2 py-1.5 text-center text-sm tabular-nums outline-none placeholder:text-(--color-fg-mute)"
+								class="hairline rounded-xl bg-(--color-bg-mute) px-2 py-1 text-center text-base tabular-nums outline-none placeholder:text-(--color-fg-mute)"
 							/>
 							<button
 								type="button"
