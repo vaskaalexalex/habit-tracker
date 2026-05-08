@@ -9,6 +9,14 @@
 
 	import { untrack } from 'svelte';
 
+	function journalSnapshotKey(content: string, mood: number | null): string {
+		return `${content.trim()}\u0000${mood === null ? '' : String(mood)}`;
+	}
+
+	function baselineMoodFromInitial(entry: JournalEntry | null): number | null {
+		return entry?.mood != null ? entry.mood : null;
+	}
+
 	let { date, initial, onsave }: Props = $props();
 
 	let content = $state(untrack(() => initial?.content ?? ''));
@@ -21,6 +29,11 @@
 	let initialKey = $state(
 		untrack(() => `${date}|${initial?.content ?? ''}|${initial?.mood ?? ''}`)
 	);
+	let saveBaselineKey = $state(
+		untrack(() =>
+			journalSnapshotKey(initial?.content ?? '', baselineMoodFromInitial(initial))
+		)
+	);
 
 	$effect(() => {
 		const nextKey = `${date}|${initial?.content ?? ''}|${initial?.mood ?? ''}`;
@@ -30,6 +43,7 @@
 			moodValue = initial?.mood ?? 5;
 			moodTouched = initial?.mood != null;
 			savedAt = initial ? Date.now() : null;
+			saveBaselineKey = journalSnapshotKey(content, baselineMoodFromInitial(initial));
 		}
 	});
 
@@ -40,17 +54,37 @@
 		const c = content;
 		const m = moodForSave;
 		void date;
-		if (timer) clearTimeout(timer);
-		if (c.trim().length === 0 && m === null) return;
+		void saveBaselineKey;
+
+		const clearScheduled = () => {
+			if (timer !== null) {
+				clearTimeout(timer);
+				timer = null;
+			}
+		};
+		clearScheduled();
+
+		if (c.trim().length === 0 && m === null) {
+			return clearScheduled;
+		}
+
+		if (journalSnapshotKey(c, m) === saveBaselineKey) {
+			return clearScheduled;
+		}
+
 		timer = setTimeout(async () => {
 			saving = true;
 			try {
 				await onsave({ content: c, mood: m });
+				saveBaselineKey = journalSnapshotKey(c, m);
 				savedAt = Date.now();
 			} finally {
 				saving = false;
+				timer = null;
 			}
 		}, 800);
+
+		return clearScheduled;
 	});
 
 	function relativeSaved(): string {
