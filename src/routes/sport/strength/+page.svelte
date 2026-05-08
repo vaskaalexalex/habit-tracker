@@ -9,6 +9,7 @@
 	import { todayStore } from '$stores/today.svelte';
 	import { formatRu } from '$utils/dates';
 	import { uuid } from '$utils/uuid';
+	import { noFocusScroll } from '$utils/no-focus-scroll';
 	import {
 		MUSCLE_GROUP_LABELS,
 		MUSCLE_GROUP_ORDER,
@@ -32,6 +33,9 @@
 	};
 
 	type SerializedRow = Pick<Row, 'id' | 'group' | 'exerciseId' | 'weight' | 'sets'>;
+
+	/** Группы, куда можно добавить строку из каталога (в «Остальном» нет пресетов). */
+	const ADD_ROW_MUSCLE_GROUPS = MUSCLE_GROUP_ORDER.filter((g) => g !== 'other');
 
 	const TEMPLATE: Array<{ group: MuscleGroup; count: number }> = [
 		{ group: 'chest', count: 2 },
@@ -161,9 +165,34 @@
 
 	let addMuscleGroup = $state<MuscleGroup>('chest');
 
+	$effect(() => {
+		if (addMuscleGroup === 'other') {
+			addMuscleGroup = ADD_ROW_MUSCLE_GROUPS[0] ?? 'chest';
+		}
+	});
+
 	const filledCount = $derived(
 		rows.filter((r) => r.exerciseId && r.weight > 0 && r.sets > 0).length
 	);
+
+	// Нормализованный снапшот значимых строк: только заполненные, отсортированные.
+	// Нужен для сравнения "что в форме" vs "что уже в БД на сегодня",
+	// чтобы прятать кнопку Сохранить, когда изменений нет.
+	function snapshotKey(list: Row[]): string {
+		const filled = list
+			.filter((r) => r.exerciseId && r.weight > 0 && r.sets > 0)
+			.map((r) => ({ ex: r.exerciseId as string, w: r.weight, s: r.sets }));
+		filled.sort((a, b) => {
+			if (a.ex !== b.ex) return a.ex < b.ex ? -1 : 1;
+			if (a.w !== b.w) return a.w - b.w;
+			return a.s - b.s;
+		});
+		return JSON.stringify(filled);
+	}
+
+	const savedKey = $derived(snapshotKey(buildRowsFromDbOrTemplate(today)));
+	const currentKey = $derived(snapshotKey(rows));
+	const hasChanges = $derived(sessionReady && savedKey !== currentKey);
 
 	const groupsInOrder = $derived(
 		MUSCLE_GROUP_ORDER.filter((g) => rows.some((r) => r.group === g))
@@ -174,6 +203,7 @@
 	}
 
 	function addRow(group: MuscleGroup) {
+		if (group === 'other') return;
 		const idx = rows.findLastIndex((r) => r.group === group);
 		const insertAt = idx === -1 ? rows.length : idx + 1;
 		rows = [...rows.slice(0, insertAt), makeRow(group), ...rows.slice(insertAt)];
@@ -218,7 +248,9 @@
 			}
 			await ensureSportCompleted();
 			toasts.success(`Сохранено ${valid.length} упражнен${valid.length === 1 ? 'ие' : 'ий'}`);
-			rows = makeTemplate();
+			// Сразу показываем только что сохранённую тренировку, чтобы юзер
+			// мог её посмотреть/доредактировать вместо пустого шаблона.
+			rows = buildRowsFromDbOrTemplate(today);
 			writeDraftImmediate(today, rows);
 		} finally {
 			saving = false;
@@ -229,11 +261,15 @@
 		const date = today;
 		if (!strengthStore.loaded) return;
 
-		const fromDraft = readDraft(date);
-		if (fromDraft) {
-			rows = fromDraft;
-		} else {
+		// Если на сегодня уже есть тренировка в БД — показываем её,
+		// чтобы пользователь видел сохранённый результат, а не пустую форму.
+		// Пустой шаблон рисуем только когда сегодняшней тренировки ещё нет.
+		const hasToday = strengthStore.setsForDate(date).length > 0;
+		if (hasToday) {
 			rows = buildRowsFromDbOrTemplate(date);
+		} else {
+			const fromDraft = readDraft(date);
+			rows = fromDraft ?? makeTemplate();
 		}
 		sessionReady = true;
 	});
@@ -264,19 +300,21 @@
 			<h1 class="mt-0.5 text-2xl font-black tracking-tight">Силовая</h1>
 			<p class="mt-0.5 text-sm font-medium text-(--color-fg-mute)">{formatRu(today)}</p>
 		</div>
-		<button
-			type="button"
-			onclick={saveAll}
-			disabled={saving || filledCount === 0}
-			class="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-2xl bg-(--color-accent) px-3 text-sm font-bold text-white transition active:scale-[0.97] disabled:opacity-50"
-		>
-			{#if saving}
-				<Loader2 size={16} class="animate-spin" />
-			{:else}
-				<Save size={16} />
-			{/if}
-			<span>Сохранить{filledCount > 0 ? ` · ${filledCount}` : ''}</span>
-		</button>
+		{#if hasChanges}
+			<button
+				type="button"
+				onclick={saveAll}
+				disabled={saving || filledCount === 0}
+				class="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-2xl bg-(--color-accent) px-3 text-sm font-bold text-white transition active:scale-[0.97] disabled:opacity-50"
+			>
+				{#if saving}
+					<Loader2 size={16} class="animate-spin" />
+				{:else}
+					<Save size={16} />
+				{/if}
+				<span>Сохранить{filledCount > 0 ? ` · ${filledCount}` : ''}</span>
+			</button>
+		{/if}
 	</header>
 
 	<section class="hairline flex flex-col gap-3 rounded-3xl bg-(--color-bg-soft) p-3">
@@ -320,6 +358,7 @@
 								step="0.5"
 								bind:value={row.weight}
 								placeholder="0"
+								use:noFocusScroll
 								class="hairline rounded-xl bg-(--color-bg-mute) px-2 py-1.5 text-center text-sm tabular-nums outline-none placeholder:text-(--color-fg-mute)"
 							/>
 							<input
@@ -329,6 +368,7 @@
 								step="1"
 								bind:value={row.sets}
 								placeholder="0"
+								use:noFocusScroll
 								class="hairline rounded-xl bg-(--color-bg-mute) px-2 py-1.5 text-center text-sm tabular-nums outline-none placeholder:text-(--color-fg-mute)"
 							/>
 							<button
@@ -355,7 +395,7 @@
 							bind:value={addMuscleGroup}
 							class="hairline w-full cursor-pointer appearance-none rounded-xl bg-(--color-bg-mute) py-1.5 pl-3 pr-10 text-sm outline-none"
 						>
-							{#each MUSCLE_GROUP_ORDER as g (g)}
+							{#each ADD_ROW_MUSCLE_GROUPS as g (g)}
 								<option value={g}>{MUSCLE_GROUP_LABELS[g]}</option>
 							{/each}
 						</select>
@@ -369,7 +409,8 @@
 				<button
 					type="button"
 					onclick={() => addRow(addMuscleGroup)}
-					class="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl border border-dashed border-(--color-border) px-3 py-2 text-xs font-semibold text-(--color-fg-mute) hover:bg-(--color-bg-mute) hover:text-(--color-fg)"
+					disabled={addMuscleGroup === 'other'}
+					class="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl border border-dashed border-(--color-border) px-3 py-2 text-xs font-semibold text-(--color-fg-mute) hover:bg-(--color-bg-mute) hover:text-(--color-fg) disabled:pointer-events-none disabled:opacity-40"
 				>
 					<Plus size={14} /> Добавить упражнение
 				</button>
