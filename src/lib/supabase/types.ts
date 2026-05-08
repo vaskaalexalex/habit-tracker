@@ -6,7 +6,6 @@ export type MuscleGroup =
 	| 'back'
 	| 'legs'
 	| 'arms'
-	| 'shoulders'
 	| 'core'
 	| 'other';
 
@@ -16,7 +15,6 @@ export const MUSCLE_GROUP_ORDER: readonly MuscleGroup[] = [
 	'back',
 	'legs',
 	'arms',
-	'shoulders',
 	'core',
 	'other'
 ] as const;
@@ -26,7 +24,6 @@ export const MUSCLE_GROUP_LABELS: Record<MuscleGroup, string> = {
 	back: 'Спина',
 	legs: 'Ноги',
 	arms: 'Руки',
-	shoulders: 'Плечи',
 	core: 'Пресс',
 	other: 'Остальное'
 };
@@ -63,6 +60,8 @@ export interface Exercise {
 	muscle_group: string | null;
 	is_preset: boolean;
 	hidden: boolean;
+	/** Preset catalog order within `muscle_group`; null for user-created exercises. */
+	sort_order: number | null;
 	created_at: Timestamp;
 }
 
@@ -120,6 +119,7 @@ export interface Database {
 					created_at?: Timestamp;
 					is_preset?: boolean;
 					hidden?: boolean;
+					sort_order?: number | null;
 				};
 				Update: Partial<Exercise>;
 			};

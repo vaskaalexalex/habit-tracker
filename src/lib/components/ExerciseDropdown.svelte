@@ -39,8 +39,16 @@
 	let chipFilter = $state<MuscleGroup | 'all'>('all');
 
 	function normalizeMuscle(raw: string | null): MuscleGroup {
+		if (raw === 'shoulders') return 'arms';
 		const r = raw ?? 'other';
 		return (MUSCLE_GROUP_ORDER as readonly string[]).includes(r) ? (r as MuscleGroup) : 'other';
+	}
+
+	function compareExercises(a: Exercise, b: Exercise): number {
+		const ao = a.sort_order ?? 10_000;
+		const bo = b.sort_order ?? 10_000;
+		if (ao !== bo) return ao - bo;
+		return a.name.localeCompare(b.name, 'ru');
 	}
 
 	$effect(() => {
@@ -94,7 +102,7 @@
 			arr.push(ex);
 			m.set(g, arr);
 		}
-		for (const arr of m.values()) arr.sort((a, b) => a.name.localeCompare(b.name, 'ru'));
+		for (const arr of m.values()) arr.sort(compareExercises);
 		return m;
 	});
 
@@ -136,12 +144,12 @@
 
 	{#if open}
 		<div
-			class="hairline absolute z-30 mt-2 max-h-80 w-[min(20rem,calc(100vw-2rem))] overflow-hidden rounded-2xl bg-(--color-bg-soft) shadow-xl"
+			class="hairline absolute z-30 mt-2 flex max-h-[min(22rem,calc(100dvh-9rem))] w-[min(20rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl bg-(--color-bg-soft) shadow-xl"
 			class:left-0={!alignRight}
 			class:right-0={alignRight}
 			in:fly={{ y: -4, duration: 120 }}
 		>
-			<div class="flex items-center gap-1 border-b border-(--color-border) p-2">
+			<div class="flex shrink-0 items-center gap-1 border-b border-(--color-border) p-2">
 				<input
 					bind:this={inputEl}
 					type="text"
@@ -161,7 +169,7 @@
 				{/if}
 			</div>
 
-			<div class="flex flex-wrap gap-1 border-b border-(--color-border) px-2 py-2" role="radiogroup" aria-label="Группа мышц">
+			<div class="flex shrink-0 flex-wrap gap-1 border-b border-(--color-border) px-2 py-2" role="radiogroup" aria-label="Группа мышц">
 				{#if groupFilter && !expandAllGroups}
 					<button
 						type="button"
@@ -219,7 +227,7 @@
 				{/if}
 			</div>
 
-			<div class="max-h-64 overflow-y-auto py-1">
+			<div class="min-h-0 flex-1 overflow-y-auto overscroll-contain py-1">
 				{#each GROUP_ORDER as g (g)}
 					{@const list = grouped.get(g) ?? []}
 					{#if list.length > 0}

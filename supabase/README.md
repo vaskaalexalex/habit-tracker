@@ -6,7 +6,9 @@
 
 - `migrations/20260430120000_init_schema.sql` — таблицы, индексы, типы, триггер `updated_at`.
 - `migrations/20260430120100_rls.sql` — политики Row Level Security (`auth.uid() = user_id`).
-- `migrations/20260430120200_seed_exercises.sql` — пресетные упражнения (`user_id = null`, `is_preset = true`).
+- `migrations/20260430120200_seed_exercises.sql` — начальный набор пресетов (исторический шаг миграций).
+- `migrations/20260430160000_expand_preset_exercises.sql` — расширение пресетов (исторический).
+- `migrations/20260508120000_preset_catalog_v2.sql` — **актуальный** каталог: 19 пресетов, `sort_order`, перенос `workout_sets`, удаление старых пресетов не из списка.
 
 ## Накатить
 
@@ -17,13 +19,11 @@ supabase link --project-ref <your-project-ref>
 supabase db push
 ```
 
+Накатывает все файлы из `migrations/` по порядку, включая финальный каталог пресетов.
+
 ### Вариант B. Вручную через SQL Editor
 
-Открой `https://app.supabase.com/project/<ref>/sql` и выполни файлы по порядку:
-
-1. `20260430120000_init_schema.sql`
-2. `20260430120100_rls.sql`
-3. `20260430120200_seed_exercises.sql`
+Открой `https://app.supabase.com/project/<ref>/sql` и выполни **все** SQL из `migrations/` по имени (хронологически), либо только недостающие после последнего деплоя — минимум накати `20260508120000_preset_catalog_v2.sql`, если остальная схема уже есть.
 
 ## Настройка Auth (magic link)
 

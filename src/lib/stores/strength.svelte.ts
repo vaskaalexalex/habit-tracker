@@ -111,6 +111,7 @@ class StrengthStore {
 			muscle_group: muscleGroup ?? null,
 			is_preset: false,
 			hidden: false,
+			sort_order: null,
 			created_at: new Date().toISOString()
 		};
 		this.exercises = [...this.exercises, row];
