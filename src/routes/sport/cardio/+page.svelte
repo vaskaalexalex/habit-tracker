@@ -4,7 +4,7 @@
 	import { toasts } from '$stores/toast.svelte';
 	import type { CardioWorkout } from '$supabase/types';
 	import { Trash2, Loader2 } from 'lucide-svelte';
-	import BackButton from '$components/BackButton.svelte';
+	import PageHeader from '$components/PageHeader.svelte';
 	import { formatRuShort } from '$utils/dates';
 	import { CARDIO_LABELS, CARDIO_ORDER, CARDIO_NO_DISTANCE } from '$supabase/types';
 	import type { CardioType } from '$supabase/types';
@@ -47,14 +47,13 @@
 	}
 </script>
 
-<div class="mx-auto flex w-full max-w-xl flex-col gap-4 px-4 pt-6 sm:pt-10">
-	<header class="flex items-center gap-2">
-		<BackButton fallback="/sport" />
-		<div class="min-w-0 flex-1">
-			<p class="page-kicker">Кардио</p>
-			<h1 class="mt-0.5 text-2xl font-black tracking-tight">Другая активность</h1>
-		</div>
-	</header>
+<div class="page-shell">
+	<PageHeader
+		backFallback="/sport"
+		kicker="Кардио"
+		title="Другая активность"
+		subtitle="Запиши активность за сегодня"
+	/>
 
 	<form onsubmit={submit} class="hairline flex flex-col gap-3 rounded-3xl bg-(--color-bg-soft) p-4">
 		<div class="flex flex-wrap gap-1.5">

@@ -3,7 +3,7 @@
 	import { ensureJournalCompleted } from '$stores/auto-complete';
 	import JournalEditor from '$components/JournalEditor.svelte';
 	import HabitHeatmap from '$components/HabitHeatmap.svelte';
-	import BackButton from '$components/BackButton.svelte';
+	import PageHeader from '$components/PageHeader.svelte';
 	import { goto } from '$app/navigation';
 	import { base } from '$app/paths';
 	import { todayStore } from '$stores/today.svelte';
@@ -23,17 +23,13 @@
 	}
 </script>
 
-<div class="mx-auto flex w-full max-w-xl flex-col gap-4 px-4 pt-6 sm:pt-10">
-	<header class="flex items-center gap-2">
-		<BackButton fallback="/" />
-		<div class="min-w-0 flex-1">
-			<p class="page-kicker">Записки</p>
-			<h1 class="mt-0.5 text-2xl font-black tracking-tight">Дневник</h1>
-			<p class="mt-1 text-sm font-medium text-(--color-fg-mute)">
-				Сегодня — {formatRu(today, 'd MMMM')}
-			</p>
-		</div>
-	</header>
+<div class="page-shell">
+	<PageHeader
+		backFallback="/"
+		kicker="Записки"
+		title="Дневник"
+		subtitle="Сегодня — {formatRu(today, 'd MMMM')}"
+	/>
 
 	<JournalEditor date={today} initial={todayEntry} onsave={handleSave} />
 

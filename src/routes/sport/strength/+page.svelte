@@ -3,7 +3,7 @@
 	import { ensureSportCompleted } from '$stores/auto-complete';
 	import { toasts } from '$stores/toast.svelte';
 	import ExerciseDropdown from '$components/ExerciseDropdown.svelte';
-	import BackButton from '$components/BackButton.svelte';
+	import PageHeader from '$components/PageHeader.svelte';
 	import { goto } from '$app/navigation';
 	import { base } from '$app/paths';
 	import { todayStore } from '$stores/today.svelte';
@@ -287,15 +287,15 @@
 	});
 </script>
 
-<div class="mx-auto flex w-full max-w-xl flex-col gap-4 px-4 pt-6 sm:pt-10">
-	<header class="flex items-center gap-2">
-		<BackButton fallback="/sport" />
-		<div class="min-w-0 flex-1">
-			<p class="page-kicker">Сессия</p>
-			<h1 class="mt-0.5 text-2xl font-black tracking-tight">Силовая</h1>
-			<p class="mt-0.5 text-sm font-medium text-(--color-fg-mute)">{formatRu(today)}</p>
-		</div>
-		{#if hasChanges}
+<div class="page-shell">
+	<PageHeader
+		backFallback="/sport"
+		kicker="Сессия"
+		title="Силовая"
+		subtitle={formatRu(today)}
+		showTrailing={hasChanges}
+	>
+		{#snippet trailing()}
 			<button
 				type="button"
 				onclick={saveAll}
@@ -309,8 +309,8 @@
 				{/if}
 				<span>Сохранить{filledCount > 0 ? ` · ${filledCount}` : ''}</span>
 			</button>
-		{/if}
-	</header>
+		{/snippet}
+	</PageHeader>
 
 	<section class="hairline flex flex-col gap-3 rounded-3xl bg-(--color-bg-soft) p-3">
 		<div

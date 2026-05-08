@@ -3,7 +3,7 @@
 	import { journalStore } from '$stores/journal.svelte';
 	import { ensureJournalCompleted } from '$stores/auto-complete';
 	import JournalEditor from '$components/JournalEditor.svelte';
-	import BackButton from '$components/BackButton.svelte';
+	import PageHeader from '$components/PageHeader.svelte';
 	import { formatRu } from '$utils/dates';
 
 	const date = $derived($page.params.date ?? '');
@@ -29,17 +29,13 @@
 	}
 </script>
 
-<div class="mx-auto flex w-full max-w-xl flex-col gap-4 px-4 pt-6 sm:pt-10">
-	<header class="flex items-center gap-2">
-		<BackButton fallback="/journal" />
-		<div class="min-w-0 flex-1">
-			<p class="page-kicker">День</p>
-			<h1 class="mt-0.5 text-2xl font-black tracking-tight">
-				{date ? formatRu(date) : '—'}
-			</h1>
-			<p class="mt-1 font-mono text-xs font-medium text-(--color-fg-mute)">{date}</p>
-		</div>
-	</header>
+<div class="page-shell">
+	<PageHeader
+		backFallback="/journal"
+		kicker="День"
+		title={date ? formatRu(date, 'EEEE, d MMMM yyyy') : '—'}
+		meta={date ? date : undefined}
+	/>
 
 	{#if loading}
 		<div

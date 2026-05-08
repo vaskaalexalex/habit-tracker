@@ -51,20 +51,13 @@
 </script>
 
 <div
-	class="mx-auto flex min-h-0 w-full max-w-xl flex-1 flex-col gap-3 px-4 pb-2 pt-6 max-[380px]:gap-2 sm:gap-5 sm:pb-3 sm:pt-10"
+	class="page-shell min-h-0 flex-1 gap-3 max-[380px]:gap-2 sm:gap-5 sm:pb-3"
 >
-	<div class="shrink-0">
+	<div class="flex shrink-0 flex-col gap-1">
 		<p class="page-kicker">Сегодня</p>
-		<p
-			class="mt-0.5 font-black uppercase leading-none tracking-tighter text-(--color-fg)"
-			style="font-size: clamp(1.1rem, 5vw, 1.85rem);"
-		>
-			{formatRu(today)}
-		</p>
+		<p class="page-hero-title">{formatRu(today)}</p>
 		{#if profileStore.name.trim()}
-			<p class="mt-0.5 truncate text-[11px] font-medium text-(--color-fg-mute) sm:text-xs">
-				{profileStore.name}
-			</p>
+			<p class="page-subtitle truncate">{profileStore.name}</p>
 		{/if}
 	</div>
 

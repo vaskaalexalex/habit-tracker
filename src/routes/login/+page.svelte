@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { authStore } from '$stores/auth.svelte';
 	import { toasts } from '$stores/toast.svelte';
+	import PageHeadText from '$components/PageHeadText.svelte';
 	import { Mail, Lock, Loader2, Sparkles, Eye, EyeOff } from 'lucide-svelte';
 
 	let email = $state('');
@@ -39,11 +40,7 @@
 			>
 				<Sparkles size={22} />
 			</div>
-			<div>
-				<p class="page-kicker">Вход</p>
-				<h1 class="mt-1 text-xl font-black tracking-tight sm:text-2xl">Habit</h1>
-				<p class="mt-1 text-sm font-medium text-(--color-fg-mute)">Email и пароль</p>
-			</div>
+			<PageHeadText kicker="Вход" title="Habit" subtitle="Email и пароль" />
 		</div>
 
 		<form onsubmit={submit} class="flex flex-col gap-3">

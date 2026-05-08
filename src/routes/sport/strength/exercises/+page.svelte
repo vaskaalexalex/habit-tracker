@@ -1,5 +1,5 @@
 <script lang="ts">
-	import BackButton from '$components/BackButton.svelte';
+	import PageHeader from '$components/PageHeader.svelte';
 	import { MUSCLE_GROUP_LABELS, type MuscleGroup } from '$supabase/types';
 
 	const CATALOG: Record<MuscleGroup, readonly string[]> = {
@@ -28,19 +28,14 @@
 	] as const satisfies readonly MuscleGroup[];
 </script>
 
-<div class="mx-auto flex w-full max-w-xl flex-col gap-4 px-4 pt-6 sm:pt-10">
-	<header class="flex items-center gap-2">
-		<BackButton fallback="/sport/strength" />
-		<div class="min-w-0 flex-1">
-			<p class="page-kicker">Библиотека</p>
-			<h1 class="mt-0.5 text-2xl font-black tracking-tight">Каталог упражнений</h1>
-		</div>
-	</header>
-
-	<p class="text-sm leading-relaxed text-(--color-fg-mute)">
-		Список зафиксирован в базе: 22 упражнения. Свои названия добавить нельзя — только выбор из каталога на
-		экране силовой.
-	</p>
+<div class="page-shell">
+	<PageHeader
+		backFallback="/sport/strength"
+		kicker="Библиотека"
+		title="Каталог упражнений"
+		subtitle="Список зафиксирован в базе: 22 упражнения."
+		meta="Свои названия добавить нельзя — только выбор из каталога на экране силовой."
+	/>
 
 	{#each SECTION_ORDER as group (group)}
 		<section class="hairline rounded-2xl bg-(--color-bg-soft) p-3">

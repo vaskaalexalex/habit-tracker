@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { base } from '$app/paths';
+	import PageHeader from '$components/PageHeader.svelte';
 	import { Dumbbell, HeartPulse, ListChecks, ChevronRight } from 'lucide-svelte';
 	import { todayStore } from '$stores/today.svelte';
 	import { strengthStore } from '$stores/strength.svelte';
@@ -50,24 +51,24 @@
 	}
 </script>
 
-<div class="mx-auto flex w-full max-w-xl flex-col gap-4 px-4 pt-6 sm:pt-10">
-	<header class="flex items-center justify-between gap-3">
-		<div class="min-w-0">
-			<p class="page-kicker">Тренировки</p>
-			<h1 class="mt-1 text-2xl font-black tracking-tight">Спорт</h1>
-			<p class="mt-1 text-sm font-medium text-(--color-fg-mute)">
-				Сегодня: {workoutsToday} {trainingsWord(workoutsToday)}
-			</p>
-		</div>
-		<a
-			href={`${base}/sport/strength/exercises`}
-			onclick={openCatalog}
-			class="tap-target inline-flex shrink-0 items-center gap-1.5 rounded-2xl border border-(--color-border) bg-(--color-bg-soft) px-3 py-2 text-xs font-bold uppercase tracking-wide sm:text-sm"
-		>
-			<ListChecks size={16} />
-			<span>Каталог</span>
-		</a>
-	</header>
+<div class="page-shell">
+	<PageHeader
+		kicker="Тренировки"
+		title="Спорт"
+		subtitle="Сегодня: {workoutsToday} {trainingsWord(workoutsToday)}"
+		showTrailing={true}
+	>
+		{#snippet trailing()}
+			<a
+				href={`${base}/sport/strength/exercises`}
+				onclick={openCatalog}
+				class="tap-target inline-flex shrink-0 items-center gap-1.5 rounded-2xl border border-(--color-border) bg-(--color-bg-soft) px-3 py-2 text-xs font-bold uppercase tracking-wide sm:text-sm"
+			>
+				<ListChecks size={16} />
+				<span>Каталог</span>
+			</a>
+		{/snippet}
+	</PageHeader>
 
 	<section class="grid grid-cols-1 gap-3 sm:grid-cols-2">
 		{#each tiles as tile (tile.href)}
