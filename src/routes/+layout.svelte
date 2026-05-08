@@ -28,63 +28,34 @@
 		let stopRemoteRefresh: (() => void) | null = null;
 		let stopTodayRefresh: (() => void) | null = null;
 		let stopServiceWorkerUpdate: (() => void) | null = null;
-		let keyboardSettleTimers: number[] = [];
 
-		/** Layout vs visual viewport delta above this ⇒ keyboard / heavy chrome overlay — pin height to vv. */
-		const VIEWPORT_KEYBOARD_DELTA_PX = 100;
+		// Defensive: clear any stale inline html height from previous builds that pinned it on keyboard.
+		document.documentElement.style.removeProperty('height');
 
-		function clearAppHeight() {
-			document.documentElement.style.removeProperty('height');
-		}
-
-		function syncAppHeight() {
-			if (typeof window === 'undefined') return;
-			const vv = window.visualViewport;
-			const layoutH = window.innerHeight;
-			if (!vv) {
-				clearAppHeight();
-				return;
-			}
-			const delta = layoutH - vv.height;
-			if (delta > VIEWPORT_KEYBOARD_DELTA_PX) {
-				document.documentElement.style.height = `${vv.height}px`;
-			} else {
-				clearAppHeight();
-			}
-		}
-
-		function clearKeyboardSettleTimers() {
-			for (const timer of keyboardSettleTimers) window.clearTimeout(timer);
-			keyboardSettleTimers = [];
-		}
-
-		function scheduleKeyboardSettleSync() {
-			clearKeyboardSettleTimers();
-			for (const delay of [0, 80, 180, 360, 700]) {
-				keyboardSettleTimers.push(window.setTimeout(syncAppHeight, delay));
-			}
-		}
-
-		function onFocusOutCapture(event: FocusEvent) {
+		// iOS scrolls the nearest scroll ancestor (main / window) to bring focused inputs into view.
+		// We want layout to stay put: keyboard overlays content, nothing reflows.
+		const SCROLL_LOCK_FRAMES = 8;
+		function onInputFocusIn(event: FocusEvent) {
 			const t = event.target;
 			if (!(t instanceof HTMLElement)) return;
-			const tag = t.tagName;
-			if (tag !== 'INPUT' && tag !== 'TEXTAREA' && tag !== 'SELECT') return;
-			scheduleKeyboardSettleSync();
+			if (
+				!t.matches(
+					'input, textarea, select, [contenteditable=""], [contenteditable="true"]'
+				)
+			)
+				return;
+			const main = document.querySelector('main');
+			const startMainTop = main?.scrollTop ?? 0;
+			const startWinTop = window.scrollY;
+			let frames = 0;
+			const revert = () => {
+				if (main && main.scrollTop !== startMainTop) main.scrollTop = startMainTop;
+				if (window.scrollY !== startWinTop) window.scrollTo({ top: startWinTop });
+				if (++frames < SCROLL_LOCK_FRAMES) requestAnimationFrame(revert);
+			};
+			requestAnimationFrame(revert);
 		}
-
-		function onViewportReturn() {
-			if (document.visibilityState !== 'hidden') scheduleKeyboardSettleSync();
-		}
-
-		syncAppHeight();
-		window.addEventListener('resize', syncAppHeight);
-		window.addEventListener('pageshow', onViewportReturn);
-		document.addEventListener('visibilitychange', onViewportReturn);
-		document.addEventListener('focusout', onFocusOutCapture, true);
-		const vv = window.visualViewport;
-		vv?.addEventListener('resize', syncAppHeight);
-		vv?.addEventListener('scroll', syncAppHeight);
+		document.addEventListener('focusin', onInputFocusIn, true);
 
 		syncDebug('layout-mount', {
 			online: navigator.onLine,
@@ -145,13 +116,7 @@
 		}
 
 		return () => {
-			clearKeyboardSettleTimers();
-			window.removeEventListener('resize', syncAppHeight);
-			window.removeEventListener('pageshow', onViewportReturn);
-			document.removeEventListener('visibilitychange', onViewportReturn);
-			document.removeEventListener('focusout', onFocusOutCapture, true);
-			vv?.removeEventListener('resize', syncAppHeight);
-			vv?.removeEventListener('scroll', syncAppHeight);
+			document.removeEventListener('focusin', onInputFocusIn, true);
 			stopServiceWorkerUpdate?.();
 			stopRemoteRefresh?.();
 			stopTodayRefresh?.();

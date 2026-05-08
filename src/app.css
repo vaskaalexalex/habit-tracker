@@ -38,9 +38,8 @@
 
 @layer base {
 	/**
-	 * iPhone / PWA: keep the shell on the dynamic viewport, then let BottomNav paint
-	 * the unsafe home-indicator area itself. +layout pins documentElement height only
-	 * while the keyboard is open and clears it on viewport return events.
+	 * iPhone / PWA: html/body height locked to dvh so the shell does not stretch with
+	 * tall routes — scrolling stays on <main>. BottomNav paints the home-indicator bleed.
 	 */
 	html {
 		--safe-area-bottom: env(safe-area-inset-bottom, 0px);
@@ -52,10 +51,10 @@
 		-webkit-font-smoothing: antialiased;
 		-webkit-tap-highlight-color: transparent;
 		-webkit-text-size-adjust: 100%;
-		height: auto;
-		min-height: 100%;
-		min-height: -webkit-fill-available;
-		min-height: var(--app-viewport-height);
+		/* Lock to viewport so body/.app-shell/main don't grow with page content — scroll stays on <main>. */
+		height: 100%;
+		height: var(--app-viewport-height);
+		max-height: var(--app-viewport-height);
 	}
 
 	html,
@@ -69,10 +68,9 @@
 		display: flex;
 		flex-direction: column;
 		margin: 0;
-		height: auto;
-		min-height: 100%;
-		min-height: -webkit-fill-available;
-		min-height: var(--app-viewport-height);
+		height: 100%;
+		height: var(--app-viewport-height);
+		max-height: var(--app-viewport-height);
 		overflow: hidden;
 		font-feature-settings: 'cv11', 'ss01', 'ss03';
 		overscroll-behavior-y: none;
@@ -154,14 +152,12 @@
 	border: 1px solid var(--color-border);
 }
 
-/** Root shell: fills flex column body; keyboard height handled on documentElement in +layout. */
+/** Root shell: fills flex column body; min-height 0 so <main overflow-y-auto> can shrink and scroll. */
 .app-shell {
 	display: flex;
 	width: 100%;
 	flex: 1 1 auto;
-	min-height: 100%;
-	min-height: -webkit-fill-available;
-	min-height: var(--app-viewport-height);
+	min-height: 0;
 	flex-direction: column;
 	overflow: hidden;
 	background: var(--color-bg);
