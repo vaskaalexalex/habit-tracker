@@ -10,6 +10,7 @@
 - `migrations/20260430160000_expand_preset_exercises.sql` — расширение пресетов (исторический).
 - `migrations/20260508120000_preset_catalog_v2.sql` — **актуальный** каталог: 19 пресетов, `sort_order`, перенос `workout_sets`, удаление старых пресетов не из списка.
 - `migrations/20260509120000_purge_removed_catalog_exercises.sql` — удаляет из БД все строки с отменёнными именами (в т.ч. пользовательские дубликаты) и связанные подходы; чистит «хвосты» не из финального каталога.
+- `migrations/20260510140000_exercises_muscle_group_enforcement.sql` — триггер фиксирует группу для 19 пресетных UUID; имена с «икр» → `legs`; `CHECK` на допустимые значения `muscle_group`.
 
 ## Накатить
 
