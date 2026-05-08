@@ -33,14 +33,15 @@
 
 	type SerializedRow = Pick<Row, 'id' | 'group' | 'exerciseId' | 'weight' | 'sets'>;
 
-	/** Группы, куда можно добавить строку из каталога (в «Остальном» нет пресетов). */
-	const ADD_ROW_MUSCLE_GROUPS = MUSCLE_GROUP_ORDER.filter((g) => g !== 'other');
+	/** Все группы в селекте «+» (в «Остальном» может не быть пресетов в каталоге). */
+	const ADD_ROW_MUSCLE_GROUPS = MUSCLE_GROUP_ORDER;
 
 	const TEMPLATE: Array<{ group: MuscleGroup; count: number }> = [
 		{ group: 'chest', count: 2 },
 		{ group: 'back', count: 2 },
 		{ group: 'legs', count: 2 },
-		{ group: 'arms', count: 3 }
+		{ group: 'arms', count: 3 },
+		{ group: 'core', count: 2 }
 	];
 	const DEFAULT_REPS = 10;
 
@@ -164,12 +165,6 @@
 
 	let addMuscleGroup = $state<MuscleGroup>('chest');
 
-	$effect(() => {
-		if (addMuscleGroup === 'other') {
-			addMuscleGroup = ADD_ROW_MUSCLE_GROUPS[0] ?? 'chest';
-		}
-	});
-
 	const filledCount = $derived(
 		rows.filter((r) => r.exerciseId && r.weight > 0 && r.sets > 0).length
 	);
@@ -202,7 +197,6 @@
 	}
 
 	function addRow(group: MuscleGroup) {
-		if (group === 'other') return;
 		const idx = rows.findLastIndex((r) => r.group === group);
 		const insertAt = idx === -1 ? rows.length : idx + 1;
 		rows = [...rows.slice(0, insertAt), makeRow(group), ...rows.slice(insertAt)];
@@ -406,7 +400,6 @@
 				<button
 					type="button"
 					onclick={() => addRow(addMuscleGroup)}
-					disabled={addMuscleGroup === 'other'}
 					class="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl border border-dashed border-(--color-border) px-3 py-2 text-xs font-semibold text-(--color-fg-mute) hover:bg-(--color-bg-mute) hover:text-(--color-fg) disabled:pointer-events-none disabled:opacity-40"
 				>
 					<Plus size={14} /> Добавить упражнение

@@ -13,13 +13,20 @@
 			'Бицепс с гантелями',
 			'Скамья Скотта',
 			'Французский жим',
-			'Трицепс вниз'
+			'Трицепс вниз',
+			'Задняя дельта'
 		],
-		core: [],
+		core: ['Скручивания', 'Гиперэкстензия'],
 		other: []
 	};
 
-	const SECTION_ORDER = ['chest', 'back', 'legs', 'arms'] as const satisfies readonly MuscleGroup[];
+	const SECTION_ORDER = [
+		'chest',
+		'back',
+		'legs',
+		'arms',
+		'core'
+	] as const satisfies readonly MuscleGroup[];
 </script>
 
 <div class="mx-auto flex w-full max-w-xl flex-col gap-4 px-4 pt-6 sm:pt-10">
@@ -32,7 +39,7 @@
 	</header>
 
 	<p class="text-sm leading-relaxed text-(--color-fg-mute)">
-		Список зафиксирован в базе: 19 упражнений. Свои названия добавить нельзя — только выбор из каталога на
+		Список зафиксирован в базе: 22 упражнения. Свои названия добавить нельзя — только выбор из каталога на
 		экране силовой.
 	</p>
 
@@ -48,6 +55,7 @@
 	{/each}
 
 	<p class="text-xs text-(--color-fg-mute)">
-		Группы «{MUSCLE_GROUP_LABELS.core}» и «{MUSCLE_GROUP_LABELS.other}» в каталоге не используются.
+		В пресетном каталоге нет упражнений в группе «{MUSCLE_GROUP_LABELS.other}» — пустую строку для неё всё
+		равно можно добавить на экране силовой.
 	</p>
 </div>

@@ -10,9 +10,10 @@
 - `migrations/20260430160000_expand_preset_exercises.sql` — расширение пресетов (исторический).
 - `migrations/20260508120000_preset_catalog_v2.sql` — **актуальный** каталог: 19 пресетов, `sort_order`, перенос `workout_sets`, удаление старых пресетов не из списка.
 - `migrations/20260509120000_purge_removed_catalog_exercises.sql` — удаляет из БД все строки с отменёнными именами (в т.ч. пользовательские дубликаты) и связанные подходы; чистит «хвосты» не из финального каталога.
-- `migrations/20260510140000_exercises_muscle_group_enforcement.sql` — триггер фиксирует группу для 19 пресетных UUID; имена с «икр» → `legs`; `CHECK` на допустимые значения `muscle_group`.
+- `migrations/20260510140000_exercises_muscle_group_enforcement.sql` — триггер фиксирует группу для пресетных UUID каталога; имена с «икр» → `legs`; `CHECK` на допустимые значения `muscle_group` (список UUID расширен в `20260513120000_catalog_rear_delt_core.sql`).
 - `migrations/20260511120000_exercises_only_catalog_nineteen.sql` — в таблице остаются только 19 строк каталога; удалены все пользовательские упражнения и подходы к ним; триггер запрещает `INSERT` с `user_id IS NOT NULL`.
 - `migrations/20260512120000_rename_upper_block_pull.sql` — спина №2 в каталоге: название «Тяга верхнего блока».
+- `migrations/20260513120000_catalog_rear_delt_core.sql` — каталог **22** пресета: `arms` +«Задняя дельта», `core` +«Скручивания», «Гиперэкстензия»; обновление `exercises_enforce_muscle_group`; текст исключения `catalog_only` без привязки к числу 19.
 
 ## Накатить
 

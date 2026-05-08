@@ -24,7 +24,7 @@ export const MUSCLE_GROUP_LABELS: Record<MuscleGroup, string> = {
 	back: 'Спина',
 	legs: 'Ноги',
 	arms: 'Руки',
-	core: 'Пресс',
+	core: 'Кор',
 	other: 'Остальное'
 };
 
