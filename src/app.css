@@ -38,11 +38,11 @@
 
 @layer base {
 	/**
-	 * iPhone / PWA: html/body height locked to svh so the shell does not stretch with
-	 * tall routes — scrolling stays on <main>. svh avoids iOS keyboard shrinking layout viewport.
+	 * iPhone / PWA: html/body height locked to lvh — full screen edge-to-edge,
+	 * stable against iOS keyboard (only dvh shrinks). Scrolling stays on <main>.
 	 */
 	html {
-		--app-viewport-height: 100svh;
+		--app-viewport-height: 100lvh;
 		font-family: var(--font-sans);
 		-webkit-font-smoothing: antialiased;
 		-webkit-tap-highlight-color: transparent;
