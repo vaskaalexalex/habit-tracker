@@ -10,3 +10,6 @@ dist
 .serena
 .agents
 skills-lock.json
+
+# Supabase CLI local cache (link state, temp during db pull/push)
+supabase/.temp
