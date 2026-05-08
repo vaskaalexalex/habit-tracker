@@ -39,13 +39,9 @@
 @layer base {
 	/**
 	 * iPhone / PWA: html/body height locked to dvh so the shell does not stretch with
-	 * tall routes — scrolling stays on <main>. BottomNav paints the home-indicator bleed.
+	 * tall routes — scrolling stays on <main>.
 	 */
 	html {
-		--safe-area-bottom: env(safe-area-inset-bottom, 0px);
-		--safe-area-bottom-max: env(safe-area-max-inset-bottom, var(--safe-area-bottom));
-		--bottom-nav-safe-area: max(var(--safe-area-bottom), var(--safe-area-bottom-max), 0px);
-		--bottom-nav-bleed: max(var(--bottom-nav-safe-area), 2rem);
 		--app-viewport-height: 100dvh;
 		font-family: var(--font-sans);
 		-webkit-font-smoothing: antialiased;
@@ -59,8 +55,7 @@
 
 	html,
 	body {
-		/* iOS paints viewport-fit unsafe areas from page background, not fixed children. */
-		background: var(--color-bottom-nav-surface);
+		background: var(--color-bg);
 		color: var(--color-fg);
 	}
 
@@ -117,14 +112,12 @@
 }
 
 @utility safe-bottom {
-	padding-bottom: max(var(--safe-area-bottom), 0.5rem);
+	padding-bottom: 0.5rem;
 }
 
 /** Отступ контента над фиксированным BottomNav; высота nav задаётся ResizeObserver в BottomNav.svelte. */
 @utility pb-bottom-nav {
-	padding-bottom: calc(
-		0.5rem + var(--bottom-nav-outer-height, calc(4.5rem + max(var(--safe-area-bottom), 0.5rem)))
-	);
+	padding-bottom: calc(0.5rem + var(--bottom-nav-outer-height, 4.5rem));
 }
 
 @utility safe-top {

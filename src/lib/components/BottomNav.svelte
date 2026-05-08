@@ -64,16 +64,9 @@
 	}
 </script>
 
-<div
-	class="bottom-nav-surface pointer-events-none fixed inset-x-0 bottom-0 z-20"
-	style="height: var(--bottom-nav-bleed);"
-	aria-hidden="true"
-	data-bottom-nav-underlay
-></div>
 <nav
 	bind:this={navEl}
-	class="bottom-nav-surface fixed inset-x-0 bottom-0 z-30 mx-auto max-w-xl border-t border-(--color-border) px-3 pt-2 sm:rounded-t-3xl"
-	style="padding-bottom: max(var(--safe-area-bottom), 0.5rem);"
+	class="bottom-nav-surface fixed inset-x-0 bottom-0 z-30 mx-auto max-w-xl border-t border-(--color-border) px-3 pb-2 pt-2 sm:rounded-t-3xl"
 	aria-label="Основная навигация"
 >
 	<ul class="grid grid-cols-4 gap-1">

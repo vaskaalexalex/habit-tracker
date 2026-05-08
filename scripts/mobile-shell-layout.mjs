@@ -1,6 +1,6 @@
 /**
- * Playwright: emulate iPhone viewport and assert the fixed bottom nav touches the
- * visual bottom (no stray gap band). Run after build:
+ * Playwright: emulate iPhone viewport and assert the fixed bottom nav is flush with
+ * the visual bottom (no stray gap band). Run after build:
  *
  *   pnpm build && node scripts/mobile-shell-layout.mjs
  *
@@ -50,13 +50,8 @@ async function measureBottomNav(page, label, browserName) {
 			const width = window.innerWidth;
 			const nav = document.querySelector('nav[aria-label="Основная навигация"]');
 			if (!nav) return { ok: false, reason: 'nav missing', label: currentLabel };
-			const underlay = document.querySelector('[data-bottom-nav-underlay]');
-			if (!underlay)
-				return { ok: false, reason: 'bottom nav underlay missing', label: currentLabel };
 			const navRect = nav.getBoundingClientRect();
-			const underlayRect = underlay.getBoundingClientRect();
 			const navGapPx = inner - navRect.bottom;
-			const underlayGapPx = inner - underlayRect.bottom;
 			const lowerBandY = Math.max(0, inner - 2);
 			const lowerBandTop = Math.max(0, inner - 18);
 			const lowerBandSamples = [2, width / 2, width - 2].map((x) => {
@@ -67,10 +62,8 @@ async function measureBottomNav(page, label, browserName) {
 					isNav: !!topElement?.closest?.('nav[aria-label="Основная навигация"]')
 				};
 			});
-			const underlayCoversBottomBand =
-				underlayRect.top <= lowerBandTop &&
-				underlayRect.bottom >= inner - 1 &&
-				underlayRect.height >= 24;
+			const navCoversBottomBand =
+				navRect.top <= lowerBandTop && navRect.bottom >= inner - 1 && navRect.height >= 40;
 			const htmlInlineHeight = document.documentElement.style.height;
 			const styles = getComputedStyle(document.documentElement);
 			const bodyStyles = getComputedStyle(document.body);
@@ -85,18 +78,14 @@ async function measureBottomNav(page, label, browserName) {
 				visualViewportHeight: vv?.height ?? null,
 				navBottom: navRect.bottom,
 				navGapPx,
-				underlayTop: underlayRect.top,
-				underlayBottom: underlayRect.bottom,
-				underlayHeight: underlayRect.height,
-				underlayGapPx,
-				underlayCoversBottomBand,
+				navHeight: navRect.height,
+				navCoversBottomBand,
 				lowerBandSamples,
 				htmlInlineHeight,
 				bodyHasBgBgClass: document.body.classList.contains('bg-bg'),
 				bodyBackground: bodyStyles.backgroundColor,
 				shellBackground: shellStyles?.backgroundColor ?? null,
-				safeAreaBottom: styles.getPropertyValue('--safe-area-bottom').trim(),
-				bottomNavBleed: styles.getPropertyValue('--bottom-nav-bleed').trim()
+				bottomNavOuterHeight: styles.getPropertyValue('--bottom-nav-outer-height').trim()
 			};
 		},
 		{ currentLabel: label, currentBrowserName: browserName }
@@ -113,9 +102,9 @@ async function measureBottomNav(page, label, browserName) {
 		);
 	}
 
-	if (Math.abs(result.underlayGapPx) > tol || !result.underlayCoversBottomBand) {
+	if (!result.navCoversBottomBand) {
 		throw new Error(
-			`${browserName}/${result.label}: bottom underlay does not cover viewport bottom: underlayTop=${result.underlayTop.toFixed(2)} underlayBottom=${result.underlayBottom.toFixed(2)} underlayHeight=${result.underlayHeight.toFixed(2)} inner=${result.inner}`
+			`${browserName}/${result.label}: bottom nav does not cover viewport bottom: navBottom=${result.navBottom.toFixed(2)} navHeight=${result.navHeight.toFixed(2)} inner=${result.inner}`
 		);
 	}
 
@@ -174,7 +163,7 @@ async function runSuite(browserType, browserName) {
 		const afterBlur = await measureBottomNav(page, 'after focus/blur', browserName);
 
 		console.log(
-			`${browserName}: mobile-shell-layout OK: initial navGap=${initial.navGapPx.toFixed(2)}px underlayHeight=${initial.underlayHeight.toFixed(2)}px afterBlur navGap=${afterBlur.navGapPx.toFixed(2)}px innerHeight=${afterBlur.inner}`
+			`${browserName}: mobile-shell-layout OK: initial navGap=${initial.navGapPx.toFixed(2)}px navHeight=${initial.navHeight.toFixed(2)}px afterBlur navGap=${afterBlur.navGapPx.toFixed(2)}px innerHeight=${afterBlur.inner}`
 		);
 	} finally {
 		await browser?.close();
