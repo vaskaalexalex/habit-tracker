@@ -22,6 +22,18 @@ export async function ensureSportNotCompletedIfEmpty(
 }
 
 export async function reconcileSportCompletions(): Promise<void> {
+	/** Dates with logged strength or cardio — habit row must exist (same source as tables). */
+	const withWorkout = new Set<ISODate>();
+	for (const s of strengthStore.sets) {
+		withWorkout.add(s.date);
+	}
+	for (const c of cardioStore.items) {
+		withWorkout.add(c.date);
+	}
+	for (const date of withWorkout) {
+		await ensureSportCompleted(date);
+	}
+
 	const dates = habitsStore.completionsByHabit('sport').map((c) => c.date);
 	for (const date of dates) {
 		const hasStrength = strengthStore.setsForDate(date).length > 0;

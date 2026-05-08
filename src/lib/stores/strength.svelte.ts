@@ -1,5 +1,5 @@
 import { db } from '$db/dexie';
-import { drainQueue, enqueue, hasPendingSync } from '$db/sync';
+import { drainQueue, enqueue } from '$db/sync';
 import { isSupabaseConfigured } from '$supabase/client';
 import { fetchExercises, fetchWorkoutSets } from '$supabase/api';
 import type { Exercise, ISODate, UUID, WorkoutSet } from '$supabase/types';
@@ -64,12 +64,8 @@ class StrengthStore {
 				});
 				await db.exercises.bulkPut(remoteEx);
 				await db.workout_sets.bulkPut(remoteSets);
-				this.exercises = (await hasPendingSync('exercises'))
-					? mergeByKey(localEx, remoteEx, (item) => item.id)
-					: remoteEx;
-				this.sets = (await hasPendingSync('workout_sets'))
-					? mergeByKey(localSets, remoteSets, (item) => item.id)
-					: remoteSets;
+				this.exercises = mergeByKey(localEx, remoteEx, (item) => item.id);
+				this.sets = mergeByKey(localSets, remoteSets, (item) => item.id);
 			} catch (err) {
 				syncDebug('strength-remote-error', {
 					error: err instanceof Error ? err.message : String(err)
