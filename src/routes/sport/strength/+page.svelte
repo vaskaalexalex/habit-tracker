@@ -33,7 +33,7 @@
 
 	type SerializedRow = Pick<Row, 'id' | 'group' | 'exerciseId' | 'weight' | 'sets'>;
 
-	/** Все группы в селекте «+» (в «Остальном» может не быть пресетов в каталоге). */
+	/** Группы в селекте «+» (совпадает с порядком каталога). */
 	const ADD_ROW_MUSCLE_GROUPS = MUSCLE_GROUP_ORDER;
 
 	const TEMPLATE: Array<{ group: MuscleGroup; count: number }> = [
@@ -47,8 +47,10 @@
 
 	function normalizeMuscle(raw: string | null): MuscleGroup {
 		if (raw === 'shoulders') return 'arms';
-		const r = raw ?? 'other';
-		return (MUSCLE_GROUP_ORDER as readonly string[]).includes(r) ? (r as MuscleGroup) : 'other';
+		if (raw === 'other') return 'arms';
+		const r = (raw ?? '').trim().toLowerCase();
+		if ((MUSCLE_GROUP_ORDER as readonly string[]).includes(r)) return r as MuscleGroup;
+		return 'arms';
 	}
 
 	function makeRow(group: MuscleGroup): Row {
@@ -192,6 +194,12 @@
 		MUSCLE_GROUP_ORDER.filter((g) => rows.some((r) => r.group === g))
 	);
 
+	const coreCatalogMissing = $derived(
+		strengthStore.loaded &&
+			rows.some((r) => r.group === 'core') &&
+			!strengthStore.exercises.some((e) => !e.hidden && e.muscle_group?.trim().toLowerCase() === 'core')
+	);
+
 	function rowsByGroup(group: MuscleGroup): Row[] {
 		return rows.filter((r) => r.group === group);
 	}
@@ -330,6 +338,12 @@
 					</span>
 					<span class="h-px flex-1 bg-(--color-border)"></span>
 				</div>
+				{#if group === 'core' && coreCatalogMissing}
+					<p class="px-1 text-[11px] leading-snug text-amber-600 dark:text-amber-400">
+						В каталоге нет упражнений «Кор». Накати миграцию
+						<span class="rounded bg-(--color-bg-mute) px-1 font-mono text-[10px]">20260513120000_catalog_rear_delt_core.sql</span> в Supabase (SQL Editor или <span class="font-mono">supabase db push</span>), затем обнови страницу.
+					</p>
+				{/if}
 
 				{#each rowsByGroup(group) as row (row.id)}
 					<div class="flex flex-col gap-1">
@@ -367,7 +381,7 @@
 								onclick={() => removeRow(row.id)}
 								class="grid size-8 place-items-center rounded-lg text-(--color-fg-mute) hover:bg-(--color-bg-mute) hover:text-rose-400 disabled:opacity-30"
 								aria-label="Удалить строку"
-								disabled={rowsByGroup(group).length <= 1}
+								disabled={rows.length <= 1}
 							>
 								<Trash2 size={14} />
 							</button>

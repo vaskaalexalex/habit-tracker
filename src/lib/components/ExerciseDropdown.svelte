@@ -38,8 +38,10 @@
 
 	function normalizeMuscle(raw: string | null): MuscleGroup {
 		if (raw === 'shoulders') return 'arms';
-		const r = raw ?? 'other';
-		return (MUSCLE_GROUP_ORDER as readonly string[]).includes(r) ? (r as MuscleGroup) : 'other';
+		if (raw === 'other') return 'arms';
+		const r = (raw ?? '').trim().toLowerCase();
+		if ((MUSCLE_GROUP_ORDER as readonly string[]).includes(r)) return r as MuscleGroup;
+		return 'arms';
 	}
 
 	function compareExercises(a: Exercise, b: Exercise): number {

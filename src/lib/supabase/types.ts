@@ -1,13 +1,7 @@
 export type HabitType = 'sport' | 'coding' | 'reading' | 'journal';
 export type CardioType = 'warmup' | 'run' | 'swim' | 'basketball' | 'walk';
 
-export type MuscleGroup =
-	| 'chest'
-	| 'back'
-	| 'legs'
-	| 'arms'
-	| 'core'
-	| 'other';
+export type MuscleGroup = 'chest' | 'back' | 'legs' | 'arms' | 'core';
 
 /** Display order inside ExerciseDropdown and catalogs (matches preset seed groups). */
 export const MUSCLE_GROUP_ORDER: readonly MuscleGroup[] = [
@@ -15,8 +9,7 @@ export const MUSCLE_GROUP_ORDER: readonly MuscleGroup[] = [
 	'back',
 	'legs',
 	'arms',
-	'core',
-	'other'
+	'core'
 ] as const;
 
 export const MUSCLE_GROUP_LABELS: Record<MuscleGroup, string> = {
@@ -24,8 +17,7 @@ export const MUSCLE_GROUP_LABELS: Record<MuscleGroup, string> = {
 	back: 'Спина',
 	legs: 'Ноги',
 	arms: 'Руки',
-	core: 'Кор',
-	other: 'Остальное'
+	core: 'Кор'
 };
 
 export const CARDIO_ORDER: readonly CardioType[] = [
