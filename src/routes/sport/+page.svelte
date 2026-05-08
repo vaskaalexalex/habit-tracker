@@ -53,7 +53,7 @@
 <div class="mx-auto flex w-full max-w-xl flex-col gap-4 px-4 pt-6 sm:pt-10">
 	<header class="flex items-center justify-between gap-3">
 		<div class="min-w-0">
-			<p class="text-xs font-bold uppercase tracking-wider text-(--color-accent)">Тренировки</p>
+			<p class="page-kicker">Тренировки</p>
 			<h1 class="mt-1 text-2xl font-black tracking-tight">Спорт</h1>
 			<p class="mt-1 text-sm font-medium text-(--color-fg-mute)">
 				Сегодня: {workoutsToday} {trainingsWord(workoutsToday)}

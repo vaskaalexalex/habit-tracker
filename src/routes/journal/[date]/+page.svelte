@@ -33,7 +33,7 @@
 	<header class="flex items-center gap-2">
 		<BackButton fallback="/journal" />
 		<div class="min-w-0 flex-1">
-			<p class="text-xs font-bold uppercase tracking-wider text-(--color-accent)">День</p>
+			<p class="page-kicker">День</p>
 			<h1 class="mt-0.5 text-2xl font-black tracking-tight">
 				{date ? formatRu(date) : '—'}
 			</h1>

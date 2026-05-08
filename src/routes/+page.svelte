@@ -54,9 +54,7 @@
 	class="mx-auto flex min-h-0 w-full max-w-xl flex-1 flex-col gap-3 px-4 pb-2 pt-6 max-[380px]:gap-2 sm:gap-5 sm:pb-3 sm:pt-10"
 >
 	<div class="shrink-0">
-		<p class="text-[9px] font-bold uppercase tracking-wider text-(--color-accent) sm:text-[10px]">
-			Сегодня
-		</p>
+		<p class="page-kicker">Сегодня</p>
 		<p
 			class="mt-0.5 font-black uppercase leading-none tracking-tighter text-(--color-fg)"
 			style="font-size: clamp(1.1rem, 5vw, 1.85rem);"

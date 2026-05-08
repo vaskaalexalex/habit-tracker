@@ -27,7 +27,7 @@
 	<header class="flex items-center gap-2">
 		<BackButton fallback="/" />
 		<div class="min-w-0 flex-1">
-			<p class="text-xs font-bold uppercase tracking-wider text-(--color-accent)">Записки</p>
+			<p class="page-kicker">Записки</p>
 			<h1 class="mt-0.5 text-2xl font-black tracking-tight">Дневник</h1>
 			<p class="mt-1 text-sm font-medium text-(--color-fg-mute)">
 				Сегодня — {formatRu(today, 'd MMMM')}

@@ -291,7 +291,7 @@
 	<header class="flex items-center gap-2">
 		<BackButton fallback="/sport" />
 		<div class="min-w-0 flex-1">
-			<p class="text-xs font-bold uppercase tracking-wider text-(--color-accent)">Сессия</p>
+			<p class="page-kicker">Сессия</p>
 			<h1 class="mt-0.5 text-2xl font-black tracking-tight">Силовая</h1>
 			<p class="mt-0.5 text-sm font-medium text-(--color-fg-mute)">{formatRu(today)}</p>
 		</div>

@@ -40,7 +40,7 @@
 				<Sparkles size={22} />
 			</div>
 			<div>
-				<p class="text-[11px] font-bold uppercase tracking-wider text-(--color-accent)">Вход</p>
+				<p class="page-kicker">Вход</p>
 				<h1 class="mt-1 text-xl font-black tracking-tight sm:text-2xl">Habit</h1>
 				<p class="mt-1 text-sm font-medium text-(--color-fg-mute)">Email и пароль</p>
 			</div>

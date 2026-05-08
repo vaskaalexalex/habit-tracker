@@ -20,7 +20,7 @@
 
 <div class="preview-shell-v2 flex flex-col gap-6">
 	<div>
-		<p class="text-xs font-bold uppercase tracking-wider text-(--color-accent)">Сегодня</p>
+		<p class="page-kicker">Сегодня</p>
 		<p
 			class="mt-2 font-black uppercase leading-none tracking-tighter text-(--color-fg)"
 			style="font-size: clamp(2rem, 12vw, 3rem);"

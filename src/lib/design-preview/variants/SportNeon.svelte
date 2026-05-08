@@ -21,7 +21,7 @@
 <div class="preview-shell-v5 flex flex-col gap-6">
 	<header class="flex items-start justify-between gap-3 px-0.5">
 		<div>
-			<p class="text-xs font-bold uppercase tracking-[0.25em] text-(--color-accent)">Трекер</p>
+			<p class="page-kicker">Трекер</p>
 			<h1 class="mt-2 text-lg font-bold tracking-tight">Привычки · {todayLabel}</h1>
 			{#if profileName.trim()}
 				<p class="mt-1 text-xs text-(--color-fg-mute)">{profileName}</p>

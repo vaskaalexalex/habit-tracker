@@ -124,6 +124,16 @@
 	padding-top: max(env(safe-area-inset-top, 0px), 0.5rem);
 }
 
+/** First-line accent label above page titles (aligned size across screens). */
+@utility page-kicker {
+	font-size: 0.75rem;
+	line-height: 1rem;
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	color: var(--color-accent);
+}
+
 @utility tap-target {
 	min-height: 44px;
 	min-width: 44px;
@@ -154,4 +164,29 @@
 	flex-direction: column;
 	overflow: hidden;
 	background: var(--color-bg);
+}
+
+/** Indeterminate segment for root layout bootstrap (see +layout.svelte). */
+@keyframes bootstrap-load-indeterminate {
+	0% {
+		transform: translate3d(-100%, 0, 0);
+	}
+	100% {
+		transform: translate3d(350%, 0, 0);
+	}
+}
+
+.bootstrap-load-bar__stripe {
+	width: 42%;
+	height: 100%;
+	background: linear-gradient(
+		90deg,
+		transparent,
+		color-mix(in oklch, var(--color-accent) 85%, transparent),
+		var(--color-accent),
+		color-mix(in oklch, var(--color-accent) 85%, transparent),
+		transparent
+	);
+	animation: bootstrap-load-indeterminate 1.05s ease-in-out infinite;
+	will-change: transform;
 }

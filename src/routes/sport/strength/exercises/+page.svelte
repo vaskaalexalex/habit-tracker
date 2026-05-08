@@ -32,7 +32,7 @@
 	<header class="flex items-center gap-2">
 		<BackButton fallback="/sport/strength" />
 		<div class="min-w-0 flex-1">
-			<p class="text-xs font-bold uppercase tracking-wider text-(--color-accent)">Библиотека</p>
+			<p class="page-kicker">Библиотека</p>
 			<h1 class="mt-0.5 text-2xl font-black tracking-tight">Каталог упражнений</h1>
 		</div>
 	</header>

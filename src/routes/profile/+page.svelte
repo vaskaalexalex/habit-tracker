@@ -29,7 +29,7 @@
 
 <div class="mx-auto flex w-full max-w-xl flex-col gap-5 px-4 pb-6 pt-6 sm:gap-6 sm:pt-10">
 	<header>
-		<p class="text-xs font-bold uppercase tracking-wider text-(--color-accent)">Аккаунт</p>
+		<p class="page-kicker">Аккаунт</p>
 		<h1 class="mt-2 text-2xl font-black tracking-tight text-(--color-fg)">Профиль</h1>
 		<p class="mt-1 text-sm font-medium text-(--color-fg-mute)">{authStore.user?.email ?? '—'}</p>
 	</header>

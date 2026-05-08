@@ -51,7 +51,7 @@
 	<header class="flex items-center gap-2">
 		<BackButton fallback="/sport" />
 		<div class="min-w-0 flex-1">
-			<p class="text-xs font-bold uppercase tracking-wider text-(--color-accent)">Кардио</p>
+			<p class="page-kicker">Кардио</p>
 			<h1 class="mt-0.5 text-2xl font-black tracking-tight">Другая активность</h1>
 		</div>
 	</header>
