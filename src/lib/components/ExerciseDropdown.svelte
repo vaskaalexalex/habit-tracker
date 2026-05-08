@@ -11,7 +11,7 @@
 		oncreate?: (name: string) => void | Promise<void>;
 		placeholder?: string;
 		compact?: boolean;
-		/** Limit list to this muscle group (e.g. row in «Грудь»). User can expand via chips. */
+		/** Limit list to this muscle group (e.g. row in «Грудь»). No group chip row in the panel. */
 		groupFilter?: MuscleGroup | null;
 	}
 
@@ -33,8 +33,6 @@
 	let inputEl = $state<HTMLInputElement | null>(null);
 	let rootEl = $state<HTMLDivElement | null>(null);
 	let alignRight = $state(false);
-	/** When parent passes groupFilter: false = only that group; true = full catalog + chips */
-	let expandAllGroups = $state(false);
 	/** When no row-level groupFilter: narrow list by muscle */
 	let chipFilter = $state<MuscleGroup | 'all'>('all');
 
@@ -70,10 +68,8 @@
 		return () => document.removeEventListener('mousedown', onDocClick);
 	});
 
-	// New row scope → start collapsed to that group again
 	$effect(() => {
 		groupFilter;
-		expandAllGroups = false;
 		chipFilter = 'all';
 	});
 
@@ -85,7 +81,7 @@
 			if (!e.name.toLowerCase().includes(query.trim().toLowerCase())) return false;
 			const g = normalizeMuscle(e.muscle_group);
 
-			if (groupFilter && !expandAllGroups) {
+			if (groupFilter) {
 				return g === groupFilter;
 			}
 
@@ -169,38 +165,8 @@
 				{/if}
 			</div>
 
-			<div class="flex shrink-0 flex-wrap gap-1 border-b border-(--color-border) px-2 py-2" role="radiogroup" aria-label="Группа мышц">
-				{#if groupFilter && !expandAllGroups}
-					<button
-						type="button"
-						disabled
-						class="rounded-full bg-(--color-accent) px-2.5 py-1 text-xs font-medium text-white opacity-90"
-					>
-						{GROUP_LABELS[groupFilter]}
-					</button>
-					<button
-						type="button"
-						onclick={() => {
-							expandAllGroups = true;
-							chipFilter = groupFilter;
-						}}
-						class="rounded-full bg-(--color-bg-mute) px-2.5 py-1 text-xs font-medium text-(--color-fg) hover:bg-(--color-bg-soft)"
-					>
-						Все группы
-					</button>
-				{:else}
-					{#if groupFilter && expandAllGroups}
-						<button
-							type="button"
-							onclick={() => {
-								expandAllGroups = false;
-								chipFilter = 'all';
-							}}
-							class="rounded-full bg-(--color-bg-mute) px-2 py-1 text-[11px] font-medium text-(--color-fg-mute) hover:text-(--color-fg)"
-						>
-							← только «{GROUP_LABELS[groupFilter]}»
-						</button>
-					{/if}
+			{#if !groupFilter}
+				<div class="flex shrink-0 flex-wrap gap-1 border-b border-(--color-border) px-2 py-2" role="radiogroup" aria-label="Группа мышц">
 					<button
 						type="button"
 						onclick={() => (chipFilter = 'all')}
@@ -224,8 +190,8 @@
 							{GROUP_LABELS[g]}
 						</button>
 					{/each}
-				{/if}
-			</div>
+				</div>
+			{/if}
 
 			<div class="min-h-0 flex-1 overflow-y-auto overscroll-contain py-1">
 				{#each GROUP_ORDER as g (g)}

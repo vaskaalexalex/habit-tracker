@@ -11,13 +11,19 @@
 	} from 'date-fns';
 	import { ru } from 'date-fns/locale';
 	import { untrack } from 'svelte';
-	import type { HabitCompletion } from '$supabase/types';
+	import { onMount } from 'svelte';
+	import type { HabitCompletion, ISODate, JournalEntry } from '$supabase/types';
 	import { HABIT_LABELS, HABIT_ORDER } from '$supabase/types';
 	import { lastNMonthsRange, toISO } from '$utils/dates';
 	import { ChevronLeft, ChevronRight } from 'lucide-svelte';
 
 	interface Props {
-		completions: HabitCompletion[];
+		/** Привычки (главная). В режиме journal не используется. */
+		completions?: HabitCompletion[];
+		/** `journal` — интенсивность по записям дневника, клик по дню. */
+		variant?: 'habits' | 'journal';
+		journalEntries?: JournalEntry[];
+		onJournalDayClick?: (date: ISODate) => void;
 		months?: number;
 		/** Ширина ячейки дня (px). По умолчанию как в проде. */
 		cellSize?: number;
@@ -27,7 +33,44 @@
 		sectionClass?: string;
 	}
 
-	let { completions, months = 6, cellSize = 12, cellGap = 3, sectionClass = '' }: Props = $props();
+	let {
+		completions = [],
+		variant = 'habits',
+		journalEntries = [],
+		onJournalDayClick,
+		months = 6,
+		cellSize = 12,
+		cellGap = 3,
+		sectionClass = ''
+	}: Props = $props();
+
+	function journalActivityLevel(e: JournalEntry): number {
+		const text = e.content.trim();
+		if (text.length === 0 && e.mood == null) return 0;
+		if (e.mood != null) {
+			const m = e.mood;
+			if (m <= 2) return 1;
+			if (m <= 5) return 2;
+			if (m <= 7) return 3;
+			return 4;
+		}
+		return 2;
+	}
+
+	const journalLevels = $derived.by(() => {
+		const map = new Map<string, number>();
+		if (variant !== 'journal') return map;
+		for (const e of journalEntries) {
+			map.set(e.date, journalActivityLevel(e));
+		}
+		return map;
+	});
+
+	const journalByDate = $derived.by(() => {
+		const map = new Map<string, JournalEntry>();
+		for (const e of journalEntries) map.set(e.date, e);
+		return map;
+	});
 
 	type Period = 'month' | '6m' | 'year';
 	const PERIOD_MONTHS: Record<Period, number> = { month: 1, '6m': 6, year: 12 };
@@ -48,9 +91,16 @@
 
 	const yearOptions = $derived.by(() => {
 		const set = new Set<number>([currentYear]);
-		for (const c of completions) {
-			const y = parseInt(c.date.slice(0, 4), 10);
-			if (!Number.isNaN(y)) set.add(y);
+		if (variant === 'journal') {
+			for (const e of journalEntries) {
+				const y = parseInt(e.date.slice(0, 4), 10);
+				if (!Number.isNaN(y)) set.add(y);
+			}
+		} else {
+			for (const c of completions) {
+				const y = parseInt(c.date.slice(0, 4), 10);
+				if (!Number.isNaN(y)) set.add(y);
+			}
 		}
 		return [...set].sort((a, b) => b - a);
 	});
@@ -96,6 +146,7 @@
 	];
 
 	function level(iso: string): number {
+		if (variant === 'journal') return journalLevels.get(iso) ?? 0;
 		return counts.get(iso)?.size ?? 0;
 	}
 
@@ -124,23 +175,102 @@
 
 	const ROW_LABELS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'] as const;
 
-	let wrapperEl: HTMLDivElement | undefined = $state();
-	let hover = $state<{ iso: string; x: number; y: number } | null>(null);
+	/** Viewport snapshot of hovered cell for fixed-position tooltip (not tied to scroll parent). */
+	type CellAnchor = {
+		iso: string;
+		left: number;
+		top: number;
+		right: number;
+		bottom: number;
+		width: number;
+		height: number;
+	};
 
-	function showTooltip(iso: string, ev: Event) {
-		const target = ev.currentTarget;
-		if (!(target instanceof SVGRectElement) || !wrapperEl) return;
-		const r = target.getBoundingClientRect();
-		const w = wrapperEl.getBoundingClientRect();
-		hover = {
+	let hover = $state<CellAnchor | null>(null);
+	let tooltipEl: HTMLDivElement | undefined = $state();
+	/** `position:fixed` coords after clamping into visual viewport */
+	let tooltipFixed = $state<{ left: number; top: number } | null>(null);
+
+	let hideHoverTimer: ReturnType<typeof setTimeout> | null = null;
+
+	function clearHideHoverTimer() {
+		if (hideHoverTimer != null) {
+			clearTimeout(hideHoverTimer);
+			hideHoverTimer = null;
+		}
+	}
+
+	function hideHoverNow() {
+		clearHideHoverTimer();
+		hover = null;
+		tooltipFixed = null;
+	}
+
+	/** Delay so pointer can move onto the fixed tooltip (scroll long journal text). */
+	function scheduleHideHover() {
+		clearHideHoverTimer();
+		hideHoverTimer = setTimeout(() => {
+			hideHoverTimer = null;
+			hover = null;
+			tooltipFixed = null;
+		}, 220);
+	}
+
+	function rectToAnchor(iso: string, r: DOMRect): CellAnchor {
+		return {
 			iso,
-			x: r.left - w.left + r.width / 2,
-			y: r.top - w.top
+			left: r.left,
+			top: r.top,
+			right: r.right,
+			bottom: r.bottom,
+			width: r.width,
+			height: r.height
 		};
 	}
 
+	function showTooltip(iso: string, ev: Event) {
+		clearHideHoverTimer();
+		const target = ev.currentTarget;
+		if (!(target instanceof SVGRectElement)) return;
+		hover = rectToAnchor(iso, target.getBoundingClientRect());
+	}
+
 	function hideTooltip() {
-		hover = null;
+		scheduleHideHover();
+	}
+
+	function layoutTooltip() {
+		if (!hover || !tooltipEl) {
+			tooltipFixed = null;
+			return;
+		}
+		const pad = 10;
+		const vv = window.visualViewport;
+		const vx = vv?.offsetLeft ?? 0;
+		const vy = vv?.offsetTop ?? 0;
+		const vw = vv?.width ?? window.innerWidth;
+		const vh = vv?.height ?? window.innerHeight;
+
+		const tw = tooltipEl.offsetWidth;
+		const th = tooltipEl.offsetHeight;
+		const cx = hover.left + hover.width / 2;
+
+		let left = cx - tw / 2;
+		let top = hover.top - th - 8;
+
+		if (top < vy + pad) {
+			top = hover.bottom + 8;
+		}
+		if (top + th > vy + vh - pad) {
+			top = vy + vh - pad - th;
+		}
+		if (top < vy + pad) {
+			top = vy + pad;
+		}
+
+		left = Math.max(vx + pad, Math.min(left, vx + vw - pad - tw));
+
+		tooltipFixed = { left, top };
 	}
 
 	const hoverDate = $derived(
@@ -148,7 +278,73 @@
 	);
 	const hoverDone = $derived(hover ? doneList(hover.iso) : []);
 
+	const hoverJournalEntry = $derived(
+		variant === 'journal' && hover ? (journalByDate.get(hover.iso) ?? null) : null
+	);
+
+	$effect(() => {
+		if (!hover || !tooltipEl) {
+			tooltipFixed = null;
+			return;
+		}
+
+		let ro: ResizeObserver | undefined;
+		let cancelled = false;
+
+		const tick = () => {
+			requestAnimationFrame(() => {
+				if (cancelled || !tooltipEl || !hover) return;
+				layoutTooltip();
+				ro?.disconnect();
+				ro = new ResizeObserver(() => layoutTooltip());
+				ro.observe(tooltipEl);
+			});
+		};
+
+		tick();
+
+		return () => {
+			cancelled = true;
+			ro?.disconnect();
+		};
+	});
+
+	onMount(() => {
+		const onScrollOrResize = () => {
+			if (hover) hideHoverNow();
+		};
+		window.addEventListener('scroll', onScrollOrResize, true);
+		window.addEventListener('resize', onScrollOrResize);
+		const vv = window.visualViewport;
+		vv?.addEventListener('resize', onScrollOrResize);
+		vv?.addEventListener('scroll', onScrollOrResize);
+		return () => {
+			clearHideHoverTimer();
+			window.removeEventListener('scroll', onScrollOrResize, true);
+			window.removeEventListener('resize', onScrollOrResize);
+			vv?.removeEventListener('resize', onScrollOrResize);
+			vv?.removeEventListener('scroll', onScrollOrResize);
+		};
+	});
+
 	const gridSvgHeight = $derived(headerH + 7 * (cellSize + cellGap) - cellGap);
+
+	const svgAriaLabel = $derived(
+		variant === 'journal' ? 'Активность дневника по дням' : 'Активность привычек'
+	);
+
+	function dayCellClick(iso: string, ev: MouseEvent) {
+		if (variant !== 'journal' || !onJournalDayClick) return;
+		ev.preventDefault();
+		hideHoverNow();
+		onJournalDayClick(iso as ISODate);
+	}
+
+	$effect(() => {
+		void period;
+		void year;
+		hideHoverNow();
+	});
 </script>
 
 <div class="hairline rounded-3xl bg-(--color-bg-soft) p-4 {sectionClass}">
@@ -204,7 +400,7 @@
 		</div>
 	</div>
 
-	<div class="relative" bind:this={wrapperEl}>
+	<div class="relative">
 		<div
 			class="overflow-x-auto overflow-y-hidden [scrollbar-gutter:stable]"
 			style="min-height: {gridSvgHeight}px;"
@@ -214,7 +410,7 @@
 				height={gridSvgHeight}
 				class="block"
 				role="img"
-				aria-label="Активность привычек"
+				aria-label={svgAriaLabel}
 			>
 				<g transform="translate({ROW_LABEL_W}, 12)">
 					{#each monthMarkers as m, i (i)}
@@ -246,6 +442,9 @@
 						{@const row = slot % 7}
 						{@const iso = toISO(day)}
 						{@const lvl = level(iso)}
+						<!-- SVG cells: pointer tooltip everywhere; journal variant navigates on tap — no native interactive role inside SVG. -->
+						<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+						<!-- svelte-ignore a11y_click_events_have_key_events -->
 						<rect
 							x={col * (cellSize + cellGap)}
 							y={row * (cellSize + cellGap)}
@@ -255,12 +454,16 @@
 							ry={2.5}
 							fill={SHADES[lvl]}
 							role="img"
-							aria-label={iso}
+							aria-label={variant === 'journal' && onJournalDayClick
+								? `Открыть запись за ${iso}`
+								: iso}
 							class="cell"
+							class:cell-clickable={variant === 'journal' && !!onJournalDayClick}
 							class:active={hover?.iso === iso}
 							onpointerenter={(e) => showTooltip(iso, e)}
 							onpointerleave={hideTooltip}
 							onpointercancel={hideTooltip}
+							onclick={(e) => dayCellClick(iso, e)}
 						/>
 					{/each}
 				</g>
@@ -269,15 +472,42 @@
 
 		{#if hover}
 			<div
-				class="hairline pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-full rounded-xl bg-(--color-bg) px-2.5 py-1.5 text-xs shadow-lg"
-				style="left: {hover.x}px; top: {hover.y - 6}px;"
+				bind:this={tooltipEl}
+				class="heatmap-tooltip hairline fixed z-[300] max-h-[min(28rem,calc(100dvh-1.25rem))] w-max max-w-[min(22rem,calc(100vw-1.25rem))] overflow-hidden rounded-xl bg-(--color-bg) px-2.5 py-1.5 text-xs shadow-lg"
+				style:left={tooltipFixed !== null ? `${tooltipFixed.left}px` : '-9999px'}
+				style:top={tooltipFixed !== null ? `${tooltipFixed.top}px` : '-9999px'}
+				style:opacity={tooltipFixed !== null ? '1' : '0'}
 				role="tooltip"
+				onpointerenter={clearHideHoverTimer}
+				onpointerleave={hideTooltip}
 			>
-				<p class="font-medium tabular-nums">{hoverDate}</p>
-				{#if hoverDone.length === 0}
-					<p class="text-(--color-fg-mute)">без отметок</p>
+				<p class="pointer-events-none font-medium tabular-nums">{hoverDate}</p>
+				{#if variant === 'journal'}
+					{#if !hoverJournalEntry || journalActivityLevel(hoverJournalEntry) === 0}
+						<p class="pointer-events-none text-(--color-fg-mute)">нет записи</p>
+					{:else}
+						{#if hoverJournalEntry.mood != null}
+							<p class="pointer-events-none text-(--color-fg-mute)">
+								Настроение <span class="text-(--color-fg)">{hoverJournalEntry.mood}</span>/10
+							</p>
+						{/if}
+						{#if hoverJournalEntry.content.trim()}
+							<div
+								class="pointer-events-auto mt-1 max-h-[min(240px,38vh)] overflow-y-auto overscroll-contain text-pretty break-words text-(--color-fg-soft)"
+							>
+								{hoverJournalEntry.content.trim()}
+							</div>
+						{/if}
+						{#if onJournalDayClick}
+							<p class="pointer-events-none mt-1 text-[10px] text-(--color-fg-mute)">
+								Нажми, чтобы открыть
+							</p>
+						{/if}
+					{/if}
+				{:else if hoverDone.length === 0}
+					<p class="pointer-events-none text-(--color-fg-mute)">без отметок</p>
 				{:else}
-					<p class="text-(--color-fg-mute)">
+					<p class="pointer-events-none break-words text-(--color-fg-mute)">
 						{hoverDone.join(', ')}
 						<span class="text-(--color-fg)">({hoverDone.length}/4)</span>
 					</p>
@@ -297,6 +527,10 @@
 		filter: brightness(1.2);
 		stroke: var(--color-fg);
 		stroke-width: 1;
+	}
+
+	.cell-clickable {
+		cursor: pointer;
 	}
 
 	button.active {

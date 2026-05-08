@@ -7,8 +7,21 @@
 	import { cardioStore } from '$stores/cardio.svelte';
 
 	const today = $derived(todayStore.today);
-	const strengthCount = $derived(strengthStore.setsForDate(today).length);
-	const cardioToday = $derived(cardioStore.items.filter((c) => c.date === today).length);
+
+	/** Одна «тренировка» за день по типу: силовая или кардио, не число подходов/записей. */
+	const hasStrengthToday = $derived(strengthStore.setsForDate(today).length > 0);
+	const hasCardioToday = $derived(cardioStore.items.some((c) => c.date === today));
+
+	const workoutsToday = $derived((hasStrengthToday ? 1 : 0) + (hasCardioToday ? 1 : 0));
+
+	function trainingsWord(n: number): string {
+		const n100 = n % 100;
+		const n10 = n % 10;
+		if (n100 >= 11 && n100 <= 14) return 'тренировок';
+		if (n10 === 1) return 'тренировка';
+		if (n10 >= 2 && n10 <= 4) return 'тренировки';
+		return 'тренировок';
+	}
 
 	const tiles = $derived([
 		{
@@ -18,7 +31,7 @@
 			icon: Dumbbell,
 			color: 'var(--color-sport)',
 			gradient: 'from-orange-500/30 to-rose-500/10',
-			count: strengthCount
+			count: hasStrengthToday ? 1 : 0
 		},
 		{
 			href: `${base}/sport/cardio`,
@@ -27,7 +40,7 @@
 			icon: HeartPulse,
 			color: 'var(--color-coding)',
 			gradient: 'from-emerald-500/30 to-teal-500/10',
-			count: cardioToday
+			count: hasCardioToday ? 1 : 0
 		}
 	]);
 
@@ -43,7 +56,7 @@
 			<p class="text-xs font-bold uppercase tracking-wider text-(--color-accent)">Тренировки</p>
 			<h1 class="mt-1 text-2xl font-black tracking-tight">Спорт</h1>
 			<p class="mt-1 text-sm font-medium text-(--color-fg-mute)">
-				Сегодня: {strengthCount + cardioToday} запис(ей)
+				Сегодня: {workoutsToday} {trainingsWord(workoutsToday)}
 			</p>
 		</div>
 		<a
