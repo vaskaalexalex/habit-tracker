@@ -188,6 +188,15 @@
 
 	let hover = $state<CellAnchor | null>(null);
 	let tooltipEl: HTMLDivElement | undefined = $state();
+	let cardRootEl: HTMLDivElement | undefined = $state();
+	/** Primary input cannot hover (phones): tap pins tooltip; journal day opens on second tap. */
+	let touchTooltipMode = $state(false);
+	/** Latest values for document/scroll listeners registered in onMount (avoid stale closures). */
+	const pointerUiRef = { touch: false, hover: null as CellAnchor | null };
+	$effect(() => {
+		pointerUiRef.touch = touchTooltipMode;
+		pointerUiRef.hover = hover;
+	});
 	/** `position:fixed` coords after clamping into visual viewport */
 	let tooltipFixed = $state<{ left: number; top: number } | null>(null);
 
@@ -310,16 +319,34 @@
 	});
 
 	onMount(() => {
+		const mql = window.matchMedia('(hover: none)');
+		const syncTouchTooltipMode = () => {
+			touchTooltipMode = mql.matches;
+		};
+		syncTouchTooltipMode();
+		mql.addEventListener('change', syncTouchTooltipMode);
+
 		const onScrollOrResize = () => {
-			if (hover) hideHoverNow();
+			if (pointerUiRef.hover) hideHoverNow();
 		};
 		window.addEventListener('scroll', onScrollOrResize, true);
 		window.addEventListener('resize', onScrollOrResize);
 		const vv = window.visualViewport;
 		vv?.addEventListener('resize', onScrollOrResize);
 		vv?.addEventListener('scroll', onScrollOrResize);
+
+		const onDocPointerDown = (ev: PointerEvent) => {
+			if (!pointerUiRef.touch || !pointerUiRef.hover) return;
+			const root = cardRootEl;
+			const t = ev.target;
+			if (!(t instanceof Node) || !root?.contains(t)) hideHoverNow();
+		};
+		document.addEventListener('pointerdown', onDocPointerDown, true);
+
 		return () => {
+			mql.removeEventListener('change', syncTouchTooltipMode);
 			clearHideHoverTimer();
+			document.removeEventListener('pointerdown', onDocPointerDown, true);
 			window.removeEventListener('scroll', onScrollOrResize, true);
 			window.removeEventListener('resize', onScrollOrResize);
 			vv?.removeEventListener('resize', onScrollOrResize);
@@ -334,6 +361,29 @@
 	);
 
 	function dayCellClick(iso: string, ev: MouseEvent) {
+		if (touchTooltipMode) {
+			const target = ev.currentTarget;
+			if (!(target instanceof SVGRectElement)) return;
+
+			if (variant === 'journal' && onJournalDayClick) {
+				if (hover?.iso === iso) {
+					ev.preventDefault();
+					hideHoverNow();
+					onJournalDayClick(iso as ISODate);
+				} else {
+					showTooltip(iso, ev);
+				}
+				return;
+			}
+
+			if (hover?.iso === iso) {
+				hideHoverNow();
+			} else {
+				showTooltip(iso, ev);
+			}
+			return;
+		}
+
 		if (variant !== 'journal' || !onJournalDayClick) return;
 		ev.preventDefault();
 		hideHoverNow();
@@ -347,7 +397,11 @@
 	});
 </script>
 
-<div class="hairline rounded-3xl bg-(--color-bg-soft) p-4 {sectionClass}">
+<div
+	bind:this={cardRootEl}
+	class="hairline rounded-3xl bg-(--color-bg-soft) p-4 {sectionClass}"
+	class:heatmap-touch-mode={touchTooltipMode}
+>
 	<div class="mb-3 flex flex-col gap-2">
 		<h3 class="text-sm font-medium">Активность</h3>
 
@@ -455,14 +509,16 @@
 							fill={SHADES[lvl]}
 							role="img"
 							aria-label={variant === 'journal' && onJournalDayClick
-								? `Открыть запись за ${iso}`
+								? touchTooltipMode
+									? `Запись за ${iso}. Нажми ещё раз, чтобы открыть`
+									: `Открыть запись за ${iso}`
 								: iso}
 							class="cell"
 							class:cell-clickable={variant === 'journal' && !!onJournalDayClick}
 							class:active={hover?.iso === iso}
-							onpointerenter={(e) => showTooltip(iso, e)}
-							onpointerleave={hideTooltip}
-							onpointercancel={hideTooltip}
+							onpointerenter={touchTooltipMode ? undefined : (e) => showTooltip(iso, e)}
+							onpointerleave={touchTooltipMode ? undefined : hideTooltip}
+							onpointercancel={touchTooltipMode ? undefined : hideTooltip}
 							onclick={(e) => dayCellClick(iso, e)}
 						/>
 					{/each}
@@ -478,8 +534,8 @@
 				style:top={tooltipFixed !== null ? `${tooltipFixed.top}px` : '-9999px'}
 				style:opacity={tooltipFixed !== null ? '1' : '0'}
 				role="tooltip"
-				onpointerenter={clearHideHoverTimer}
-				onpointerleave={hideTooltip}
+				onpointerenter={touchTooltipMode ? undefined : clearHideHoverTimer}
+				onpointerleave={touchTooltipMode ? undefined : hideTooltip}
 			>
 				<p class="pointer-events-none font-medium tabular-nums">{hoverDate}</p>
 				{#if variant === 'journal'}
@@ -527,6 +583,10 @@
 		filter: brightness(1.2);
 		stroke: var(--color-fg);
 		stroke-width: 1;
+	}
+
+	.heatmap-touch-mode .cell:active {
+		filter: brightness(1.15);
 	}
 
 	.cell-clickable {

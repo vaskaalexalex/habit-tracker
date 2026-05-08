@@ -22,16 +22,16 @@ class JournalStore {
 		this.loaded = false;
 	}
 
-	async refresh(monthsBack = 12): Promise<void> {
-		if (!this.#userId) return;
-		this.loading = true;
+	#range(monthsBack: number): { fromISO: string; toISO2: string } {
 		const { from, to } = lastNMonthsRange(monthsBack);
-		const fromISO = toISO(from);
-		const toISO2 = toISO(to);
-		syncDebug('journal-refresh-start', { userId: this.#userId, from: fromISO, to: toISO2 });
-		let local: JournalEntry[] = [];
+		return { fromISO: toISO(from), toISO2: toISO(to) };
+	}
+
+	async hydrateLocal(monthsBack = 12): Promise<void> {
+		if (!this.#userId) return;
+		const { fromISO, toISO2 } = this.#range(monthsBack);
 		try {
-			local = await db.journal_entries
+			const local = await db.journal_entries
 				.where('[user_id+date]')
 				.between([this.#userId, fromISO], [this.#userId, toISO2], true, true)
 				.toArray();
@@ -42,8 +42,16 @@ class JournalStore {
 			syncDebug('journal-local-error', {
 				error: err instanceof Error ? err.message : String(err)
 			});
-			console.error('[journal.refresh:local]', err);
+			console.error('[journal.hydrateLocal]', err);
+			this.entries = [];
+			this.loaded = true;
 		}
+	}
+
+	async syncRemote(monthsBack = 12): Promise<void> {
+		if (!this.#userId) return;
+		const { fromISO, toISO2 } = this.#range(monthsBack);
+		const local = [...this.entries];
 
 		const online = typeof navigator === 'undefined' || navigator.onLine !== false;
 		if (isSupabaseConfigured && online) {
@@ -67,12 +75,20 @@ class JournalStore {
 				syncDebug('journal-remote-error', {
 					error: err instanceof Error ? err.message : String(err)
 				});
-				console.error('[journal.refresh:remote]', err);
+				console.error('[journal.syncRemote]', err);
 			}
 		} else {
 			syncDebug('journal-remote-skip', { configured: isSupabaseConfigured, online });
 		}
+	}
 
+	async refresh(monthsBack = 12): Promise<void> {
+		if (!this.#userId) return;
+		this.loading = true;
+		const { fromISO, toISO2 } = this.#range(monthsBack);
+		syncDebug('journal-refresh-start', { userId: this.#userId, from: fromISO, to: toISO2 });
+		await this.hydrateLocal(monthsBack);
+		await this.syncRemote(monthsBack);
 		this.loading = false;
 		syncDebug('journal-refresh-finish', { count: this.entries.length });
 	}

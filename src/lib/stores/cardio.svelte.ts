@@ -22,16 +22,16 @@ class CardioStore {
 		this.loaded = false;
 	}
 
-	async refresh(monthsBack = 6): Promise<void> {
-		if (!this.#userId) return;
-		this.loading = true;
+	#range(monthsBack: number): { fromISO: string; toISO2: string } {
 		const { from, to } = lastNMonthsRange(monthsBack);
-		const fromISO = toISO(from);
-		const toISO2 = toISO(to);
-		syncDebug('cardio-refresh-start', { userId: this.#userId, from: fromISO, to: toISO2 });
-		let local: CardioWorkout[] = [];
+		return { fromISO: toISO(from), toISO2: toISO(to) };
+	}
+
+	async hydrateLocal(monthsBack = 6): Promise<void> {
+		if (!this.#userId) return;
+		const { fromISO, toISO2 } = this.#range(monthsBack);
 		try {
-			local = await db.cardio_workouts
+			const local = await db.cardio_workouts
 				.where('[user_id+date]')
 				.between([this.#userId, fromISO], [this.#userId, toISO2], true, true)
 				.toArray();
@@ -42,8 +42,16 @@ class CardioStore {
 			syncDebug('cardio-local-error', {
 				error: err instanceof Error ? err.message : String(err)
 			});
-			console.error('[cardio.refresh:local]', err);
+			console.error('[cardio.hydrateLocal]', err);
+			this.items = [];
+			this.loaded = true;
 		}
+	}
+
+	async syncRemote(monthsBack = 6): Promise<void> {
+		if (!this.#userId) return;
+		const { fromISO, toISO2 } = this.#range(monthsBack);
+		const local = [...this.items];
 
 		const online = typeof navigator === 'undefined' || navigator.onLine !== false;
 		if (isSupabaseConfigured && online) {
@@ -59,12 +67,20 @@ class CardioStore {
 				syncDebug('cardio-remote-error', {
 					error: err instanceof Error ? err.message : String(err)
 				});
-				console.error('[cardio.refresh:remote]', err);
+				console.error('[cardio.syncRemote]', err);
 			}
 		} else {
 			syncDebug('cardio-remote-skip', { configured: isSupabaseConfigured, online });
 		}
+	}
 
+	async refresh(monthsBack = 6): Promise<void> {
+		if (!this.#userId) return;
+		this.loading = true;
+		const { fromISO, toISO2 } = this.#range(monthsBack);
+		syncDebug('cardio-refresh-start', { userId: this.#userId, from: fromISO, to: toISO2 });
+		await this.hydrateLocal(monthsBack);
+		await this.syncRemote(monthsBack);
 		this.loading = false;
 		syncDebug('cardio-refresh-finish', { count: this.items.length });
 	}

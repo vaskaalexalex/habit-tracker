@@ -4,6 +4,7 @@
 	import { base } from '$app/paths';
 	import { goto } from '$app/navigation';
 	import { Home, Dumbbell, BookOpenText, User } from 'lucide-svelte';
+	import { syncStatusStore } from '$stores/sync-status.svelte';
 
 	let navEl: HTMLElement | undefined = $state(undefined);
 
@@ -31,6 +32,8 @@
 		};
 	});
 
+	const profileHref = `${base}/profile`;
+
 	const items = $derived([
 		{
 			href: `${base}/`,
@@ -51,7 +54,7 @@
 			match: (p: string) => p.startsWith(`${base}/journal`)
 		},
 		{
-			href: `${base}/profile`,
+			href: profileHref,
 			label: 'Профиль',
 			icon: User,
 			match: (p: string) => p.startsWith(`${base}/profile`)
@@ -84,9 +87,28 @@
 					aria-current={active ? 'page' : undefined}
 				>
 					<span
-						class="grid size-9 place-items-center rounded-xl transition"
+						class="relative grid size-9 place-items-center rounded-xl transition"
 						class:bg-accent-soft={active}
 					>
+						{#if item.href === profileHref}
+							<span
+								class="absolute -right-px -top-px z-[1] size-2 rounded-full ring-2 ring-(--color-bottom-nav-surface)"
+								class:bg-rose-500={syncStatusStore.syncTier === 'red'}
+								class:bg-amber-400={syncStatusStore.syncTier === 'yellow'}
+								class:bg-emerald-500={syncStatusStore.syncTier === 'green'}
+								role="img"
+								title={syncStatusStore.syncTier === 'red'
+									? 'Оффлайн — отправка в облако недоступна'
+									: syncStatusStore.syncTier === 'yellow'
+										? 'Синхронизация с сервером…'
+										: 'Синхронизировано с сервером'}
+								aria-label={syncStatusStore.syncTier === 'red'
+									? 'Статус: оффлайн'
+									: syncStatusStore.syncTier === 'yellow'
+										? 'Статус: идёт синхронизация'
+										: 'Статус: всё синхронизировано'}
+							></span>
+						{/if}
 						<item.icon size={20} strokeWidth={active ? 2.4 : 1.8} />
 					</span>
 					<span class="text-[10px] font-bold uppercase tracking-wide sm:text-[11px]"

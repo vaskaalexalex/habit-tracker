@@ -22,16 +22,16 @@ class HabitsStore {
 		this.loaded = false;
 	}
 
-	async refresh(monthsBack = 6): Promise<void> {
-		if (!this.#userId) return;
-		this.loading = true;
+	#range(monthsBack: number): { fromISO: string; toISO2: string } {
 		const { from, to } = lastNMonthsRange(monthsBack);
-		const fromISO = toISO(from);
-		const toISO2 = toISO(to);
-		syncDebug('habits-refresh-start', { userId: this.#userId, from: fromISO, to: toISO2 });
-		let local: HabitCompletion[] = [];
+		return { fromISO: toISO(from), toISO2: toISO(to) };
+	}
+
+	async hydrateLocal(monthsBack = 6): Promise<void> {
+		if (!this.#userId) return;
+		const { fromISO, toISO2 } = this.#range(monthsBack);
 		try {
-			local = await db.habit_completions
+			const local = await db.habit_completions
 				.where('[user_id+date]')
 				.between([this.#userId, fromISO], [this.#userId, toISO2], true, true)
 				.toArray();
@@ -42,8 +42,16 @@ class HabitsStore {
 			syncDebug('habits-local-error', {
 				error: err instanceof Error ? err.message : String(err)
 			});
-			console.error('[habits.refresh:local]', err);
+			console.error('[habits.hydrateLocal]', err);
+			this.completions = [];
+			this.loaded = true;
 		}
+	}
+
+	async syncRemote(monthsBack = 6): Promise<void> {
+		if (!this.#userId) return;
+		const { fromISO, toISO2 } = this.#range(monthsBack);
+		const local = [...this.completions];
 
 		const online = typeof navigator === 'undefined' || navigator.onLine !== false;
 		if (isSupabaseConfigured && online) {
@@ -62,12 +70,20 @@ class HabitsStore {
 				syncDebug('habits-remote-error', {
 					error: err instanceof Error ? err.message : String(err)
 				});
-				console.error('[habits.refresh:remote]', err);
+				console.error('[habits.syncRemote]', err);
 			}
 		} else {
 			syncDebug('habits-remote-skip', { configured: isSupabaseConfigured, online });
 		}
+	}
 
+	async refresh(monthsBack = 6): Promise<void> {
+		if (!this.#userId) return;
+		this.loading = true;
+		const { fromISO, toISO2 } = this.#range(monthsBack);
+		syncDebug('habits-refresh-start', { userId: this.#userId, from: fromISO, to: toISO2 });
+		await this.hydrateLocal(monthsBack);
+		await this.syncRemote(monthsBack);
 		this.loading = false;
 		syncDebug('habits-refresh-finish', { count: this.completions.length });
 	}

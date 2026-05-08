@@ -1,8 +1,18 @@
-import { pendingSyncCount, subscribeSyncQueue } from '$db/sync';
+import { pendingSyncCount, subscribeSyncQueue, isSyncDrainActive } from '$db/sync';
+import { isSupabaseConfigured } from '$supabase/client';
+
+export type SyncTier = 'red' | 'yellow' | 'green';
 
 class SyncStatusStore {
 	online = $state<boolean>(true);
 	pending = $state<number>(0);
+	draining = $state<boolean>(false);
+
+	syncTier = $derived.by((): SyncTier => {
+		if (!this.online || !isSupabaseConfigured) return 'red';
+		if (this.draining || this.pending > 0) return 'yellow';
+		return 'green';
+	});
 
 	#stop: (() => void) | null = null;
 
@@ -19,6 +29,7 @@ class SyncStatusStore {
 		};
 		const handleOffline = () => {
 			this.online = false;
+			void this.#refreshPending();
 		};
 		const handleVisibility = () => {
 			if (document.visibilityState === 'visible') void this.#refreshPending();
@@ -48,6 +59,7 @@ class SyncStatusStore {
 	async #refreshPending(): Promise<void> {
 		try {
 			this.pending = await pendingSyncCount();
+			this.draining = isSyncDrainActive();
 		} catch {
 			/* ignore */
 		}

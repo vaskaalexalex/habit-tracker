@@ -35,18 +35,17 @@ class StrengthStore {
 		this.loaded = false;
 	}
 
-	async refresh(monthsBack = 6): Promise<void> {
-		if (!this.#userId) return;
-		this.loading = true;
+	#range(monthsBack: number): { fromISO: string; toISO2: string } {
 		const { from, to } = lastNMonthsRange(monthsBack);
-		const fromISO = toISO(from);
-		const toISO2 = toISO(to);
-		syncDebug('strength-refresh-start', { userId: this.#userId, from: fromISO, to: toISO2 });
-		let localEx: Exercise[] = [];
-		let localSets: WorkoutSet[] = [];
+		return { fromISO: toISO(from), toISO2: toISO(to) };
+	}
+
+	async hydrateLocal(monthsBack = 6): Promise<void> {
+		if (!this.#userId) return;
+		const { fromISO, toISO2 } = this.#range(monthsBack);
 		try {
-			localEx = await db.exercises.toArray();
-			localSets = await db.workout_sets
+			const localEx = await db.exercises.toArray();
+			const localSets = await db.workout_sets
 				.where('[user_id+date]')
 				.between([this.#userId, fromISO], [this.#userId, toISO2], true, true)
 				.toArray();
@@ -58,8 +57,18 @@ class StrengthStore {
 			syncDebug('strength-local-error', {
 				error: err instanceof Error ? err.message : String(err)
 			});
-			console.error('[strength.refresh:local]', err);
+			console.error('[strength.hydrateLocal]', err);
+			this.exercises = [];
+			this.sets = [];
+			this.loaded = true;
 		}
+	}
+
+	async syncRemote(monthsBack = 6): Promise<void> {
+		if (!this.#userId) return;
+		const { fromISO, toISO2 } = this.#range(monthsBack);
+		const localEx = [...this.exercises];
+		const localSets = [...this.sets];
 
 		const online = typeof navigator === 'undefined' || navigator.onLine !== false;
 		if (isSupabaseConfigured && online) {
@@ -102,12 +111,20 @@ class StrengthStore {
 				syncDebug('strength-remote-error', {
 					error: err instanceof Error ? err.message : String(err)
 				});
-				console.error('[strength.refresh:remote]', err);
+				console.error('[strength.syncRemote]', err);
 			}
 		} else {
 			syncDebug('strength-remote-skip', { configured: isSupabaseConfigured, online });
 		}
+	}
 
+	async refresh(monthsBack = 6): Promise<void> {
+		if (!this.#userId) return;
+		this.loading = true;
+		const { fromISO, toISO2 } = this.#range(monthsBack);
+		syncDebug('strength-refresh-start', { userId: this.#userId, from: fromISO, to: toISO2 });
+		await this.hydrateLocal(monthsBack);
+		await this.syncRemote(monthsBack);
 		this.loading = false;
 		syncDebug('strength-refresh-finish', {
 			exercises: this.exercises.length,

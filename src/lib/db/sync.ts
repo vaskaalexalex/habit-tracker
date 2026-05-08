@@ -40,6 +40,11 @@ export async function enqueue(
 
 let drainingPromise: Promise<DrainResult> | null = null;
 
+/** True while `drainQueue` is actively processing the Dexie sync_queue. */
+export function isSyncDrainActive(): boolean {
+	return drainingPromise !== null;
+}
+
 export async function drainQueue(): Promise<DrainResult> {
 	if (!isSupabaseConfigured) {
 		syncDebug('queue-skip-unconfigured');
@@ -58,6 +63,7 @@ export async function drainQueue(): Promise<DrainResult> {
 		drainingPromise = null;
 		notifyQueueChanged();
 	});
+	notifyQueueChanged();
 
 	return drainingPromise;
 }

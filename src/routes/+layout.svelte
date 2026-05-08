@@ -17,7 +17,7 @@
 	import BottomNav from '$components/BottomNav.svelte';
 	import ToastHost from '$components/ToastHost.svelte';
 	import InstallPrompt from '$components/InstallPrompt.svelte';
-	import SyncStatus from '$components/SyncStatus.svelte';
+	import { syncStatusStore } from '$stores/sync-status.svelte';
 
 	let { children } = $props();
 	let booted = $state(false);
@@ -28,6 +28,7 @@
 		let stopRemoteRefresh: (() => void) | null = null;
 		let stopTodayRefresh: (() => void) | null = null;
 		let stopServiceWorkerUpdate: (() => void) | null = null;
+		const stopSyncStatus = syncStatusStore.start();
 
 		// Defensive: clear any stale inline html height from previous builds that pinned it on keyboard.
 		document.documentElement.style.removeProperty('height');
@@ -104,9 +105,23 @@
 					error: err instanceof Error ? err.message : String(err)
 				});
 			})
-			.finally(() => {
+			.finally(async () => {
 				syncDebug('bootstrap-done', { hasUser: !!authStore.user, userId: authStore.user?.id });
 				setStoresUser(authStore.user?.id ?? null);
+				if (authStore.user) {
+					try {
+						await Promise.all([
+							strengthStore.hydrateLocal(),
+							cardioStore.hydrateLocal(),
+							habitsStore.hydrateLocal(),
+							journalStore.hydrateLocal()
+						]);
+					} catch (err) {
+						syncDebug('hydrate-local-error', {
+							error: err instanceof Error ? err.message : String(err)
+						});
+					}
+				}
 				booted = true;
 				stopTodayRefresh = todayStore.start();
 				stopRemoteRefresh = startRemoteRefresh();
@@ -157,6 +172,7 @@
 			stopServiceWorkerUpdate?.();
 			stopRemoteRefresh?.();
 			stopTodayRefresh?.();
+			stopSyncStatus();
 		};
 	});
 
@@ -280,6 +296,17 @@
 </script>
 
 <div class="app-shell relative flex min-h-0 w-full flex-col overflow-hidden">
+	{#if !booted}
+		<div
+			class="pointer-events-none fixed inset-x-0 top-0 z-[48] flex flex-col"
+			aria-hidden="true"
+		>
+			<div class="shrink-0" style="height: env(safe-area-inset-top, 0px);"></div>
+			<div class="h-[3px] w-full overflow-hidden bg-(--color-bg-mute)">
+				<div class="bootstrap-load-bar__stripe"></div>
+			</div>
+		</div>
+	{/if}
 	<main
 		class="safe-top flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain"
 		class:pb-bottom-nav={showNav}
@@ -287,11 +314,7 @@
 		{#if booted}
 			{@render children?.()}
 		{:else}
-			<div class="flex flex-1 items-center justify-center">
-				<div
-					class="size-10 animate-spin rounded-full border-2 border-(--color-fg-mute) border-t-(--color-accent)"
-				></div>
-			</div>
+			<div class="min-h-0 flex-1 bg-(--color-bg)"></div>
 		{/if}
 	</main>
 	{#if showNav}
@@ -299,5 +322,4 @@
 	{/if}
 	<ToastHost />
 	<InstallPrompt />
-	<SyncStatus />
 </div>
