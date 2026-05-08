@@ -194,12 +194,6 @@
 		MUSCLE_GROUP_ORDER.filter((g) => rows.some((r) => r.group === g))
 	);
 
-	const coreCatalogMissing = $derived(
-		strengthStore.loaded &&
-			rows.some((r) => r.group === 'core') &&
-			!strengthStore.exercises.some((e) => !e.hidden && e.muscle_group?.trim().toLowerCase() === 'core')
-	);
-
 	function rowsByGroup(group: MuscleGroup): Row[] {
 		return rows.filter((r) => r.group === group);
 	}
@@ -338,12 +332,6 @@
 					</span>
 					<span class="h-px flex-1 bg-(--color-border)"></span>
 				</div>
-				{#if group === 'core' && coreCatalogMissing}
-					<p class="px-1 text-[11px] leading-snug text-amber-600 dark:text-amber-400">
-						В каталоге нет упражнений «Кор». Накати миграцию
-						<span class="rounded bg-(--color-bg-mute) px-1 font-mono text-[10px]">20260513120000_catalog_rear_delt_core.sql</span> в Supabase (SQL Editor или <span class="font-mono">supabase db push</span>), затем обнови страницу.
-					</p>
-				{/if}
 
 				{#each rowsByGroup(group) as row (row.id)}
 					<div class="flex flex-col gap-1">
