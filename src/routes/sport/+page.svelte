@@ -70,7 +70,7 @@
 		{/snippet}
 	</PageHeader>
 
-	<section class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+	<section class="@container grid grid-cols-1 gap-3 @[30rem]:grid-cols-2">
 		{#each tiles as tile (tile.href)}
 			<button
 				type="button"
@@ -88,11 +88,11 @@
 						<tile.icon size={22} />
 					</div>
 					<div class="min-w-0 flex-1">
-						<div class="flex items-center gap-2">
-							<h3 class="text-lg font-bold tracking-tight">{tile.label}</h3>
+						<div class="flex min-w-0 items-center gap-2">
+							<h3 class="min-w-0 truncate text-lg font-bold tracking-tight">{tile.label}</h3>
 							{#if tile.count > 0}
 								<span
-									class="inline-flex items-center rounded-full bg-emerald-500/20 px-2 py-0.5 text-[11px] font-medium text-emerald-400 tabular-nums"
+									class="inline-flex shrink-0 items-center whitespace-nowrap rounded-full bg-emerald-500/20 px-2 py-0.5 text-[11px] font-medium text-emerald-400 tabular-nums"
 								>
 									{tile.count} сегодня
 								</span>
