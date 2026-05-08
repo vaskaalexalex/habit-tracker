@@ -1,12 +1,23 @@
-import { db } from '$db/dexie';
+import { db, type SyncTable } from '$db/dexie';
 import { drainQueue, enqueue } from '$db/sync';
 import { isSupabaseConfigured } from '$supabase/client';
 import { fetchExercises, fetchWorkoutSets } from '$supabase/api';
 import type { Exercise, ISODate, UUID, WorkoutSet } from '$supabase/types';
 import { uuid } from '$utils/uuid';
 import { isoToday, lastNMonthsRange, toISO } from '$utils/dates';
-import { mergeByKey } from '$utils/merge';
 import { syncDebug } from '$utils/sync-debug';
+
+/** IDs still waiting in sync queue for upsert (offline / in-flight). */
+async function pendingUpsertIds(table: SyncTable): Promise<Set<string>> {
+	const tasks = await db.sync_queue.where('table').equals(table).toArray();
+	const ids = new Set<string>();
+	for (const t of tasks) {
+		if (t.op !== 'upsert') continue;
+		const id = (t.payload as { id?: string }).id;
+		if (typeof id === 'string' && id.length > 0) ids.add(id);
+	}
+	return ids;
+}
 
 class StrengthStore {
 	exercises = $state<Exercise[]>([]);
@@ -62,10 +73,31 @@ class StrengthStore {
 					exercises: remoteEx.length,
 					sets: remoteSets.length
 				});
-				await db.exercises.bulkPut(remoteEx);
-				await db.workout_sets.bulkPut(remoteSets);
-				this.exercises = mergeByKey(localEx, remoteEx, (item) => item.id);
-				this.sets = mergeByKey(localSets, remoteSets, (item) => item.id);
+				const pendingExIds = await pendingUpsertIds('exercises');
+				const pendingSetIds = await pendingUpsertIds('workout_sets');
+				const remoteExIds = new Set(remoteEx.map((e) => e.id));
+				const remoteSetIds = new Set(remoteSets.map((s) => s.id));
+				const unsyncedExercises = localEx.filter(
+					(e) =>
+						pendingExIds.has(e.id) &&
+						!remoteExIds.has(e.id) &&
+						e.user_id === this.#userId &&
+						!e.is_preset
+				);
+				const mergedExercises = [...remoteEx, ...unsyncedExercises];
+				await db.exercises.clear();
+				await db.exercises.bulkPut(mergedExercises);
+				this.exercises = mergedExercises;
+
+				const unsyncedSets = localSets.filter(
+					(s) => pendingSetIds.has(s.id) && !remoteSetIds.has(s.id)
+				);
+				const mergedSets = [...remoteSets, ...unsyncedSets];
+				for (const s of localSets) {
+					if (!mergedSets.some((m) => m.id === s.id)) await db.workout_sets.delete(s.id);
+				}
+				await db.workout_sets.bulkPut(mergedSets);
+				this.sets = mergedSets;
 			} catch (err) {
 				syncDebug('strength-remote-error', {
 					error: err instanceof Error ? err.message : String(err)
@@ -95,6 +127,24 @@ class StrengthStore {
 		return this.sets
 			.filter((s) => s.exercise_id === exerciseId)
 			.sort((a, b) => a.date.localeCompare(b.date));
+	}
+
+	/** Latest workout day strictly before `beforeDate`; all sets that day for this exercise, by set_number. */
+	lastSessionSetsBefore(exerciseId: UUID, beforeDate: ISODate): WorkoutSet[] | null {
+		const relevant = this.sets.filter(
+			(s) => s.exercise_id === exerciseId && s.date < beforeDate
+		);
+		if (relevant.length === 0) return null;
+		const first = relevant[0];
+		if (!first) return null;
+		let maxDate = first.date;
+		for (const s of relevant) {
+			if (s.date > maxDate) maxDate = s.date;
+		}
+		const daySets = relevant
+			.filter((s) => s.date === maxDate)
+			.sort((a, b) => a.set_number - b.set_number);
+		return daySets.length > 0 ? daySets : null;
 	}
 
 	nextSetNumber(exerciseId: UUID, date: ISODate): number {
