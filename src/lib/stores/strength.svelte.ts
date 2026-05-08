@@ -153,22 +153,9 @@ class StrengthStore {
 	}
 
 	async createExercise(name: string, muscleGroup?: string | null): Promise<Exercise> {
-		if (!this.#userId) throw new Error('not authenticated');
-		const row: Exercise = {
-			id: uuid(),
-			user_id: this.#userId,
-			name: name.trim(),
-			muscle_group: muscleGroup ?? null,
-			is_preset: false,
-			hidden: false,
-			sort_order: null,
-			created_at: new Date().toISOString()
-		};
-		this.exercises = [...this.exercises, row];
-		await db.exercises.put(row);
-		await enqueue('exercises', 'upsert', row as unknown as Record<string, unknown>);
-		void drainQueue();
-		return row;
+		void name;
+		void muscleGroup;
+		throw new Error('Каталог упражнений зафиксирован в базе (19 позиций), создание отключено');
 	}
 
 	async setExerciseHidden(id: UUID, hidden: boolean): Promise<void> {

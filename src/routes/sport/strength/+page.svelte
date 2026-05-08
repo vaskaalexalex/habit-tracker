@@ -3,16 +3,23 @@
 	import { ensureSportCompleted } from '$stores/auto-complete';
 	import { toasts } from '$stores/toast.svelte';
 	import ExerciseDropdown from '$components/ExerciseDropdown.svelte';
-	import WorkoutLog from '$components/WorkoutLog.svelte';
-	import ProgressChart from '$components/ProgressChart.svelte';
 	import BackButton from '$components/BackButton.svelte';
 	import { goto } from '$app/navigation';
 	import { base } from '$app/paths';
 	import { todayStore } from '$stores/today.svelte';
 	import { formatRu } from '$utils/dates';
 	import { uuid } from '$utils/uuid';
-	import { MUSCLE_GROUP_LABELS, type MuscleGroup, type UUID } from '$supabase/types';
-	import { Plus, Save, Trash2, Loader2, ListChecks } from 'lucide-svelte';
+	import {
+		MUSCLE_GROUP_LABELS,
+		MUSCLE_GROUP_ORDER,
+		type MuscleGroup,
+		type UUID,
+		type WorkoutSet
+	} from '$supabase/types';
+	import { Plus, Save, Trash2, Loader2, ListChecks, ChevronDown } from 'lucide-svelte';
+
+	const DRAFT_KEY = 'strength-session-draft';
+	const PERSIST_DEBOUNCE_MS = 160;
 
 	const today = $derived(todayStore.today);
 
@@ -24,14 +31,21 @@
 		sets: number;
 	};
 
+	type SerializedRow = Pick<Row, 'id' | 'group' | 'exerciseId' | 'weight' | 'sets'>;
+
 	const TEMPLATE: Array<{ group: MuscleGroup; count: number }> = [
 		{ group: 'chest', count: 2 },
 		{ group: 'back', count: 2 },
 		{ group: 'legs', count: 2 },
 		{ group: 'arms', count: 3 }
 	];
-	const SECTION_GROUPS: MuscleGroup[] = ['chest', 'back', 'legs', 'arms'];
 	const DEFAULT_REPS = 10;
+
+	function normalizeMuscle(raw: string | null): MuscleGroup {
+		if (raw === 'shoulders') return 'arms';
+		const r = raw ?? 'other';
+		return (MUSCLE_GROUP_ORDER as readonly string[]).includes(r) ? (r as MuscleGroup) : 'other';
+	}
 
 	function makeRow(group: MuscleGroup): Row {
 		return { id: uuid(), group, exerciseId: null, weight: 0, sets: 0 };
@@ -48,12 +62,111 @@
 		);
 	}
 
+	function isValidSerializedRow(x: unknown): x is SerializedRow {
+		if (typeof x !== 'object' || x === null) return false;
+		const o = x as Record<string, unknown>;
+		return (
+			typeof o.id === 'string' &&
+			typeof o.group === 'string' &&
+			(MUSCLE_GROUP_ORDER as readonly string[]).includes(o.group) &&
+			(o.exerciseId === null || typeof o.exerciseId === 'string') &&
+			typeof o.weight === 'number' &&
+			typeof o.sets === 'number'
+		);
+	}
+
+	function buildRowsFromDbOrTemplate(date: string): Row[] {
+		const sets = strengthStore.setsForDate(date);
+		if (sets.length === 0) return makeTemplate();
+
+		const byEx = new Map<UUID, WorkoutSet[]>();
+		for (const s of sets) {
+			const arr = byEx.get(s.exercise_id) ?? [];
+			arr.push(s);
+			byEx.set(s.exercise_id, arr);
+		}
+
+		const result: Row[] = [];
+		for (const [exerciseId, list] of byEx) {
+			const sorted = [...list].sort((a, b) => a.set_number - b.set_number);
+			const last = sorted.at(-1);
+			if (!last) continue;
+			const ex = strengthStore.exercises.find((e) => e.id === exerciseId);
+			const group = normalizeMuscle(ex?.muscle_group ?? null);
+			result.push({
+				id: uuid(),
+				group,
+				exerciseId,
+				weight: last.weight,
+				sets: sorted.length
+			});
+		}
+
+		result.sort((a, b) => {
+			const ai = MUSCLE_GROUP_ORDER.indexOf(a.group);
+			const bi = MUSCLE_GROUP_ORDER.indexOf(b.group);
+			if (ai !== bi) return ai - bi;
+			const na = strengthStore.exercises.find((e) => e.id === a.exerciseId)?.name ?? '';
+			const nb = strengthStore.exercises.find((e) => e.id === b.exerciseId)?.name ?? '';
+			return na.localeCompare(nb, 'ru');
+		});
+		return result;
+	}
+
+	function readDraft(date: string): Row[] | null {
+		if (typeof localStorage === 'undefined') return null;
+		try {
+			const raw = localStorage.getItem(DRAFT_KEY);
+			if (!raw) return null;
+			const parsed = JSON.parse(raw) as { date?: string; rows?: unknown };
+			if (parsed.date !== date || !Array.isArray(parsed.rows) || parsed.rows.length === 0) {
+				return null;
+			}
+			const rows: Row[] = [];
+			for (const item of parsed.rows) {
+				if (!isValidSerializedRow(item)) return null;
+				rows.push({
+					id: item.id,
+					group: item.group,
+					exerciseId: item.exerciseId,
+					weight: item.weight,
+					sets: item.sets
+				});
+			}
+			return rows;
+		} catch {
+			return null;
+		}
+	}
+
+	function writeDraftImmediate(date: string, nextRows: Row[]) {
+		if (typeof localStorage === 'undefined') return;
+		const payload: { date: string; rows: SerializedRow[] } = {
+			date,
+			rows: nextRows.map((r) => ({
+				id: r.id,
+				group: r.group,
+				exerciseId: r.exerciseId,
+				weight: r.weight,
+				sets: r.sets
+			}))
+		};
+		localStorage.setItem(DRAFT_KEY, JSON.stringify(payload));
+	}
+
 	let rows = $state<Row[]>(makeTemplate());
 	let saving = $state(false);
-	let progressExId = $state<UUID | null>(null);
+	let sessionReady = $state(false);
+	let persistTimer: ReturnType<typeof setTimeout> | null = null;
+
+	let addMuscleGroup = $state<MuscleGroup>('chest');
 
 	const filledCount = $derived(
 		rows.filter((r) => r.exerciseId && r.weight > 0 && r.sets > 0).length
+	);
+
+	const groupsInOrder = $derived(
+		MUSCLE_GROUP_ORDER.filter((g) => rows.some((r) => r.group === g))
 	);
 
 	function rowsByGroup(group: MuscleGroup): Row[] {
@@ -74,10 +187,15 @@
 		rows = rows.map((r) => (r.id === id ? { ...r, exerciseId } : r));
 	}
 
-	async function handleCreate(name: string, rowId: string, group: MuscleGroup) {
-		const ex = await strengthStore.createExercise(name, group);
-		setExercise(rowId, ex.id);
-		toasts.success(`Создано «${ex.name}»`);
+	function lastHint(row: Row): string | null {
+		if (!row.exerciseId) return null;
+		const session = strengthStore.lastSessionSetsBefore(row.exerciseId, today);
+		if (!session || session.length === 0) return null;
+		const head = session[0];
+		if (!head) return null;
+		const d = head.date;
+		const parts = session.map((s) => `${s.weight}×${s.reps}`);
+		return `Прошлый раз — ${formatRu(d)}: ${parts.join(', ')}`;
 	}
 
 	async function saveAll() {
@@ -101,18 +219,40 @@
 			await ensureSportCompleted();
 			toasts.success(`Сохранено ${valid.length} упражнен${valid.length === 1 ? 'ие' : 'ий'}`);
 			rows = makeTemplate();
+			writeDraftImmediate(today, rows);
 		} finally {
 			saving = false;
 		}
 	}
 
-	const setsForProgress = $derived(progressExId ? strengthStore.setsByExercise(progressExId) : []);
+	$effect(() => {
+		const date = today;
+		if (!strengthStore.loaded) return;
+
+		const fromDraft = readDraft(date);
+		if (fromDraft) {
+			rows = fromDraft;
+		} else {
+			rows = buildRowsFromDbOrTemplate(date);
+		}
+		sessionReady = true;
+	});
 
 	$effect(() => {
-		if (!progressExId && strengthStore.exercises.length > 0) {
-			const first = strengthStore.exercises.find((e) => !e.hidden);
-			if (first) progressExId = first.id;
-		}
+		if (!sessionReady) return;
+		const date = today;
+		const snapshot = rows;
+		if (persistTimer) clearTimeout(persistTimer);
+		persistTimer = setTimeout(() => {
+			writeDraftImmediate(date, snapshot);
+			persistTimer = null;
+		}, PERSIST_DEBOUNCE_MS);
+		return () => {
+			if (persistTimer) {
+				clearTimeout(persistTimer);
+				persistTimer = null;
+			}
+		};
 	});
 </script>
 
@@ -149,7 +289,7 @@
 			<span></span>
 		</div>
 
-		{#each SECTION_GROUPS as group (group)}
+		{#each groupsInOrder as group (group)}
 			<div class="flex flex-col gap-1.5">
 				<div class="flex items-center gap-2 px-1">
 					<span
@@ -161,86 +301,90 @@
 				</div>
 
 				{#each rowsByGroup(group) as row (row.id)}
-					<div class="grid grid-cols-[minmax(0,1fr)_72px_64px_32px] items-center gap-2">
-						<ExerciseDropdown
-							exercises={strengthStore.exercises}
-							value={row.exerciseId}
-							onselect={(id) => setExercise(row.id, id)}
-							oncreate={(name) => handleCreate(name, row.id, group)}
-							groupFilter={group}
-							compact
-						/>
-						<input
-							type="number"
-							inputmode="decimal"
-							min="0"
-							step="0.5"
-							bind:value={row.weight}
-							placeholder="0"
-							class="hairline rounded-xl bg-(--color-bg-mute) px-2 py-1.5 text-center text-sm tabular-nums outline-none placeholder:text-(--color-fg-mute)"
-						/>
-						<input
-							type="number"
-							inputmode="numeric"
-							min="0"
-							step="1"
-							bind:value={row.sets}
-							placeholder="0"
-							class="hairline rounded-xl bg-(--color-bg-mute) px-2 py-1.5 text-center text-sm tabular-nums outline-none placeholder:text-(--color-fg-mute)"
-						/>
-						<button
-							type="button"
-							onclick={() => removeRow(row.id)}
-							class="grid size-8 place-items-center rounded-lg text-(--color-fg-mute) hover:bg-(--color-bg-mute) hover:text-rose-400 disabled:opacity-30"
-							aria-label="Удалить строку"
-							disabled={rowsByGroup(group).length <= 1}
-						>
-							<Trash2 size={14} />
-						</button>
+					<div class="flex flex-col gap-1">
+						{#if lastHint(row)}
+							<p class="px-1 text-[10px] leading-snug text-(--color-fg-mute)">{lastHint(row)}</p>
+						{/if}
+						<div class="grid grid-cols-[minmax(0,1fr)_72px_64px_32px] items-center gap-2">
+							<ExerciseDropdown
+								exercises={strengthStore.exercises}
+								value={row.exerciseId}
+								onselect={(id) => setExercise(row.id, id)}
+								groupFilter={group}
+								compact
+							/>
+							<input
+								type="number"
+								inputmode="decimal"
+								min="0"
+								step="0.5"
+								bind:value={row.weight}
+								placeholder="0"
+								class="hairline rounded-xl bg-(--color-bg-mute) px-2 py-1.5 text-center text-sm tabular-nums outline-none placeholder:text-(--color-fg-mute)"
+							/>
+							<input
+								type="number"
+								inputmode="numeric"
+								min="0"
+								step="1"
+								bind:value={row.sets}
+								placeholder="0"
+								class="hairline rounded-xl bg-(--color-bg-mute) px-2 py-1.5 text-center text-sm tabular-nums outline-none placeholder:text-(--color-fg-mute)"
+							/>
+							<button
+								type="button"
+								onclick={() => removeRow(row.id)}
+								class="grid size-8 place-items-center rounded-lg text-(--color-fg-mute) hover:bg-(--color-bg-mute) hover:text-rose-400 disabled:opacity-30"
+								aria-label="Удалить строку"
+								disabled={rowsByGroup(group).length <= 1}
+							>
+								<Trash2 size={14} />
+							</button>
+						</div>
 					</div>
 				{/each}
-
-				<button
-					type="button"
-					onclick={() => addRow(group)}
-					class="inline-flex items-center justify-center gap-1.5 rounded-xl border border-dashed border-(--color-border) py-1.5 text-xs text-(--color-fg-mute) hover:bg-(--color-bg-mute) hover:text-(--color-fg)"
-				>
-					<Plus size={12} /> Ещё в «{MUSCLE_GROUP_LABELS[group]}»
-				</button>
 			</div>
 		{/each}
 
-		<p class="px-1 pt-1 text-[11px] text-(--color-fg-mute)">
-			Подход = {DEFAULT_REPS} повторений по дефолту. Список упражнений тянется из каталога.
-		</p>
-	</section>
+		<div class="flex flex-col gap-2 border-t border-(--color-border) pt-3">
+			<div class="flex flex-wrap items-center gap-2 px-1">
+				<label class="flex min-w-0 flex-1 items-center gap-2 text-[11px] font-medium text-(--color-fg-mute)">
+					<span class="shrink-0">Группа</span>
+					<div class="relative min-w-0 flex-1">
+						<select
+							bind:value={addMuscleGroup}
+							class="hairline w-full cursor-pointer appearance-none rounded-xl bg-(--color-bg-mute) py-1.5 pl-3 pr-10 text-sm outline-none"
+						>
+							{#each MUSCLE_GROUP_ORDER as g (g)}
+								<option value={g}>{MUSCLE_GROUP_LABELS[g]}</option>
+							{/each}
+						</select>
+						<ChevronDown
+							size={16}
+							class="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-(--color-fg-mute)"
+							aria-hidden="true"
+						/>
+					</div>
+				</label>
+				<button
+					type="button"
+					onclick={() => addRow(addMuscleGroup)}
+					class="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl border border-dashed border-(--color-border) px-3 py-2 text-xs font-semibold text-(--color-fg-mute) hover:bg-(--color-bg-mute) hover:text-(--color-fg)"
+				>
+					<Plus size={14} /> Добавить упражнение
+				</button>
+			</div>
+		</div>
 
-	<section>
-		<div class="mb-2 flex items-center justify-between px-1">
-			<h2 class="text-sm font-medium text-(--color-fg-mute)">Сегодня уже записано</h2>
+		<p class="flex flex-wrap items-center gap-x-2 gap-y-1 px-1 pt-1 text-[11px] text-(--color-fg-mute)">
+			<span>Подход = {DEFAULT_REPS} повторений по умолчанию. Список из каталога — </span>
 			<a
 				href={`${base}/sport/strength/exercises`}
 				onclick={openCatalog}
-				class="inline-flex items-center gap-1 text-xs text-(--color-fg-mute) hover:text-(--color-fg)"
+				class="inline-flex items-center gap-1 font-medium text-(--color-accent) hover:underline"
 			>
 				<ListChecks size={12} /> Каталог
 			</a>
-		</div>
-		<WorkoutLog date={today} />
-	</section>
-
-	<section class="hairline flex flex-col gap-2 rounded-3xl bg-(--color-bg-soft) p-4">
-		<div class="flex items-center justify-between gap-2">
-			<h3 class="text-sm font-medium">Прогресс 1RM (Epley)</h3>
-			<div class="w-44 max-w-[60%]">
-				<ExerciseDropdown
-					exercises={strengthStore.exercises}
-					value={progressExId}
-					onselect={(id) => (progressExId = id)}
-					compact
-				/>
-			</div>
-		</div>
-		<ProgressChart sets={setsForProgress} />
+		</p>
 	</section>
 </div>
