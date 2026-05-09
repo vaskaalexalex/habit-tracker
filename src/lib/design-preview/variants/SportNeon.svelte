@@ -67,7 +67,6 @@
 
 	<HabitHeatmap
 		{completions}
-		months={6}
 		cellSize={11}
 		cellGap={2}
 		sectionClass="neon-heatmap-frame"

@@ -1,11 +1,10 @@
 <script lang="ts">
 	import { cardioStore } from '$stores/cardio.svelte';
-	import { ensureSportCompleted, ensureSportNotCompletedIfEmpty } from '$stores/auto-complete';
+	import { ensureSportCompleted } from '$stores/auto-complete';
 	import { toasts } from '$stores/toast.svelte';
-	import type { CardioWorkout } from '$supabase/types';
-	import { Trash2, Loader2 } from 'lucide-svelte';
+	import { Loader2 } from 'lucide-svelte';
 	import PageHeader from '$components/PageHeader.svelte';
-	import { formatRuShort } from '$utils/dates';
+	import CardioHeatmap from '$components/CardioHeatmap.svelte';
 	import { CARDIO_LABELS, CARDIO_ORDER, CARDIO_NO_DISTANCE } from '$supabase/types';
 	import type { CardioType } from '$supabase/types';
 
@@ -20,11 +19,6 @@
 	$effect(() => {
 		if (!hasDistance && distance !== null) distance = null;
 	});
-
-	async function handleDelete(item: CardioWorkout) {
-		await cardioStore.remove(item.id);
-		await ensureSportNotCompletedIfEmpty(item.date);
-	}
 
 	async function submit(event: Event) {
 		event.preventDefault();
@@ -111,40 +105,13 @@
 		</button>
 	</form>
 
-	<section>
-		<h2 class="mb-2 px-1 text-sm font-medium text-(--color-fg-mute)">История</h2>
-		{#if cardioStore.items.length === 0}
-			<p
-				class="hairline rounded-2xl border-dashed bg-transparent p-6 text-center text-sm text-(--color-fg-mute)"
-			>
-				Пусто. Добавь первую запись.
-			</p>
-		{:else}
-			<ul class="hairline flex flex-col rounded-2xl bg-(--color-bg-soft)">
-				{#each cardioStore.items as item (item.id)}
-					<li
-						class="flex items-center gap-3 px-3 py-2 not-last:border-b not-last:border-(--color-border)"
-					>
-						<div class="flex-1">
-							<p class="font-medium">{CARDIO_LABELS[item.type]}</p>
-							<p class="text-xs text-(--color-fg-mute)">
-								{formatRuShort(item.date)} · {item.duration_min} мин
-								{#if item.distance_km}· {item.distance_km} км{/if}
-								{#if item.note}· {item.note}{/if}
-							</p>
-						</div>
-						<button
-							type="button"
-							class="tap-target grid size-9 place-items-center rounded-xl text-(--color-fg-mute) hover:text-rose-400"
-							onclick={() => handleDelete(item)}
-							aria-label="Удалить"
-						>
-							<Trash2 size={16} />
-						</button>
-					</li>
-				{/each}
-			</ul>
-		{/if}
+	<section aria-label="Активность кардио">
+		<CardioHeatmap
+			items={cardioStore.items}
+			cellSize={10}
+			cellGap={2}
+			sectionClass="rounded-2xl p-3 sm:rounded-3xl sm:p-4"
+		/>
 	</section>
 </div>
 
@@ -154,11 +121,5 @@
 	}
 	.bg-soft {
 		background: var(--color-accent-soft);
-	}
-	.not-last\:border-b:not(:last-child) {
-		border-bottom-width: 1px;
-	}
-	.not-last\:border-\(--color-border\):not(:last-child) {
-		border-color: var(--color-border);
 	}
 </style>

@@ -4,6 +4,7 @@
 	import { toasts } from '$stores/toast.svelte';
 	import ExerciseDropdown from '$components/ExerciseDropdown.svelte';
 	import PageHeader from '$components/PageHeader.svelte';
+	import StrengthHeatmap from '$components/StrengthHeatmap.svelte';
 	import { goto } from '$app/navigation';
 	import { base } from '$app/paths';
 	import { todayStore } from '$stores/today.svelte';
@@ -13,25 +14,20 @@
 		MUSCLE_GROUP_LABELS,
 		MUSCLE_GROUP_ORDER,
 		type MuscleGroup,
-		type UUID,
-		type WorkoutSet
+		type UUID
 	} from '$supabase/types';
+	import {
+		buildRowsFromSets,
+		summaryFromSessionSets,
+		type StrengthRow as Row,
+		type SerializedStrengthRow as SerializedRow
+	} from '$utils/strength-rows';
 	import { Plus, Save, Trash2, X, Loader2, ListChecks, ChevronDown } from 'lucide-svelte';
 
 	const DRAFT_KEY = 'strength-session-draft';
 	const PERSIST_DEBOUNCE_MS = 160;
 
 	const today = $derived(todayStore.today);
-
-	type Row = {
-		id: string;
-		group: MuscleGroup;
-		exerciseId: UUID | null;
-		weight: number;
-		sets: number;
-	};
-
-	type SerializedRow = Pick<Row, 'id' | 'group' | 'exerciseId' | 'weight' | 'sets'>;
 
 	/** Группы в селекте «+» (совпадает с порядком каталога). */
 	const ADD_ROW_MUSCLE_GROUPS = MUSCLE_GROUP_ORDER;
@@ -43,14 +39,6 @@
 		{ group: 'arms', count: 3 }
 	];
 	const DEFAULT_REPS = 10;
-
-	function normalizeMuscle(raw: string | null): MuscleGroup {
-		if (raw === 'shoulders') return 'arms';
-		if (raw === 'other') return 'arms';
-		const r = (raw ?? '').trim().toLowerCase();
-		if ((MUSCLE_GROUP_ORDER as readonly string[]).includes(r)) return r as MuscleGroup;
-		return 'arms';
-	}
 
 	function makeRow(group: MuscleGroup): Row {
 		return { id: uuid(), group, exerciseId: null, weight: 0, sets: 0 };
@@ -86,49 +74,10 @@
 		);
 	}
 
-	/** Один ряд формы: вес с последнего подхода, «подх.» = число подходов. */
-	function summaryFromSessionSets(list: WorkoutSet[]): { weight: number; sets: number } | null {
-		const sorted = [...list].sort((a, b) => a.set_number - b.set_number);
-		const last = sorted.at(-1);
-		if (!last) return null;
-		return { weight: last.weight, sets: sorted.length };
-	}
-
 	function buildRowsFromDbOrTemplate(date: string): Row[] {
-		const sets = strengthStore.setsForDate(date);
-		if (sets.length === 0) return makeTemplate();
-
-		const byEx = new Map<UUID, WorkoutSet[]>();
-		for (const s of sets) {
-			const arr = byEx.get(s.exercise_id) ?? [];
-			arr.push(s);
-			byEx.set(s.exercise_id, arr);
-		}
-
-		const result: Row[] = [];
-		for (const [exerciseId, list] of byEx) {
-			const summary = summaryFromSessionSets(list);
-			if (!summary) continue;
-			const ex = strengthStore.exercises.find((e) => e.id === exerciseId);
-			const group = normalizeMuscle(ex?.muscle_group ?? null);
-			result.push({
-				id: uuid(),
-				group,
-				exerciseId,
-				weight: summary.weight,
-				sets: summary.sets
-			});
-		}
-
-		result.sort((a, b) => {
-			const ai = MUSCLE_GROUP_ORDER.indexOf(a.group);
-			const bi = MUSCLE_GROUP_ORDER.indexOf(b.group);
-			if (ai !== bi) return ai - bi;
-			const na = strengthStore.exercises.find((e) => e.id === a.exerciseId)?.name ?? '';
-			const nb = strengthStore.exercises.find((e) => e.id === b.exerciseId)?.name ?? '';
-			return na.localeCompare(nb, 'ru');
-		});
-		return result;
+		const daySets = strengthStore.setsForDate(date);
+		if (daySets.length === 0) return makeTemplate();
+		return buildRowsFromSets(daySets, strengthStore.exercises);
 	}
 
 	function readDraft(date: string): Row[] | null {
@@ -450,5 +399,15 @@
 				<ListChecks size={12} /> Каталог
 			</a>
 		</p>
+	</section>
+
+	<section aria-label="Активность силовых тренировок">
+		<StrengthHeatmap
+			sets={strengthStore.sets}
+			exercises={strengthStore.exercises}
+			cellSize={10}
+			cellGap={2}
+			sectionClass="rounded-2xl p-3 sm:rounded-3xl sm:p-4"
+		/>
 	</section>
 </div>

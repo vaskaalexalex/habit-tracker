@@ -112,7 +112,6 @@
 		</h2>
 		<HabitHeatmap
 			completions={habitsStore.completions}
-			months={6}
 			cellSize={10}
 			cellGap={2}
 			sectionClass="rounded-2xl p-3 sm:rounded-3xl sm:p-4"

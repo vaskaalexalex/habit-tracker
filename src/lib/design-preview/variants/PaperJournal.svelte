@@ -62,7 +62,7 @@
 	</section>
 
 	<section class="paper-sheet hairline rounded-sm p-4">
-		<HabitHeatmap {completions} months={6} />
+		<HabitHeatmap {completions} />
 	</section>
 </div>
 

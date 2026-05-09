@@ -69,7 +69,6 @@
 
 	<HabitHeatmap
 		{completions}
-		months={6}
 		cellSize={9}
 		cellGap={4}
 		sectionClass="px-7 py-10 sm:px-10 sm:py-12"

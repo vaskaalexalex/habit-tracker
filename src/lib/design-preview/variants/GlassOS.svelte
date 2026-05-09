@@ -50,7 +50,6 @@
 	<div class="glass hairline overflow-hidden rounded-[1.75rem]">
 		<HabitHeatmap
 			{completions}
-			months={6}
 			sectionClass="border-0 bg-transparent p-3 shadow-none sm:p-4"
 		/>
 	</div>

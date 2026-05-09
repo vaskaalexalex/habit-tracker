@@ -79,5 +79,5 @@
 		<p class="text-center text-sm font-semibold text-emerald-400">День закрыт полностью.</p>
 	{/if}
 
-	<HabitHeatmap {completions} months={6} />
+	<HabitHeatmap {completions} />
 </div>

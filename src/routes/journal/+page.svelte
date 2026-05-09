@@ -2,7 +2,7 @@
 	import { journalStore } from '$stores/journal.svelte';
 	import { ensureJournalCompleted } from '$stores/auto-complete';
 	import JournalEditor from '$components/JournalEditor.svelte';
-	import HabitHeatmap from '$components/HabitHeatmap.svelte';
+	import JournalHeatmap from '$components/JournalHeatmap.svelte';
 	import PageHeader from '$components/PageHeader.svelte';
 	import { goto } from '$app/navigation';
 	import { base } from '$app/paths';
@@ -34,14 +34,12 @@
 	<JournalEditor date={today} initial={todayEntry} onsave={handleSave} />
 
 	<section aria-label="Активность записей по дням">
-		<HabitHeatmap
-			variant="journal"
-			journalEntries={journalStore.entries}
-			months={6}
+		<JournalHeatmap
+			entries={journalStore.entries}
 			cellSize={10}
 			cellGap={2}
 			sectionClass="rounded-2xl p-3 sm:rounded-3xl sm:p-4"
-			onJournalDayClick={openJournalDay}
+			onDayClick={openJournalDay}
 		/>
 	</section>
 </div>
