@@ -16,7 +16,7 @@
 		type UUID,
 		type WorkoutSet
 	} from '$supabase/types';
-	import { Plus, Save, Trash2, Loader2, ListChecks, ChevronDown } from 'lucide-svelte';
+	import { Plus, Save, Trash2, X, Loader2, ListChecks, ChevronDown } from 'lucide-svelte';
 
 	const DRAFT_KEY = 'strength-session-draft';
 	const PERSIST_DEBOUNCE_MS = 160;
@@ -40,8 +40,7 @@
 		{ group: 'chest', count: 2 },
 		{ group: 'back', count: 2 },
 		{ group: 'legs', count: 2 },
-		{ group: 'arms', count: 3 },
-		{ group: 'core', count: 2 }
+		{ group: 'arms', count: 3 }
 	];
 	const DEFAULT_REPS = 10;
 
@@ -68,6 +67,12 @@
 		);
 	}
 
+	/** Есть хотя бы одна строка, которую можно сохранить (как в saveAll). */
+	function hasAnyFilledStrengthRow(list: Row[] | null): boolean {
+		if (!list) return false;
+		return list.some((r) => r.exerciseId && r.weight > 0 && r.sets > 0);
+	}
+
 	function isValidSerializedRow(x: unknown): x is SerializedRow {
 		if (typeof x !== 'object' || x === null) return false;
 		const o = x as Record<string, unknown>;
@@ -79,6 +84,14 @@
 			typeof o.weight === 'number' &&
 			typeof o.sets === 'number'
 		);
+	}
+
+	/** Один ряд формы: вес с последнего подхода, «подх.» = число подходов. */
+	function summaryFromSessionSets(list: WorkoutSet[]): { weight: number; sets: number } | null {
+		const sorted = [...list].sort((a, b) => a.set_number - b.set_number);
+		const last = sorted.at(-1);
+		if (!last) return null;
+		return { weight: last.weight, sets: sorted.length };
 	}
 
 	function buildRowsFromDbOrTemplate(date: string): Row[] {
@@ -94,17 +107,16 @@
 
 		const result: Row[] = [];
 		for (const [exerciseId, list] of byEx) {
-			const sorted = [...list].sort((a, b) => a.set_number - b.set_number);
-			const last = sorted.at(-1);
-			if (!last) continue;
+			const summary = summaryFromSessionSets(list);
+			if (!summary) continue;
 			const ex = strengthStore.exercises.find((e) => e.id === exerciseId);
 			const group = normalizeMuscle(ex?.muscle_group ?? null);
 			result.push({
 				id: uuid(),
 				group,
 				exerciseId,
-				weight: last.weight,
-				sets: sorted.length
+				weight: summary.weight,
+				sets: summary.sets
 			});
 		}
 
@@ -164,6 +176,8 @@
 	let saving = $state(false);
 	let sessionReady = $state(false);
 	let persistTimer: ReturnType<typeof setTimeout> | null = null;
+	/** Не перегонять строки из черновика при каждом refresh sets[] — только смена дня / появление тренировки за день. */
+	let lastStrengthHydrateKey = $state<string | null>(null);
 
 	let addMuscleGroup = $state<MuscleGroup>('chest');
 
@@ -208,19 +222,20 @@
 		rows = rows.filter((r) => r.id !== id);
 	}
 
-	function setExercise(id: string, exerciseId: UUID) {
-		rows = rows.map((r) => (r.id === id ? { ...r, exerciseId } : r));
+	function clearRow(id: string) {
+		rows = rows.map((r) =>
+			r.id === id ? { ...r, exerciseId: null, weight: 0, sets: 0 } : r
+		);
 	}
 
-	function lastHint(row: Row): string | null {
-		if (!row.exerciseId) return null;
-		const session = strengthStore.lastSessionSetsBefore(row.exerciseId, today);
-		if (!session || session.length === 0) return null;
-		const head = session[0];
-		if (!head) return null;
-		const d = head.date;
-		const parts = session.map((s) => `${s.weight}×${s.reps}`);
-		return `Прошлый раз — ${formatRu(d)}: ${parts.join(', ')}`;
+	function setExercise(id: string, exerciseId: UUID) {
+		const session = strengthStore.lastSessionSetsBefore(exerciseId, today);
+		const summary = session && session.length > 0 ? summaryFromSessionSets(session) : null;
+		rows = rows.map((r) => {
+			if (r.id !== id) return r;
+			if (summary) return { ...r, exerciseId, weight: summary.weight, sets: summary.sets };
+			return { ...r, exerciseId, weight: 0, sets: 0 };
+		});
 	}
 
 	async function saveAll() {
@@ -256,15 +271,24 @@
 		const date = today;
 		if (!strengthStore.loaded) return;
 
+		const hasToday = strengthStore.setsForDate(date).length > 0;
+		const hydrateKey = `${date}:${hasToday}`;
+		if (hydrateKey === lastStrengthHydrateKey) return;
+		lastStrengthHydrateKey = hydrateKey;
+
 		// Если на сегодня уже есть тренировка в БД — показываем её,
 		// чтобы пользователь видел сохранённый результат, а не пустую форму.
 		// Пустой шаблон рисуем только когда сегодняшней тренировки ещё нет.
-		const hasToday = strengthStore.setsForDate(date).length > 0;
 		if (hasToday) {
 			rows = buildRowsFromDbOrTemplate(date);
 		} else {
 			const fromDraft = readDraft(date);
-			rows = fromDraft ?? makeTemplate();
+			if (!hasAnyFilledStrengthRow(fromDraft)) {
+				rows = makeTemplate();
+				writeDraftImmediate(date, rows);
+			} else {
+				rows = fromDraft ?? makeTemplate();
+			}
 		}
 		sessionReady = true;
 	});
@@ -314,12 +338,13 @@
 
 	<section class="hairline flex flex-col gap-3 rounded-3xl bg-(--color-bg-soft) p-3">
 		<div
-			class="grid grid-cols-[minmax(0,1fr)_72px_64px_32px] items-center gap-2 px-1 text-[10px] font-medium uppercase tracking-wide text-(--color-fg-mute)"
+			class="grid grid-cols-[minmax(0,1fr)_72px_64px_32px_32px] items-center gap-2 px-1 text-[10px] font-medium uppercase tracking-wide text-(--color-fg-mute)"
 		>
 			<span>Упражнение</span>
 			<span class="text-center">Вес, кг</span>
 			<span class="text-center">Подх.</span>
-			<span></span>
+			<span class="sr-only">Очистить</span>
+			<span class="sr-only">Удалить</span>
 		</div>
 
 		{#each groupsInOrder as group (group)}
@@ -334,46 +359,52 @@
 				</div>
 
 				{#each rowsByGroup(group) as row (row.id)}
-					<div class="flex flex-col gap-1">
-						{#if lastHint(row)}
-							<p class="px-1 text-[10px] leading-snug text-(--color-fg-mute)">{lastHint(row)}</p>
-						{/if}
-						<div class="grid grid-cols-[minmax(0,1fr)_72px_64px_32px] items-center gap-2">
-							<ExerciseDropdown
-								exercises={strengthStore.exercises}
-								value={row.exerciseId}
-								onselect={(id) => setExercise(row.id, id)}
-								groupFilter={group}
-								compact
-							/>
-							<input
-								type="number"
-								inputmode="decimal"
-								min="0"
-								step="0.5"
-								bind:value={row.weight}
-								placeholder="0"
-								class="hairline rounded-xl bg-(--color-bg-mute) px-2 py-1 text-center text-base tabular-nums outline-none placeholder:text-(--color-fg-mute)"
-							/>
-							<input
-								type="number"
-								inputmode="numeric"
-								min="0"
-								step="1"
-								bind:value={row.sets}
-								placeholder="0"
-								class="hairline rounded-xl bg-(--color-bg-mute) px-2 py-1 text-center text-base tabular-nums outline-none placeholder:text-(--color-fg-mute)"
-							/>
-							<button
-								type="button"
-								onclick={() => removeRow(row.id)}
-								class="grid size-8 place-items-center rounded-lg text-(--color-fg-mute) hover:bg-(--color-bg-mute) hover:text-rose-400 disabled:opacity-30"
-								aria-label="Удалить строку"
-								disabled={rows.length <= 1}
-							>
-								<Trash2 size={14} />
-							</button>
-						</div>
+					<div class="grid grid-cols-[minmax(0,1fr)_72px_64px_32px_32px] items-center gap-2">
+						<ExerciseDropdown
+							exercises={strengthStore.exercises}
+							value={row.exerciseId}
+							onselect={(id) => setExercise(row.id, id)}
+							groupFilter={group}
+							compact
+						/>
+						<input
+							type="number"
+							inputmode="decimal"
+							min="0"
+							step="0.5"
+							bind:value={row.weight}
+							placeholder="0"
+							disabled={!row.exerciseId}
+							class="hairline rounded-xl bg-(--color-bg-mute) px-2 py-1 text-center text-base tabular-nums outline-none placeholder:text-(--color-fg-mute) disabled:cursor-not-allowed disabled:opacity-45"
+						/>
+						<input
+							type="number"
+							inputmode="numeric"
+							min="0"
+							step="1"
+							bind:value={row.sets}
+							placeholder="0"
+							disabled={!row.exerciseId}
+							class="hairline rounded-xl bg-(--color-bg-mute) px-2 py-1 text-center text-base tabular-nums outline-none placeholder:text-(--color-fg-mute) disabled:cursor-not-allowed disabled:opacity-45"
+						/>
+						<button
+							type="button"
+							onclick={() => clearRow(row.id)}
+							class="grid size-8 place-items-center rounded-lg text-(--color-fg-mute) hover:bg-(--color-bg-mute) hover:text-(--color-fg) disabled:opacity-30"
+							aria-label="Очистить строку"
+							disabled={!row.exerciseId && row.weight === 0 && row.sets === 0}
+						>
+							<X size={14} />
+						</button>
+						<button
+							type="button"
+							onclick={() => removeRow(row.id)}
+							class="grid size-8 place-items-center rounded-lg text-(--color-fg-mute) hover:bg-(--color-bg-mute) hover:text-rose-400 disabled:opacity-30"
+							aria-label="Удалить строку"
+							disabled={rows.length <= 1}
+						>
+							<Trash2 size={14} />
+						</button>
 					</div>
 				{/each}
 			</div>
