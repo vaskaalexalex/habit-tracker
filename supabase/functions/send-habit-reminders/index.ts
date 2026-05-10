@@ -84,24 +84,36 @@ async function journalNotFilledForDate(
 }
 
 Deno.serve(async (req) => {
-	const cronSecret = Deno.env.get('CRON_SECRET');
-	if (cronSecret) {
-		const auth = req.headers.get('authorization') ?? '';
-		const bearer = auth.startsWith('Bearer ') ? auth.slice(7) : '';
-		if (bearer !== cronSecret) {
-			return new Response(JSON.stringify({ error: 'unauthorized' }), {
-				status: 401,
-				headers: { 'content-type': 'application/json' }
-			});
-		}
-	}
+	const authHeader = req.headers.get('authorization') ?? '';
+	const bearer = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
 
 	const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 	const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-	const vapidPublic = Deno.env.get('VAPID_PUBLIC_KEY');
-	const vapidPrivate = Deno.env.get('VAPID_PRIVATE_KEY');
 	const vapidSubject = Deno.env.get('VAPID_SUBJECT') ?? 'mailto:habit-tracker@localhost';
 
+	const admin = createClient(supabaseUrl, serviceKey);
+
+	const { data: cfgRaw, error: cfgErr } = await admin.rpc('get_edge_push_config');
+	const cfg =
+		!cfgErr && cfgRaw && typeof cfgRaw === 'object'
+			? (cfgRaw as { vapid_public?: string | null; vapid_private?: string | null; cron_secret?: string | null })
+			: null;
+
+	const cronSecret =
+		(Deno.env.get('CRON_SECRET') ?? '').trim() || (cfg?.cron_secret ?? '').trim();
+	if (cronSecret && bearer !== cronSecret) {
+		return new Response(JSON.stringify({ error: 'unauthorized' }), {
+			status: 401,
+			headers: { 'content-type': 'application/json' }
+		});
+	}
+
+	let vapidPublic = (Deno.env.get('VAPID_PUBLIC_KEY') ?? '').trim();
+	let vapidPrivate = (Deno.env.get('VAPID_PRIVATE_KEY') ?? '').trim();
+	if (!vapidPublic || !vapidPrivate) {
+		vapidPublic = (cfg?.vapid_public ?? '').trim();
+		vapidPrivate = (cfg?.vapid_private ?? '').trim();
+	}
 	if (!vapidPublic || !vapidPrivate) {
 		return new Response(JSON.stringify({ error: 'missing_vapid_keys' }), {
 			status: 500,
@@ -110,8 +122,6 @@ Deno.serve(async (req) => {
 	}
 
 	webpush.setVapidDetails(vapidSubject, vapidPublic, vapidPrivate);
-
-	const admin = createClient(supabaseUrl, serviceKey);
 
 	const { data: reminders, error: rErr } = await admin
 		.from('user_push_reminders')
