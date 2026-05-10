@@ -42,6 +42,21 @@ export async function fetchReminderSettings(userId: string): Promise<boolean> {
 	return data?.reminders_enabled ?? false;
 }
 
+/** After enabling in UI: confirm permission, active push subscription, and DB flag. */
+export async function verifyPushReminderEnabled(userId: string): Promise<boolean> {
+	if (typeof window === 'undefined') return false;
+	if (!('Notification' in window) || Notification.permission !== 'granted') return false;
+	if (!('serviceWorker' in navigator) || !('PushManager' in window)) return false;
+	try {
+		const reg = await navigator.serviceWorker.ready;
+		const sub = await reg.pushManager.getSubscription();
+		if (!sub) return false;
+	} catch {
+		return false;
+	}
+	return fetchReminderSettings(userId);
+}
+
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
 	const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
 	const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');

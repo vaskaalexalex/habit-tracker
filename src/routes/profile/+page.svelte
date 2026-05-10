@@ -1,5 +1,6 @@
 <script lang="ts">
 	import PageHeadText from '$components/PageHeadText.svelte';
+	import SwitchToggle from '$components/SwitchToggle.svelte';
 	import { authStore } from '$stores/auth.svelte';
 	import { themeStore } from '$stores/theme.svelte';
 	import { profileStore } from '$stores/profile.svelte';
@@ -7,7 +8,9 @@
 	import {
 		disableHabitReminders,
 		enableHabitReminders,
-		fetchReminderSettings
+		fetchReminderSettings,
+		syncUserReminderTimezone,
+		verifyPushReminderEnabled
 	} from '$lib/push/reminders';
 	import { isSupabaseConfigured } from '$supabase/client';
 	import { LogOut, Sun, Moon, Bell } from 'lucide-svelte';
@@ -56,31 +59,40 @@
 		void goto(`${base}/login`, { replaceState: true });
 	}
 
-	async function toggleReminders() {
+	async function flipReminders() {
 		const uid = authStore.user?.id;
-		if (!uid || remindersBusy) return;
+		if (!uid || remindersBusy || remindersLoading) return;
 		remindersBusy = true;
 		const next = !remindersOn;
-		if (next) {
-			const { error } = await enableHabitReminders(uid);
-			if (error) {
-				toasts.push(error, 'error');
-				remindersBusy = false;
-				return;
+		try {
+			if (next) {
+				const { error } = await enableHabitReminders(uid);
+				if (error) {
+					toasts.push(error, 'error');
+					remindersOn = false;
+					return;
+				}
+				await syncUserReminderTimezone(uid);
+				const ok = await verifyPushReminderEnabled(uid);
+				remindersOn = ok;
+				if (ok) toasts.push('Напоминания включены');
+				else toasts.push('Не удалось подтвердить подписку на уведомления', 'error');
+			} else {
+				const { error } = await disableHabitReminders(uid);
+				if (error) {
+					toasts.push(error, 'error');
+					return;
+				}
+				remindersOn = false;
+				toasts.push('Напоминания выключены');
 			}
-			remindersOn = true;
-			toasts.push('Напоминания включены');
-		} else {
-			const { error } = await disableHabitReminders(uid);
-			if (error) {
-				toasts.push(error, 'error');
-				remindersBusy = false;
-				return;
-			}
-			remindersOn = false;
-			toasts.push('Напоминания выключены');
+		} finally {
+			remindersBusy = false;
 		}
-		remindersBusy = false;
+	}
+
+	function flipTheme() {
+		themeStore.toggle();
 	}
 </script>
 
@@ -88,31 +100,6 @@
 	<header>
 		<PageHeadText kicker="Аккаунт" title="Профиль" subtitle={authStore.user?.email ?? '—'} />
 	</header>
-
-	{#if isSupabaseConfigured}
-		<button
-			type="button"
-			disabled={remindersLoading || remindersBusy}
-			onclick={toggleReminders}
-			class="hairline tap-target flex w-full flex-col items-stretch gap-1 rounded-3xl bg-(--color-bg-soft) px-4 py-3 text-left font-medium active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
-		>
-			<span class="flex items-center gap-3">
-				<span class="grid size-9 place-items-center rounded-xl bg-(--color-bg-mute)">
-					<Bell size={18} />
-				</span>
-				<span class="flex min-w-0 flex-1 flex-col gap-0.5">
-					<span>Напоминание о дневнике</span>
-					<span class="text-xs font-normal text-(--color-fg-mute)">
-						Около 21:00 по времени устройства, если за день ещё не заполнен дневник. Часовой пояс обновляется
-						при открытии приложения.
-					</span>
-				</span>
-				<span class="shrink-0 text-sm text-(--color-fg-mute)">
-					{remindersLoading ? '…' : remindersOn ? 'вкл' : 'выкл'}
-				</span>
-			</span>
-		</button>
-	{/if}
 
 	<section class="hairline rounded-3xl bg-(--color-bg-soft) p-4">
 		<label class="flex flex-col gap-2">
@@ -129,23 +116,41 @@
 	</section>
 
 	<section class="hairline rounded-3xl bg-(--color-bg-soft) p-2">
-		<button
-			type="button"
-			onclick={() => themeStore.toggle()}
-			class="tap-target flex w-full items-center justify-between rounded-2xl px-3 py-3 text-left font-medium active:scale-[0.99]"
-		>
-			<span class="flex items-center gap-3">
-				<span class="grid size-9 place-items-center rounded-xl bg-(--color-bg-mute)">
-					{#if themeStore.theme === 'dark'}
-						<Moon size={18} />
-					{:else}
-						<Sun size={18} />
-					{/if}
+		{#if isSupabaseConfigured}
+			<div
+				class="flex w-full items-center gap-3 rounded-2xl px-3 py-3"
+				class:opacity-50={remindersLoading || remindersBusy}
+			>
+				<span class="grid size-9 shrink-0 place-items-center rounded-xl bg-(--color-bg-mute)">
+					<Bell size={18} />
 				</span>
-				<span>Тема: {themeStore.theme === 'dark' ? 'тёмная' : 'светлая'}</span>
+				<span class="min-w-0 flex-1 font-medium" id="reminders-profile-label">Уведомления</span>
+				<SwitchToggle
+					pressed={remindersOn}
+					disabled={remindersLoading || remindersBusy}
+					aria-labelledby="reminders-profile-label"
+					onFlip={() => void flipReminders()}
+				/>
+			</div>
+		{/if}
+
+		<div class="flex w-full items-center gap-3 rounded-2xl px-3 py-3">
+			<span class="grid size-9 shrink-0 place-items-center rounded-xl bg-(--color-bg-mute)">
+				{#if themeStore.theme === 'dark'}
+					<Moon size={18} />
+				{:else}
+					<Sun size={18} />
+				{/if}
 			</span>
-			<span class="text-sm text-(--color-fg-mute)">переключить</span>
-		</button>
+			<span class="min-w-0 flex-1 font-medium" id="theme-profile-label">
+				Тема: {themeStore.theme === 'dark' ? 'тёмная' : 'светлая'}
+			</span>
+			<SwitchToggle
+				pressed={themeStore.theme === 'dark'}
+				aria-labelledby="theme-profile-label"
+				onFlip={flipTheme}
+			/>
+		</div>
 
 		<button
 			type="button"

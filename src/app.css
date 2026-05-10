@@ -166,16 +166,6 @@
 	color: var(--color-fg-mute);
 }
 
-/** Home dashboard: large date as primary title. */
-@utility page-hero-title {
-	font-size: clamp(1.25rem, 5vw, 1.875rem);
-	line-height: 1.05;
-	font-weight: 900;
-	text-transform: uppercase;
-	letter-spacing: -0.04em;
-	color: var(--color-fg);
-}
-
 /** Standard scroll page: same horizontal/top/bottom padding and vertical rhythm. */
 @utility page-shell {
 	margin-inline: auto;

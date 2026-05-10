@@ -10,6 +10,7 @@
 	import DashboardHabitTile from '$components/DashboardHabitTile.svelte';
 	import HabitHeatmap from '$components/HabitHeatmap.svelte';
 	import TodayRing from '$components/TodayRing.svelte';
+	import PageHeadText from '$components/PageHeadText.svelte';
 	import { HABIT_ORDER } from '$supabase/types';
 	import type { HabitType } from '$supabase/types';
 	import { todayStore } from '$stores/today.svelte';
@@ -96,11 +97,11 @@
 
 <div class="page-shell min-h-0 flex-1 gap-3 max-[380px]:gap-2 sm:gap-5 sm:pb-3">
 	<div class="flex shrink-0 flex-col gap-1">
-		<p class="page-kicker">Сегодня</p>
-		<p class="page-hero-title">{formatRu(today)}</p>
-		{#if profileStore.name.trim()}
-			<p class="page-subtitle truncate">{profileStore.name}</p>
-		{/if}
+		<PageHeadText
+			kicker="Сегодня"
+			title={formatRu(today)}
+			subtitle={profileStore.name.trim() || undefined}
+		/>
 	</div>
 
 	<div
