@@ -5,6 +5,8 @@
 		date: ISODate;
 		initial: JournalEntry | null;
 		onsave: (input: { content: string; mood: number | null }) => Promise<void>;
+		/** Persist clearing the day (delete row + undo habit); only fired after non-empty persisted baseline. */
+		onclear: () => Promise<void>;
 	}
 
 	import { untrack } from 'svelte';
@@ -17,7 +19,7 @@
 		return entry?.mood != null ? entry.mood : null;
 	}
 
-	let { date, initial, onsave }: Props = $props();
+	let { date, initial, onsave, onclear }: Props = $props();
 
 	let content = $state(untrack(() => initial?.content ?? ''));
 	let moodValue = $state<number>(untrack(() => initial?.mood ?? 5));
@@ -55,6 +57,7 @@
 		const m = moodForSave;
 		void date;
 		void saveBaselineKey;
+		void initial;
 
 		const clearScheduled = () => {
 			if (timer !== null) {
@@ -64,19 +67,33 @@
 		};
 		clearScheduled();
 
-		if (c.trim().length === 0 && m === null) {
+		const snap = journalSnapshotKey(c, m);
+		if (snap === saveBaselineKey) {
 			return clearScheduled;
 		}
 
-		if (journalSnapshotKey(c, m) === saveBaselineKey) {
+		const empty = c.trim().length === 0 && m === null;
+		const initialMeaningful =
+			initial != null &&
+			(initial.content.trim().length > 0 || initial.mood != null);
+		const shouldClearPersisted =
+			empty &&
+			(journalSnapshotKey('', null) !== saveBaselineKey || initialMeaningful);
+
+		if (empty && !shouldClearPersisted) {
 			return clearScheduled;
 		}
 
 		timer = setTimeout(async () => {
 			saving = true;
 			try {
-				await onsave({ content: c, mood: m });
-				saveBaselineKey = journalSnapshotKey(c, m);
+				if (empty) {
+					await onclear();
+					saveBaselineKey = journalSnapshotKey('', null);
+				} else {
+					await onsave({ content: c, mood: m });
+					saveBaselineKey = snap;
+				}
 				savedAt = Date.now();
 			} finally {
 				saving = false;

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { journalStore } from '$stores/journal.svelte';
+	import { habitsStore } from '$stores/habits.svelte';
 	import { ensureJournalCompleted } from '$stores/auto-complete';
 	import JournalEditor from '$components/JournalEditor.svelte';
 	import JournalHeatmap from '$components/JournalHeatmap.svelte';
@@ -13,9 +14,14 @@
 	const todayEntry = $derived(journalStore.getByDate(today) ?? null);
 
 	async function handleSave({ content, mood }: { content: string; mood: number | null }) {
-		if (content.trim().length === 0 && mood === null) return;
 		await journalStore.upsertDay({ date: today, content, mood });
-		await ensureJournalCompleted();
+		if (content.trim().length > 0) await ensureJournalCompleted(today);
+		else await habitsStore.markUndone('journal', today);
+	}
+
+	async function handleClear() {
+		await journalStore.deleteDay(today);
+		await habitsStore.markUndone('journal', today);
 	}
 
 	function openJournalDay(date: string) {
@@ -25,13 +31,12 @@
 
 <div class="page-shell">
 	<PageHeader
-		backFallback="/"
 		kicker="Записки"
 		title="Дневник"
 		subtitle="Сегодня — {formatRu(today, 'd MMMM')}"
 	/>
 
-	<JournalEditor date={today} initial={todayEntry} onsave={handleSave} />
+	<JournalEditor date={today} initial={todayEntry} onsave={handleSave} onclear={handleClear} />
 
 	<section aria-label="Активность записей по дням">
 		<JournalHeatmap

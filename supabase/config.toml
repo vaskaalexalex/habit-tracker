@@ -1,0 +1,4 @@
+# Minimal config for Edge Functions deploy. Extend as needed locally.
+
+[functions.send-habit-reminders]
+verify_jwt = false

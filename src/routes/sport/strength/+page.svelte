@@ -262,7 +262,6 @@
 
 <div class="page-shell">
 	<PageHeader
-		backFallback="/sport"
 		kicker="Сессия"
 		title="Силовая"
 		subtitle={formatRu(today)}

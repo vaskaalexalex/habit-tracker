@@ -43,6 +43,7 @@ export default defineConfig({
 				clientsClaim: true,
 				navigateFallback: startUrl,
 				skipWaiting: true,
+				importScripts: [`${BASE || ''}/push-sw.js`],
 				runtimeCaching: [
 					{
 						urlPattern: ({ url }) => url.hostname.endsWith('.supabase.co'),

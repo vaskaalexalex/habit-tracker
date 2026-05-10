@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { journalStore } from '$stores/journal.svelte';
+	import { habitsStore } from '$stores/habits.svelte';
 	import { ensureJournalCompleted } from '$stores/auto-complete';
 	import JournalEditor from '$components/JournalEditor.svelte';
 	import PageHeader from '$components/PageHeader.svelte';
@@ -25,13 +26,18 @@
 
 	async function handleSave({ content, mood }: { content: string; mood: number | null }) {
 		await journalStore.upsertDay({ date, content, mood });
-		await ensureJournalCompleted(date);
+		if (content.trim().length > 0) await ensureJournalCompleted(date);
+		else await habitsStore.markUndone('journal', date);
+	}
+
+	async function handleClear() {
+		await journalStore.deleteDay(date);
+		await habitsStore.markUndone('journal', date);
 	}
 </script>
 
 <div class="page-shell">
 	<PageHeader
-		backFallback="/journal"
 		kicker="День"
 		title={date ? formatRu(date, 'EEEE, d MMMM yyyy') : '—'}
 		meta={date ? date : undefined}
@@ -44,6 +50,6 @@
 			Загружаем…
 		</div>
 	{:else if date}
-		<JournalEditor {date} initial={entry} onsave={handleSave} />
+		<JournalEditor {date} initial={entry} onsave={handleSave} onclear={handleClear} />
 	{/if}
 </div>

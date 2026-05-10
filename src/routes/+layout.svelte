@@ -1,7 +1,7 @@
 <script lang="ts">
 	import '../app.css';
 	import { onMount } from 'svelte';
-	import { goto } from '$app/navigation';
+	import { goto, onNavigate } from '$app/navigation';
 	import { base } from '$app/paths';
 	import { page } from '$app/stores';
 	import { authStore } from '$stores/auth.svelte';
@@ -10,7 +10,7 @@
 	import { cardioStore } from '$stores/cardio.svelte';
 	import { journalStore } from '$stores/journal.svelte';
 	import { todayStore } from '$stores/today.svelte';
-	import { reconcileSportCompletions } from '$stores/auto-complete';
+	import { reconcileJournalCompletions, reconcileSportCompletions } from '$stores/auto-complete';
 	import { forcePushLocalData } from '$db/force-sync';
 	import { bootstrap } from '$lib/bootstrap';
 	import { syncDebug } from '$utils/sync-debug';
@@ -18,9 +18,36 @@
 	import ToastHost from '$components/ToastHost.svelte';
 	import InstallPrompt from '$components/InstallPrompt.svelte';
 	import { syncStatusStore } from '$stores/sync-status.svelte';
+	import { mainTabIndex } from '$lib/nav/main-tab-index';
+	import { syncUserReminderTimezone } from '$lib/push/reminders';
 
 	let { children } = $props();
 	let booted = $state(false);
+
+	onNavigate((navigation) => {
+		if (typeof document === 'undefined' || !document.startViewTransition) return;
+		return new Promise<void>((resolve) => {
+			const fromPath = navigation.from?.url.pathname ?? '';
+			const toPath = navigation.to?.url.pathname ?? '';
+			const i0 = mainTabIndex(fromPath, base);
+			const i1 = mainTabIndex(toPath, base);
+
+			if (i0 !== null && i1 !== null && i0 !== i1) {
+				document.documentElement.dataset.vtTab = i1 > i0 ? 'forward' : 'back';
+			} else {
+				delete document.documentElement.dataset.vtTab;
+			}
+
+			const vt = document.startViewTransition(async () => {
+				resolve();
+				await navigation.complete;
+			});
+
+			void vt.finished.finally(() => {
+				delete document.documentElement.dataset.vtTab;
+			});
+		});
+	});
 	let lastRemoteRefresh = 0;
 	let lastAutoPushUserId: string | null = null;
 
@@ -39,11 +66,7 @@
 		function onInputFocusIn(event: FocusEvent) {
 			const t = event.target;
 			if (!(t instanceof HTMLElement)) return;
-			if (
-				!t.matches(
-					'input, textarea, select, [contenteditable=""], [contenteditable="true"]'
-				)
-			)
+			if (!t.matches('input, textarea, select, [contenteditable=""], [contenteditable="true"]'))
 				return;
 			const main = document.querySelector('main');
 			const startMainTop = main?.scrollTop ?? 0;
@@ -76,11 +99,7 @@
 		function onInputFocusOut(event: FocusEvent) {
 			const t = event.target;
 			if (!(t instanceof HTMLElement)) return;
-			if (
-				!t.matches(
-					'input, textarea, select, [contenteditable=""], [contenteditable="true"]'
-				)
-			)
+			if (!t.matches('input, textarea, select, [contenteditable=""], [contenteditable="true"]'))
 				return;
 			forceScrollReset();
 		}
@@ -116,6 +135,8 @@
 							habitsStore.hydrateLocal(),
 							journalStore.hydrateLocal()
 						]);
+						await reconcileSportCompletions();
+						await reconcileJournalCompletions();
 					} catch (err) {
 						syncDebug('hydrate-local-error', {
 							error: err instanceof Error ? err.message : String(err)
@@ -230,6 +251,7 @@
 				journal: results[3].status
 			});
 			void reconcileSportCompletions();
+			void reconcileJournalCompletions();
 		});
 	}
 
@@ -267,11 +289,19 @@
 	});
 
 	$effect(() => {
-		if (!habitsStore.loaded || !strengthStore.loaded || !cardioStore.loaded) return;
+		if (!booted || !authStore.user?.id) return;
+		void syncUserReminderTimezone(authStore.user.id);
+	});
+
+	$effect(() => {
+		if (!habitsStore.loaded || !strengthStore.loaded || !cardioStore.loaded || !journalStore.loaded)
+			return;
 		void strengthStore.sets.length;
 		void cardioStore.items.length;
+		void journalStore.entries.length;
 		void habitsStore.completions.length;
 		void reconcileSportCompletions();
+		void reconcileJournalCompletions();
 	});
 
 	$effect(() => {
@@ -297,10 +327,7 @@
 
 <div class="app-shell relative flex min-h-0 w-full flex-col overflow-hidden">
 	{#if !booted}
-		<div
-			class="pointer-events-none fixed inset-x-0 top-0 z-[48] flex flex-col"
-			aria-hidden="true"
-		>
+		<div class="pointer-events-none fixed inset-x-0 top-0 z-[48] flex flex-col" aria-hidden="true">
 			<div class="shrink-0" style="height: env(safe-area-inset-top, 0px);"></div>
 			<div class="h-[3px] w-full overflow-hidden bg-(--color-bg-mute)">
 				<div class="bootstrap-load-bar__stripe"></div>
@@ -308,7 +335,7 @@
 		</div>
 	{/if}
 	<main
-		class="safe-top flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain"
+		class="app-main-vt safe-top flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto overscroll-y-contain"
 		class:pb-bottom-nav={showNav}
 	>
 		{#if booted}

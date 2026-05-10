@@ -2,6 +2,7 @@
 	import { cardioStore } from '$stores/cardio.svelte';
 	import { ensureSportCompleted } from '$stores/auto-complete';
 	import { toasts } from '$stores/toast.svelte';
+	import { isoToday } from '$utils/dates';
 	import { Loader2 } from 'lucide-svelte';
 	import PageHeader from '$components/PageHeader.svelte';
 	import CardioHeatmap from '$components/CardioHeatmap.svelte';
@@ -20,9 +21,21 @@
 		if (!hasDistance && distance !== null) distance = null;
 	});
 
+	function hasWarmupToday(): boolean {
+		const d = isoToday();
+		return cardioStore.items.some((c) => c.date === d && c.type === 'warmup');
+	}
+
 	async function submit(event: Event) {
 		event.preventDefault();
 		if (saving) return;
+		if (
+			type === 'warmup' &&
+			hasWarmupToday() &&
+			!confirm('Уже есть зарядка за сегодня. Добавить ещё одну?')
+		) {
+			return;
+		}
 		saving = true;
 		try {
 			await cardioStore.add({
@@ -43,7 +56,6 @@
 
 <div class="page-shell">
 	<PageHeader
-		backFallback="/sport"
 		kicker="Кардио"
 		title="Другая активность"
 		subtitle="Запиши активность за сегодня"

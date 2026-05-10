@@ -97,6 +97,17 @@ class JournalStore {
 		return this.entries.find((e) => e.date === date);
 	}
 
+	/** In-memory or Dexie row for this calendar day (reconcile / delete must not miss IndexedDB-only rows). */
+	async resolveEntryForDate(date: ISODate): Promise<JournalEntry | undefined> {
+		if (!this.#userId) return undefined;
+		const mem = this.getByDate(date);
+		if (mem) return mem;
+		return (
+			(await db.journal_entries.where('[user_id+date]').equals([this.#userId, date]).first()) ??
+			undefined
+		);
+	}
+
 	async loadDay(date: ISODate): Promise<JournalEntry | null> {
 		if (!this.#userId) return null;
 		const local = this.getByDate(date);
@@ -129,6 +140,23 @@ class JournalStore {
 			});
 			return null;
 		}
+	}
+
+	async deleteDay(date: ISODate): Promise<void> {
+		if (!this.#userId) return;
+		let existing = this.getByDate(date);
+		if (!existing) {
+			existing =
+				(await db.journal_entries
+					.where('[user_id+date]')
+					.equals([this.#userId, date])
+					.first()) ?? undefined;
+		}
+		if (!existing) return;
+		this.entries = this.entries.filter((e) => e.date !== date);
+		await db.journal_entries.delete(existing.id);
+		await enqueue('journal_entries', 'delete', { id: existing.id });
+		void drainQueue();
 	}
 
 	async upsertDay(input: {

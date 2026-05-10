@@ -35,7 +35,6 @@
 
 <div class="page-shell">
 	<PageHeader
-		backFallback="/sport/strength"
 		kicker="Тренировка"
 		title="Силовая"
 		subtitle={isValidDate ? formatRu(dateParam) : 'Некорректная дата'}

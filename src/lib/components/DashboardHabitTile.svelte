@@ -1,5 +1,7 @@
 <script lang="ts">
-	import { Check, Flame } from 'lucide-svelte';
+	import { onMount } from 'svelte';
+	import { Flame } from 'lucide-svelte';
+	import { spring } from 'svelte/motion';
 	import type { HabitType } from '$supabase/types';
 	import { HABIT_LABELS } from '$supabase/types';
 	import { habitIcon, habitColorVar } from '$lib/habit-visual';
@@ -28,6 +30,74 @@
 	const Icon = $derived(habitIcon[habit]);
 	const color = $derived(habitColorVar(habit));
 
+	let reduceMotion = $state(false);
+	let mounted = $state(false);
+	onMount(() => {
+		const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+		reduceMotion = mq.matches;
+		const onChange = () => {
+			reduceMotion = mq.matches;
+		};
+		mq.addEventListener('change', onChange);
+		// Defer the mounted flag by a frame so the initial completed state
+		// renders without playing the clip-path transition.
+		const raf = requestAnimationFrame(() => {
+			mounted = true;
+		});
+		return () => {
+			mq.removeEventListener('change', onChange);
+			cancelAnimationFrame(raf);
+		};
+	});
+
+	const scale = spring(1, { stiffness: 0.18, damping: 0.55 });
+
+	let rx = $state(50);
+	let ry = $state(50);
+
+	// Local visual state, decoupled from the `completed` prop for ~600ms
+	// after a click. This prevents flicker if any background sync briefly
+	// re-introduces a just-removed row before the next refresh corrects it.
+	let visualCompleted = $state(false);
+	let lastClickAt = 0;
+	const CLICK_LOCK_MS = 600;
+
+	$effect(() => {
+		const next = completed;
+		const elapsed = Date.now() - lastClickAt;
+		if (elapsed >= CLICK_LOCK_MS) {
+			visualCompleted = next;
+			return;
+		}
+		const id = window.setTimeout(() => {
+			visualCompleted = completed;
+		}, CLICK_LOCK_MS - elapsed);
+		return () => window.clearTimeout(id);
+	});
+
+	function handleClick(e: MouseEvent) {
+		if (!visualCompleted) {
+			const target = e.currentTarget as HTMLElement | null;
+			if (target && e.detail !== 0) {
+				const rect = target.getBoundingClientRect();
+				if (rect.width > 0 && rect.height > 0) {
+					rx = ((e.clientX - rect.left) / rect.width) * 100;
+					ry = ((e.clientY - rect.top) / rect.height) * 100;
+				}
+			} else {
+				rx = 50;
+				ry = 50;
+			}
+		}
+		visualCompleted = !visualCompleted;
+		lastClickAt = Date.now();
+		if (!reduceMotion) {
+			scale.set(1.04, { hard: true });
+			window.setTimeout(() => scale.set(1), 140);
+		}
+		onclick?.();
+	}
+
 	const box = $derived(
 		size === 'hero'
 			? 'min-h-[8.5rem] p-4 sm:min-h-36 sm:p-5 md:min-h-40'
@@ -39,39 +109,47 @@
 	);
 	const titleSize = $derived(
 		size === 'hero'
-			? 'text-base sm:text-lg md:text-xl'
+			? 'text-lg sm:text-xl md:text-2xl'
 			: size === 'lg'
-				? 'text-sm sm:text-base'
+				? 'text-base sm:text-lg'
 				: size === 'compact'
-					? 'text-[11px] leading-tight sm:text-xs'
-					: 'text-xs sm:text-sm'
+					? 'text-sm leading-tight sm:text-base'
+					: 'text-sm sm:text-base'
 	);
 	const iconWrap = $derived(
 		size === 'hero'
-			? 'size-12 rounded-2xl sm:size-14 sm:rounded-3xl'
+			? 'size-14 rounded-2xl sm:size-16 sm:rounded-3xl'
 			: size === 'lg'
-				? 'size-11 rounded-2xl sm:size-12 sm:rounded-3xl'
+				? 'size-12 rounded-2xl sm:size-14 sm:rounded-3xl'
 				: size === 'compact'
-					? 'size-8 rounded-2xl sm:size-9 sm:rounded-3xl'
-					: 'size-9 rounded-2xl sm:size-10 sm:rounded-3xl'
+					? 'size-10 rounded-2xl sm:size-11 sm:rounded-3xl'
+					: 'size-11 rounded-2xl sm:size-12 sm:rounded-3xl'
 	);
-	const iconSz = $derived(
-		size === 'hero' ? 26 : size === 'lg' ? 22 : size === 'compact' ? 16 : 18
-	);
+	const iconSz = $derived(size === 'hero' ? 30 : size === 'lg' ? 26 : size === 'compact' ? 20 : 22);
 </script>
 
 <button
 	type="button"
-	class="tap-target group relative flex w-full flex-row items-center gap-2 overflow-hidden rounded-2xl border border-(--color-border) text-left transition active:scale-[0.99] sm:gap-2.5 sm:rounded-3xl {box}"
+	class="habit-tile-btn tap-target group relative flex w-full flex-row items-center gap-2 overflow-hidden rounded-2xl border border-(--color-border) text-left sm:gap-2.5 sm:rounded-3xl {box}"
 	class:bg-(--color-bg-soft)={!glass}
 	class:glass
 	class:h-full={stretch}
 	class:min-h-[9rem]={stretch && size !== 'compact'}
 	class:sm:min-h-[11rem]={stretch && size !== 'compact'}
-	style={glass ? '' : undefined}
-	onclick={() => onclick?.()}
+	class:completed={visualCompleted}
+	style="transform: scale({$scale})"
+	onclick={handleClick}
 	aria-label={HABIT_LABELS[habit]}
+	aria-pressed={visualCompleted}
 >
+	<span
+		class="habit-tile-fill"
+		class:habit-tile-fill--on={visualCompleted}
+		class:habit-tile-fill--anim={mounted && !reduceMotion}
+		style="--rx:{rx}%;--ry:{ry}%;--c:{color};"
+		aria-hidden="true"
+	></span>
+
 	{#if !glass}
 		<div
 			class="pointer-events-none absolute inset-0 opacity-40"
@@ -81,8 +159,8 @@
 
 	<div class="relative z-[1] flex min-w-0 flex-1 items-center gap-2 sm:gap-2.5">
 		<span
-			class="relative grid shrink-0 place-items-center {iconWrap}"
-			style="background: color-mix(in oklch, {color} 22%, transparent); color: {color};"
+			class="habit-tile-icon relative grid shrink-0 place-items-center {iconWrap}"
+			style="--c:{color};"
 		>
 			<Icon size={iconSz} strokeWidth={2} />
 		</span>
@@ -91,25 +169,23 @@
 		</span>
 		{#if streak > 0}
 			<span
-				class="inline-flex shrink-0 items-center gap-0.5 tabular-nums text-[10px] text-(--color-fg-mute) sm:text-[11px]"
+				class="habit-tile-streak inline-flex shrink-0 items-center gap-1 tabular-nums text-xs text-(--color-fg-mute) sm:text-sm"
 			>
-				<Flame size={10} class="shrink-0 text-orange-400 sm:hidden" />
-				<Flame size={11} class="hidden shrink-0 text-orange-400 sm:inline" />
+				<Flame size={13} class="habit-tile-streak__icon shrink-0 text-orange-400 sm:hidden" />
+				<Flame
+					size={14}
+					class="habit-tile-streak__icon hidden shrink-0 text-orange-400 sm:inline"
+				/>
 				{streak}
 			</span>
 		{/if}
 	</div>
-
-	{#if completed}
-		<span
-			class="relative z-[1] grid shrink-0 place-items-center rounded-full bg-emerald-500/25 text-emerald-400 size-4 sm:size-5 md:size-6"
-		>
-			{#if size === 'compact'}
-				<Check size={10} strokeWidth={2.5} />
-			{:else}
-				<Check size={13} strokeWidth={2.5} class="sm:hidden" />
-				<Check size={14} strokeWidth={2.5} class="hidden sm:block" />
-			{/if}
-		</span>
-	{/if}
 </button>
+
+<style>
+	@media (prefers-reduced-motion: reduce) {
+		.habit-tile-btn {
+			transform: none !important;
+		}
+	}
+</style>

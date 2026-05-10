@@ -30,7 +30,6 @@
 
 <div class="page-shell">
 	<PageHeader
-		backFallback="/sport/strength"
 		kicker="Библиотека"
 		title="Каталог упражнений"
 		subtitle="Список зафиксирован в базе: 22 упражнения."

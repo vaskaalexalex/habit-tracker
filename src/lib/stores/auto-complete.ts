@@ -1,8 +1,21 @@
-import type { ISODate } from '$supabase/types';
+import type { ISODate, JournalEntry } from '$supabase/types';
 import { habitsStore } from './habits.svelte';
 import { strengthStore } from './strength.svelte';
 import { cardioStore } from './cardio.svelte';
+import { journalStore } from './journal.svelte';
 import { isoToday } from '$utils/dates';
+
+/** Row has any saved fields (used to delete truly empty rows after undoing the habit). */
+export function isJournalEntryMeaningful(entry: JournalEntry | null | undefined): boolean {
+	if (!entry) return false;
+	return entry.content.trim().length > 0 || entry.mood != null;
+}
+
+/** Habit "journal" counts as done only with non-empty written body (mood alone does not close the ring). */
+export function journalHabitBackedByWriting(entry: JournalEntry | null | undefined): boolean {
+	if (!entry) return false;
+	return entry.content.trim().length > 0;
+}
 
 export async function ensureSportCompleted(date: ISODate = isoToday()): Promise<void> {
 	if (!habitsStore.isCompleted('sport', date)) {
@@ -47,5 +60,17 @@ export async function reconcileSportCompletions(): Promise<void> {
 export async function ensureJournalCompleted(date: ISODate = isoToday()): Promise<void> {
 	if (!habitsStore.isCompleted('journal', date)) {
 		await habitsStore.markDone('journal', date);
+	}
+}
+
+export async function reconcileJournalCompletions(): Promise<void> {
+	const dates = habitsStore.completionsByHabit('journal').map((c) => c.date);
+	for (const date of dates) {
+		const entry = await journalStore.resolveEntryForDate(date);
+		if (journalHabitBackedByWriting(entry)) continue;
+		await habitsStore.markUndone('journal', date);
+		if (entry && !isJournalEntryMeaningful(entry)) {
+			await journalStore.deleteDay(date);
+		}
 	}
 }

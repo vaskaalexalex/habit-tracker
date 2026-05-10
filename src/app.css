@@ -139,6 +139,7 @@
 	font-size: 1.5rem;
 	line-height: 2rem;
 	font-weight: 900;
+	text-transform: uppercase;
 	letter-spacing: -0.025em;
 	color: var(--color-fg);
 
@@ -248,4 +249,226 @@
 	);
 	animation: bootstrap-load-indeterminate 1.05s ease-in-out infinite;
 	will-change: transform;
+}
+
+/* Home: one-shot highlight when the last habit is completed */
+@keyframes home-stats-pulse {
+	0% {
+		transform: scale(1);
+		box-shadow:
+			0 0 0 0 color-mix(in oklch, rgb(34, 197, 94) 50%, transparent),
+			0 0 0 0 transparent;
+	}
+	35% {
+		transform: scale(1.018);
+		box-shadow:
+			0 0 0 4px color-mix(in oklch, rgb(34, 197, 94) 28%, transparent),
+			0 0 24px color-mix(in oklch, rgb(34, 197, 94) 22%, transparent);
+	}
+	70% {
+		transform: scale(1.006);
+		box-shadow:
+			0 0 0 10px transparent,
+			0 0 12px color-mix(in oklch, rgb(34, 197, 94) 12%, transparent);
+	}
+	100% {
+		transform: scale(1);
+		box-shadow: 0 0 0 0 transparent;
+	}
+}
+
+.home-stats-row--pulse {
+	transform-origin: center;
+	animation: home-stats-pulse 0.95s cubic-bezier(0.25, 0.9, 0.35, 1) 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.home-stats-row--pulse {
+		animation: none;
+	}
+}
+
+/* Dashboard habit tile: ink ripple fill from click point */
+.habit-tile-btn {
+	position: relative;
+	isolation: isolate;
+}
+
+.habit-tile-fill {
+	position: absolute;
+	inset: 0;
+	border-radius: inherit;
+	clip-path: circle(0% at var(--rx, 50%) var(--ry, 50%));
+	pointer-events: none;
+	z-index: 0;
+	background:
+		radial-gradient(
+			ellipse at top right,
+			color-mix(in oklch, var(--c) 70%, white 30%) 0%,
+			var(--c) 55%,
+			color-mix(in oklch, var(--c) 78%, black 22%) 100%
+		);
+}
+.habit-tile-fill--anim {
+	transition: clip-path 360ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.habit-tile-fill--on {
+	clip-path: circle(150% at var(--rx, 50%) var(--ry, 50%));
+}
+
+.habit-tile-btn.completed {
+	color: white;
+	border-color: color-mix(in oklch, var(--color-fg) 18%, transparent);
+}
+.habit-tile-icon {
+	background: color-mix(in oklch, var(--c) 22%, transparent);
+	color: var(--c);
+	transition:
+		background 320ms ease,
+		color 320ms ease;
+}
+.habit-tile-btn.completed .habit-tile-icon {
+	background: rgba(255, 255, 255, 0.22);
+	color: white;
+}
+.habit-tile-streak {
+	transition: color 320ms ease;
+}
+.habit-tile-streak__icon {
+	transition: color 320ms ease;
+}
+.habit-tile-btn.completed .habit-tile-streak,
+.habit-tile-btn.completed .habit-tile-streak__icon {
+	color: white;
+}
+
+/* Home stats row: full green fill when all habits are completed */
+.home-stats-row {
+	position: relative;
+	isolation: isolate;
+	overflow: hidden;
+	transition: color 320ms ease;
+}
+.home-stats-row__fill {
+	position: absolute;
+	inset: 0;
+	background: linear-gradient(135deg, rgb(74, 222, 128) 0%, rgb(34, 197, 94) 55%, rgb(16, 138, 70) 100%);
+	clip-path: circle(0% at 50% 50%);
+	pointer-events: none;
+	z-index: 0;
+	transition: clip-path 560ms cubic-bezier(0.22, 1, 0.36, 1);
+	will-change: clip-path;
+}
+.home-stats-row__fill--on {
+	clip-path: circle(150% at 50% 50%);
+}
+.home-stats-row--filled,
+.home-stats-row--filled .home-stats-row__label,
+.home-stats-row--filled .home-stats-row__total {
+	color: white;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.habit-tile-fill,
+	.home-stats-row__fill,
+	.habit-tile-icon {
+		transition: none;
+	}
+}
+
+/* View Transitions: main content vs fixed bottom nav */
+::view-transition-old(app-main),
+::view-transition-new(app-main) {
+	animation-duration: 0.24s;
+	animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+::view-transition-old(app-main) {
+	animation-name: vt-fade-slide-out;
+}
+
+::view-transition-new(app-main) {
+	animation-name: vt-fade-slide-in;
+}
+
+/* Горизонтальный слайд только при смене корневой вкладки (см. data-vt-tab в +layout.svelte) */
+html[data-vt-tab='forward']::view-transition-old(app-main) {
+	animation-name: vt-tab-slide-out-forward;
+}
+
+html[data-vt-tab='forward']::view-transition-new(app-main) {
+	animation-name: vt-tab-slide-in-forward;
+}
+
+html[data-vt-tab='back']::view-transition-old(app-main) {
+	animation-name: vt-tab-slide-out-back;
+}
+
+html[data-vt-tab='back']::view-transition-new(app-main) {
+	animation-name: vt-tab-slide-in-back;
+}
+
+@keyframes vt-tab-slide-out-forward {
+	to {
+		opacity: 0;
+		transform: translateX(-18%);
+	}
+}
+
+@keyframes vt-tab-slide-in-forward {
+	from {
+		opacity: 0;
+		transform: translateX(18%);
+	}
+}
+
+@keyframes vt-tab-slide-out-back {
+	to {
+		opacity: 0;
+		transform: translateX(18%);
+	}
+}
+
+@keyframes vt-tab-slide-in-back {
+	from {
+		opacity: 0;
+		transform: translateX(-18%);
+	}
+}
+
+::view-transition-old(app-bottom-nav),
+::view-transition-new(app-bottom-nav) {
+	animation: none;
+}
+
+@keyframes vt-fade-slide-in {
+	from {
+		opacity: 0;
+		transform: translateY(6px);
+	}
+}
+
+@keyframes vt-fade-slide-out {
+	to {
+		opacity: 0;
+		transform: translateY(-4px);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	::view-transition-old(app-main),
+	::view-transition-new(app-main),
+	::view-transition-old(app-bottom-nav),
+	::view-transition-new(app-bottom-nav) {
+		animation-duration: 0.001ms !important;
+		animation-name: none !important;
+	}
+}
+
+.app-main-vt {
+	view-transition-name: app-main;
+}
+
+.app-bottom-nav-vt {
+	view-transition-name: app-bottom-nav;
 }

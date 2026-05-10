@@ -90,6 +90,23 @@ export interface JournalEntry {
 	updated_at: Timestamp;
 }
 
+export interface UserPushReminder {
+	user_id: UUID;
+	reminders_enabled: boolean;
+	user_timezone: string;
+	last_reminder_for_user_date: ISODate | null;
+	updated_at: Timestamp;
+}
+
+export interface PushSubscriptionRow {
+	id: UUID;
+	user_id: UUID;
+	endpoint: string;
+	p256dh: string;
+	auth: string;
+	created_at: Timestamp;
+}
+
 export interface Database {
 	__InternalSupabase: {
 		PostgrestVersion: '12';
@@ -139,6 +156,19 @@ export interface Database {
 					updated_at?: Timestamp;
 				};
 				Update: Partial<JournalEntry>;
+			};
+			user_push_reminders: {
+				Row: UserPushReminder;
+				Insert: Omit<UserPushReminder, 'updated_at'> & { updated_at?: Timestamp };
+				Update: Partial<UserPushReminder>;
+			};
+			push_subscriptions: {
+				Row: PushSubscriptionRow;
+				Insert: Omit<PushSubscriptionRow, 'id' | 'created_at'> & {
+					id?: UUID;
+					created_at?: Timestamp;
+				};
+				Update: Partial<PushSubscriptionRow>;
 			};
 		};
 		Enums: {

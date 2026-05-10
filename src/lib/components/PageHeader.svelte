@@ -1,6 +1,5 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import BackButton from '$components/BackButton.svelte';
 	import PageHeadText from '$components/PageHeadText.svelte';
 
 	interface Props {
@@ -8,7 +7,6 @@
 		title: string;
 		subtitle?: string;
 		meta?: string;
-		backFallback?: string;
 		showTrailing?: boolean;
 		trailing?: Snippet;
 	}
@@ -18,18 +16,14 @@
 		title,
 		subtitle,
 		meta,
-		backFallback,
 		showTrailing = false,
 		trailing
 	}: Props = $props();
 
-	const expand = $derived(!!backFallback || showTrailing);
+	const expand = $derived(showTrailing);
 </script>
 
 <header class="flex items-center gap-2">
-	{#if backFallback}
-		<BackButton fallback={backFallback} />
-	{/if}
 	<PageHeadText {kicker} {title} {subtitle} {meta} {expand} />
 	{#if showTrailing && trailing}
 		<div class="flex shrink-0 items-center gap-2">

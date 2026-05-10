@@ -51,7 +51,10 @@ class HabitsStore {
 	async syncRemote(monthsBack = 6): Promise<void> {
 		if (!this.#userId) return;
 		const { fromISO, toISO2 } = this.#range(monthsBack);
-		const local = [...this.completions];
+		// Snapshot ids the user has BEFORE drain/fetch. After the awaits we
+		// diff against the latest state to detect rows the user removed
+		// during this sync — they must NOT be reintroduced from `remote`.
+		const beforeIds = new Set(this.completions.map((c) => c.id));
 
 		const online = typeof navigator === 'undefined' || navigator.onLine !== false;
 		if (isSupabaseConfigured && online) {
@@ -60,10 +63,21 @@ class HabitsStore {
 				const remote = await fetchHabitCompletionsRange(this.#userId, fromISO, toISO2);
 				syncDebug('habits-remote-loaded', { count: remote.length });
 				await db.habit_completions.bulkPut(remote);
+
+				const currentIds = new Set(this.completions.map((c) => c.id));
+				const removedDuringSync = new Set<UUID>();
+				for (const id of beforeIds) {
+					if (!currentIds.has(id)) removedDuringSync.add(id);
+				}
+				const remoteFiltered =
+					removedDuringSync.size === 0
+						? remote
+						: remote.filter((item) => !removedDuringSync.has(item.id));
+
 				// Always merge: if queue is empty we still must keep local rows not yet on server (async-parallel style — no stale wipe).
 				this.completions = mergeByKey(
-					local,
-					remote,
+					[...this.completions],
+					remoteFiltered,
 					(item) => `${item.user_id}:${item.habit_type}:${item.date}`
 				);
 			} catch (err) {
