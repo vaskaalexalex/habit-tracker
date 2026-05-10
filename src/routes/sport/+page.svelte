@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { page } from '$app/stores';
 	import { base } from '$app/paths';
+	import { isSamePathname } from '$lib/nav/same-pathname';
 	import PageHeader from '$components/PageHeader.svelte';
 	import { Dumbbell, HeartPulse, ListChecks, ChevronRight } from 'lucide-svelte';
 	import { todayStore } from '$stores/today.svelte';
@@ -45,9 +47,12 @@
 		}
 	]);
 
+	const exercisesPath = `${base}/sport/strength/exercises`;
+
 	function openCatalog(event: MouseEvent) {
 		event.preventDefault();
-		void goto(`${base}/sport/strength/exercises`);
+		if (isSamePathname($page.url.pathname, exercisesPath)) return;
+		void goto(exercisesPath);
 	}
 </script>
 
@@ -60,7 +65,7 @@
 	>
 		{#snippet trailing()}
 			<a
-				href={`${base}/sport/strength/exercises`}
+				href={exercisesPath}
 				onclick={openCatalog}
 				class="tap-target inline-flex shrink-0 items-center gap-1.5 rounded-2xl border border-(--color-border) bg-(--color-bg-soft) px-3 py-2 text-xs font-bold uppercase tracking-wide sm:text-sm"
 			>
@@ -74,7 +79,10 @@
 		{#each tiles as tile (tile.href)}
 			<button
 				type="button"
-				onclick={() => goto(tile.href)}
+				onclick={() => {
+					if (isSamePathname($page.url.pathname, tile.href)) return;
+					void goto(tile.href);
+				}}
 				class="hairline group relative flex h-32 items-center overflow-hidden rounded-3xl bg-(--color-bg-soft) p-4 text-left transition active:scale-[0.99]"
 			>
 				<div

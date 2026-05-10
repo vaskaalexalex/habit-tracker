@@ -3,6 +3,7 @@
 	import { page } from '$app/stores';
 	import { base } from '$app/paths';
 	import { goto } from '$app/navigation';
+	import { isSamePathname } from '$lib/nav/same-pathname';
 	import { Home, Dumbbell, BookOpenText, User } from 'lucide-svelte';
 	import { syncStatusStore } from '$stores/sync-status.svelte';
 
@@ -63,6 +64,7 @@
 
 	function navigate(event: MouseEvent, href: string) {
 		event.preventDefault();
+		if (isSamePathname($page.url.pathname, href)) return;
 		void goto(href);
 	}
 </script>

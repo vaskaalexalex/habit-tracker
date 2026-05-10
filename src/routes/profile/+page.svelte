@@ -21,6 +21,16 @@
 	let remindersOn = $state(false);
 	let remindersLoading = $state(true);
 	let remindersBusy = $state(false);
+	/** Last user id we finished a settings fetch for (avoids refetch thrash when `user` object is replaced). */
+	let remindersHydratedForUserId = $state<string | null>(null);
+
+	const reminderUserId = $derived(authStore.user?.id ?? '');
+
+	const remindersInitialSyncPending = $derived(
+		!!reminderUserId &&
+			remindersLoading &&
+			remindersHydratedForUserId !== reminderUserId
+	);
 
 	$effect(() => {
 		localName = profileStore.name;
@@ -29,21 +39,37 @@
 	$effect(() => {
 		const uid = authStore.user?.id;
 		if (!uid || !isSupabaseConfigured) {
+			remindersHydratedForUserId = null;
 			remindersLoading = false;
 			remindersOn = false;
 			return;
 		}
+		if (remindersHydratedForUserId === uid) {
+			return;
+		}
+
+		let cancelled = false;
 		remindersLoading = true;
 		void fetchReminderSettings(uid)
 			.then((on) => {
+				if (cancelled || authStore.user?.id !== uid) return;
 				remindersOn = on;
 			})
 			.catch(() => {
+				if (cancelled || authStore.user?.id !== uid) return;
 				remindersOn = false;
 			})
 			.finally(() => {
+				if (cancelled) return;
 				remindersLoading = false;
+				if (authStore.user?.id === uid) {
+					remindersHydratedForUserId = uid;
+				}
 			});
+
+		return () => {
+			cancelled = true;
+		};
 	});
 
 	function save() {
@@ -61,7 +87,7 @@
 
 	async function flipReminders() {
 		const uid = authStore.user?.id;
-		if (!uid || remindersBusy || remindersLoading) return;
+		if (!uid || remindersBusy || remindersInitialSyncPending) return;
 		remindersBusy = true;
 		const next = !remindersOn;
 		try {
@@ -75,8 +101,12 @@
 				await syncUserReminderTimezone(uid);
 				const ok = await verifyPushReminderEnabled(uid);
 				remindersOn = ok;
-				if (ok) toasts.push('Напоминания включены');
-				else toasts.push('Не удалось подтвердить подписку на уведомления', 'error');
+				if (ok) {
+					remindersHydratedForUserId = uid;
+					toasts.push('Напоминания включены');
+				} else {
+					toasts.push('Не удалось подтвердить подписку на уведомления', 'error');
+				}
 			} else {
 				const { error } = await disableHabitReminders(uid);
 				if (error) {
@@ -84,6 +114,7 @@
 					return;
 				}
 				remindersOn = false;
+				remindersHydratedForUserId = uid;
 				toasts.push('Напоминания выключены');
 			}
 		} finally {
@@ -119,7 +150,7 @@
 		{#if isSupabaseConfigured}
 			<div
 				class="flex w-full items-center gap-3 rounded-2xl px-3 py-3"
-				class:opacity-50={remindersLoading || remindersBusy}
+				class:opacity-50={remindersBusy || remindersInitialSyncPending}
 			>
 				<span class="grid size-9 shrink-0 place-items-center rounded-xl bg-(--color-bg-mute)">
 					<Bell size={18} />
@@ -127,7 +158,7 @@
 				<span class="min-w-0 flex-1 font-medium" id="reminders-profile-label">Уведомления</span>
 				<SwitchToggle
 					pressed={remindersOn}
-					disabled={remindersLoading || remindersBusy}
+					disabled={remindersBusy || remindersInitialSyncPending}
 					aria-labelledby="reminders-profile-label"
 					onFlip={() => void flipReminders()}
 				/>

@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { page } from '$app/stores';
 	import { base } from '$app/paths';
+	import { isSamePathname } from '$lib/nav/same-pathname';
 	import { habitsStore } from '$stores/habits.svelte';
 	import { strengthStore } from '$stores/strength.svelte';
 	import { cardioStore } from '$stores/cardio.svelte';
@@ -30,13 +32,18 @@
 		if (habit === 'sport') {
 			const hasStrength = strengthStore.setsForDate(today).length > 0;
 			const hasCardio = cardioStore.items.some((c) => c.date === today);
-			if (hasStrength && !hasCardio) void goto(`${base}/sport/strength`);
-			else if (!hasStrength && hasCardio) void goto(`${base}/sport/cardio`);
-			else void goto(`${base}/sport`);
+			const href =
+				hasStrength && !hasCardio
+					? `${base}/sport/strength`
+					: !hasStrength && hasCardio
+						? `${base}/sport/cardio`
+						: `${base}/sport`;
+			if (!isSamePathname($page.url.pathname, href)) void goto(href);
 			return;
 		}
 		if (habit === 'journal') {
-			void goto(`${base}/journal`);
+			const href = `${base}/journal`;
+			if (!isSamePathname($page.url.pathname, href)) void goto(href);
 			return;
 		}
 		void habitsStore.toggle(habit, today);

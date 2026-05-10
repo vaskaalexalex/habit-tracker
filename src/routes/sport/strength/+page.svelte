@@ -6,7 +6,9 @@
 	import PageHeader from '$components/PageHeader.svelte';
 	import StrengthHeatmap from '$components/StrengthHeatmap.svelte';
 	import { goto } from '$app/navigation';
+	import { page } from '$app/stores';
 	import { base } from '$app/paths';
+	import { isSamePathname } from '$lib/nav/same-pathname';
 	import { todayStore } from '$stores/today.svelte';
 	import { formatRu } from '$utils/dates';
 	import { uuid } from '$utils/uuid';
@@ -44,9 +46,12 @@
 		return { id: uuid(), group, exerciseId: null, weight: 0, sets: 0 };
 	}
 
+	const exercisesPath = `${base}/sport/strength/exercises`;
+
 	function openCatalog(event: MouseEvent) {
 		event.preventDefault();
-		void goto(`${base}/sport/strength/exercises`);
+		if (isSamePathname($page.url.pathname, exercisesPath)) return;
+		void goto(exercisesPath);
 	}
 
 	function makeTemplate(): Row[] {
@@ -391,7 +396,7 @@
 		<p class="flex flex-wrap items-center gap-x-2 gap-y-1 px-1 pt-1 text-[11px] text-(--color-fg-mute)">
 			<span>Подход = {DEFAULT_REPS} повторений по умолчанию. Список из каталога — </span>
 			<a
-				href={`${base}/sport/strength/exercises`}
+				href={exercisesPath}
 				onclick={openCatalog}
 				class="inline-flex items-center gap-1 font-medium text-(--color-accent) hover:underline"
 			>

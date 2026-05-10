@@ -3,7 +3,9 @@
 	import type { Exercise, ISODate, WorkoutSet } from '$supabase/types';
 	import { buildRowsFromSets } from '$utils/strength-rows';
 	import { goto } from '$app/navigation';
+	import { page } from '$app/stores';
 	import { base } from '$app/paths';
+	import { isSamePathname } from '$lib/nav/same-pathname';
 
 	interface Props {
 		sets: WorkoutSet[];
@@ -57,7 +59,9 @@
 	}
 
 	function handleDayClick(iso: ISODate) {
-		void goto(`${base}/sport/strength/${iso}`);
+		const href = `${base}/sport/strength/${iso}`;
+		if (isSamePathname($page.url.pathname, href)) return;
+		void goto(href);
 	}
 </script>
 

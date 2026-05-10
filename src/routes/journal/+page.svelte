@@ -6,7 +6,9 @@
 	import JournalHeatmap from '$components/JournalHeatmap.svelte';
 	import PageHeader from '$components/PageHeader.svelte';
 	import { goto } from '$app/navigation';
+	import { page } from '$app/stores';
 	import { base } from '$app/paths';
+	import { isSamePathname } from '$lib/nav/same-pathname';
 	import { todayStore } from '$stores/today.svelte';
 	import { formatRu } from '$utils/dates';
 
@@ -25,7 +27,9 @@
 	}
 
 	function openJournalDay(date: string) {
-		void goto(`${base}/journal/${date}`);
+		const href = `${base}/journal/${date}`;
+		if (isSamePathname($page.url.pathname, href)) return;
+		void goto(href);
 	}
 </script>
 

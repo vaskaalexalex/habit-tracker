@@ -19,12 +19,23 @@
 	import InstallPrompt from '$components/InstallPrompt.svelte';
 	import { syncStatusStore } from '$stores/sync-status.svelte';
 	import { mainTabIndex } from '$lib/nav/main-tab-index';
+	import { isSamePathname } from '$lib/nav/same-pathname';
 	import { syncUserReminderTimezone } from '$lib/push/reminders';
 
 	let { children } = $props();
 	let booted = $state(false);
 
 	onNavigate((navigation) => {
+		const fromUrl = navigation.from?.url;
+		const toUrl = navigation.to?.url;
+		if (
+			fromUrl &&
+			toUrl &&
+			isSamePathname(fromUrl.pathname, toUrl.pathname) &&
+			fromUrl.search === toUrl.search
+		) {
+			return;
+		}
 		if (typeof document === 'undefined' || !document.startViewTransition) return;
 		return new Promise<void>((resolve) => {
 			const fromPath = navigation.from?.url.pathname ?? '';
