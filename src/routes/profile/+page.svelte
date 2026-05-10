@@ -31,10 +31,16 @@
 			return;
 		}
 		remindersLoading = true;
-		void fetchReminderSettings(uid).then((on) => {
-			remindersOn = on;
-			remindersLoading = false;
-		});
+		void fetchReminderSettings(uid)
+			.then((on) => {
+				remindersOn = on;
+			})
+			.catch(() => {
+				remindersOn = false;
+			})
+			.finally(() => {
+				remindersLoading = false;
+			});
 	});
 
 	function save() {
@@ -84,30 +90,28 @@
 	</header>
 
 	{#if isSupabaseConfigured}
-		<section class="hairline rounded-3xl bg-(--color-bg-soft) p-2">
-			<button
-				type="button"
-				disabled={remindersLoading || remindersBusy}
-				onclick={toggleReminders}
-				class="tap-target flex w-full flex-col items-stretch gap-1 rounded-2xl px-3 py-3 text-left font-medium active:scale-[0.99] disabled:opacity-50"
-			>
-				<span class="flex items-center gap-3">
-					<span class="grid size-9 place-items-center rounded-xl bg-(--color-bg-mute)">
-						<Bell size={18} />
-					</span>
-					<span class="flex min-w-0 flex-1 flex-col gap-0.5">
-						<span>Напоминание о дневнике</span>
-						<span class="text-xs font-normal text-(--color-fg-mute)">
-							Около 21:00 по времени устройства, если за день ещё не заполнен дневник. Часовой пояс
-							обновляется при открытии приложения.
-						</span>
-					</span>
-					<span class="shrink-0 text-sm text-(--color-fg-mute)">
-						{remindersLoading ? '…' : remindersOn ? 'вкл' : 'выкл'}
+		<button
+			type="button"
+			disabled={remindersLoading || remindersBusy}
+			onclick={toggleReminders}
+			class="hairline tap-target flex w-full flex-col items-stretch gap-1 rounded-3xl bg-(--color-bg-soft) px-4 py-3 text-left font-medium active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
+		>
+			<span class="flex items-center gap-3">
+				<span class="grid size-9 place-items-center rounded-xl bg-(--color-bg-mute)">
+					<Bell size={18} />
+				</span>
+				<span class="flex min-w-0 flex-1 flex-col gap-0.5">
+					<span>Напоминание о дневнике</span>
+					<span class="text-xs font-normal text-(--color-fg-mute)">
+						Около 21:00 по времени устройства, если за день ещё не заполнен дневник. Часовой пояс обновляется
+						при открытии приложения.
 					</span>
 				</span>
-			</button>
-		</section>
+				<span class="shrink-0 text-sm text-(--color-fg-mute)">
+					{remindersLoading ? '…' : remindersOn ? 'вкл' : 'выкл'}
+				</span>
+			</span>
+		</button>
 	{/if}
 
 	<section class="hairline rounded-3xl bg-(--color-bg-soft) p-4">

@@ -1,4 +1,5 @@
 import { env } from '$env/dynamic/public';
+import { DEFAULT_VAPID_PUBLIC_KEY } from '$lib/push/default-vapid-public';
 import { supabase, isSupabaseConfigured } from '$supabase/client';
 import type { Database } from '$supabase/types';
 
@@ -54,8 +55,13 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
 
 export async function enableHabitReminders(userId: string): Promise<{ error?: string }> {
 	if (!isSupabaseConfigured) return { error: 'Supabase не настроен' };
-	const vapidKey = env.PUBLIC_VAPID_PUBLIC_KEY?.trim();
-	if (!vapidKey) return { error: 'Нет PUBLIC_VAPID_PUBLIC_KEY на сервере сборки' };
+	const vapidKey = (env.PUBLIC_VAPID_PUBLIC_KEY || DEFAULT_VAPID_PUBLIC_KEY).trim();
+	if (!vapidKey) {
+		return {
+			error:
+				'Не задан публичный VAPID-ключ: добавь PUBLIC_VAPID_PUBLIC_KEY в GitHub Actions / Cloudflare или обнови default-vapid-public.ts при ротации ключей.'
+		};
+	}
 
 	if (typeof window === 'undefined' || !('Notification' in window)) {
 		return { error: 'Уведомления недоступны' };

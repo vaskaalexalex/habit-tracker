@@ -136,9 +136,22 @@ pnpm preview
 4. **Environment variables (Production + Preview)**:
    - `PUBLIC_SUPABASE_URL` = `https://<ref>.supabase.co`
    - `PUBLIC_SUPABASE_ANON_KEY` = `<anon-key>`
+   - `PUBLIC_VAPID_PUBLIC_KEY` = публичный ключ из пары VAPID (`npx web-push generate-vapid-keys`); должен совпадать с публичным ключом на стороне Edge / Vault для push-напоминаний
 5. **Deploy**. После первого деплоя добавь продовый домен в Supabase → `Authentication → URL Configuration → Redirect URLs`.
 
 > CF Pages автоматически использует `static/_redirects` для SPA-фолбэка на `/200.html`.
+
+## Деплой на GitHub Pages (этот репозиторий)
+
+Workflow [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) на шаге **Build** ожидает секреты репозитория:
+
+| Secret | Назначение |
+|--------|------------|
+| `PUBLIC_SUPABASE_URL` | URL проекта Supabase |
+| `PUBLIC_SUPABASE_ANON_KEY` | anon key |
+| `PUBLIC_VAPID_PUBLIC_KEY` | (опционально) публичный VAPID; если не задан, в клиенте используется значение из `src/lib/push/default-vapid-public.ts` |
+
+После ротации ключей Web Push обнови секрет и при необходимости файл `default-vapid-public.ts`, а также приватный ключ на Edge / в Vault.
 
 ## Архитектура: optimistic UI + offline sync
 
