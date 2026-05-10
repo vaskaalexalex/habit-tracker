@@ -36,6 +36,14 @@
 	const C = 2 * Math.PI * RADIUS;
 	const GAP_DEG = 6;
 	const SEG_DEG = 90 - GAP_DEG;
+	/** Align arc i with 2×2 grid cell (TL, TR, BL, BR) vs `HABIT_ORDER` — same row-major as dashboard. */
+	const RING_GRID_OFFSET_DEG = -90;
+	/** After offset, BL/BR were mirrored; swap reading ↔ journal base step. */
+	function ringBaseStepDeg(i: number): number {
+		if (i === 2) return 3;
+		if (i === 3) return 2;
+		return i;
+	}
 	const ARC_PX = (C * SEG_DEG) / 360;
 
 	const doneCount = $derived(HABIT_ORDER.filter((h) => completed.has(h)).length);
@@ -105,7 +113,7 @@
 					stroke-width={STROKE}
 					stroke-dasharray="{ARC_PX} {C}"
 					stroke-linecap="round"
-					transform="rotate({i * 90 + GAP_DEG / 2} 50 50)"
+					transform="rotate({ringBaseStepDeg(i) * 90 + GAP_DEG / 2 + RING_GRID_OFFSET_DEG} 50 50)"
 					opacity={completed.has(habit) ? 1 : 0.55}
 				/>
 			{/each}
