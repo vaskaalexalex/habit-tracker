@@ -308,18 +308,15 @@
 		if (!booted || !authStore.initialized) return;
 		const path = $page.url.pathname;
 		const isAuthRoute = path.startsWith(`${base}/login`) || path.startsWith(`${base}/auth`);
-		const allowWithoutAuth = path.startsWith(`${base}/design-preview`);
-		if (!authStore.user && !isAuthRoute && !allowWithoutAuth) {
+		if (!authStore.user && !isAuthRoute) {
 			void goto(`${base}/login`, { replaceState: true });
 		} else if (authStore.user && path.startsWith(`${base}/login`)) {
 			void goto(`${base}/`, { replaceState: true });
 		}
 	});
 
-	const isDesignPreview = $derived($page.url.pathname.startsWith(`${base}/design-preview`));
-
 	const showNav = $derived(
-		(!!authStore.user || isDesignPreview) &&
+		!!authStore.user &&
 			!$page.url.pathname.startsWith(`${base}/login`) &&
 			!$page.url.pathname.startsWith(`${base}/auth`)
 	);
