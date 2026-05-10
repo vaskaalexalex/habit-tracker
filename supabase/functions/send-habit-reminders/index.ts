@@ -182,6 +182,7 @@ Deno.serve(async (req) => {
 		}
 		if (!needReminder) continue;
 
+		// Keep in sync with HABIT_PUSH_* in src/lib/push/reminders.ts and static/push-sw.js
 		const payload = JSON.stringify({
 			title: 'Привычки',
 			body: 'Расскажи как прошел твой день.',

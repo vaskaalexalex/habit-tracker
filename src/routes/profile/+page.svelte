@@ -5,10 +5,12 @@
 	import { themeStore } from '$stores/theme.svelte';
 	import { profileStore } from '$stores/profile.svelte';
 	import { toasts } from '$stores/toast.svelte';
+	import { onMount } from 'svelte';
 	import {
 		disableHabitReminders,
 		enableHabitReminders,
-		fetchReminderSettings,
+		getRemindersEnabledConsolidated,
+		showHabitPushReminderPreviewAfterDelay,
 		syncUserReminderTimezone,
 		verifyPushReminderEnabled
 	} from '$lib/push/reminders';
@@ -23,6 +25,7 @@
 	let remindersBusy = $state(false);
 	/** Last user id we finished a settings fetch for (avoids refetch thrash when `user` object is replaced). */
 	let remindersHydratedForUserId = $state<string | null>(null);
+	let testPushWaiting = $state(false);
 
 	const reminderUserId = $derived(authStore.user?.id ?? '');
 
@@ -50,7 +53,7 @@
 
 		let cancelled = false;
 		remindersLoading = true;
-		void fetchReminderSettings(uid)
+		void getRemindersEnabledConsolidated(uid)
 			.then((on) => {
 				if (cancelled || authStore.user?.id !== uid) return;
 				remindersOn = on;
@@ -99,7 +102,10 @@
 					return;
 				}
 				await syncUserReminderTimezone(uid);
-				const ok = await verifyPushReminderEnabled(uid);
+				let ok = await verifyPushReminderEnabled(uid);
+				if (!ok) {
+					ok = await getRemindersEnabledConsolidated(uid);
+				}
 				remindersOn = ok;
 				if (ok) {
 					remindersHydratedForUserId = uid;
@@ -125,6 +131,41 @@
 	function flipTheme() {
 		themeStore.toggle();
 	}
+
+	async function runTestPushReminder() {
+		if (testPushWaiting || typeof window === 'undefined') return;
+		testPushWaiting = true;
+		toasts.push('Через ~10 с — тестовое уведомление (как от напоминания)');
+		try {
+			const iconUrl = new URL(`${base}/icons/192.png`, window.location.origin).href;
+			const { error } = await showHabitPushReminderPreviewAfterDelay(10_000, {
+				iconUrl,
+				badgeUrl: iconUrl
+			});
+			if (error) toasts.push(error, 'error');
+		} finally {
+			testPushWaiting = false;
+		}
+	}
+
+	onMount(() => {
+		function refreshRemindersFromDevice() {
+			if (typeof document === 'undefined' || document.visibilityState !== 'visible') return;
+			const uid = authStore.user?.id;
+			if (!uid || !isSupabaseConfigured || remindersBusy) return;
+			if (remindersHydratedForUserId !== uid) return;
+			void getRemindersEnabledConsolidated(uid).then((on) => {
+				if (authStore.user?.id !== uid) return;
+				remindersOn = on;
+			});
+		}
+		document.addEventListener('visibilitychange', refreshRemindersFromDevice);
+		window.addEventListener('pageshow', refreshRemindersFromDevice);
+		return () => {
+			document.removeEventListener('visibilitychange', refreshRemindersFromDevice);
+			window.removeEventListener('pageshow', refreshRemindersFromDevice);
+		};
+	});
 </script>
 
 <div class="page-shell gap-5 pb-6 sm:gap-6">
@@ -156,12 +197,22 @@
 					<Bell size={18} />
 				</span>
 				<span class="min-w-0 flex-1 font-medium" id="reminders-profile-label">Уведомления</span>
-				<SwitchToggle
-					pressed={remindersOn}
-					disabled={remindersBusy || remindersInitialSyncPending}
-					aria-labelledby="reminders-profile-label"
-					onFlip={() => void flipReminders()}
-				/>
+				<div class="flex shrink-0 items-center gap-2">
+					<button
+						type="button"
+						class="tap-target hairline rounded-xl px-2.5 py-1.5 text-xs font-semibold text-(--color-fg-mute) transition-opacity disabled:opacity-40"
+						disabled={testPushWaiting || remindersBusy || remindersInitialSyncPending}
+						onclick={() => void runTestPushReminder()}
+					>
+						{testPushWaiting ? '10 с…' : 'Тест 10 с'}
+					</button>
+					<SwitchToggle
+						pressed={remindersOn}
+						disabled={remindersBusy || remindersInitialSyncPending}
+						aria-labelledby="reminders-profile-label"
+						onFlip={() => void flipReminders()}
+					/>
+				</div>
 			</div>
 		{/if}
 

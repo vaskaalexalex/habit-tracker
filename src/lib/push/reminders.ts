@@ -42,6 +42,45 @@ export async function fetchReminderSettings(userId: string): Promise<boolean> {
 	return data?.reminders_enabled ?? false;
 }
 
+/** PWA / Safari: subscription can lag briefly after subscribe() — retry before treating as missing. */
+async function getPushSubscriptionWithRetry(
+	registration: ServiceWorkerRegistration,
+	attempts = 8,
+	delayMs = 120
+): Promise<PushSubscription | null> {
+	for (let i = 0; i < attempts; i++) {
+		try {
+			const sub = await registration.pushManager.getSubscription();
+			if (sub) return sub;
+		} catch {
+			return null;
+		}
+		if (i < attempts - 1) {
+			await new Promise((r) => setTimeout(r, delayMs));
+		}
+	}
+	return null;
+}
+
+/**
+ * Whether the reminders toggle should show "on": DB flag plus in-browser permission and push subscription.
+ * PWA can read `Notification.permission` and `PushManager.getSubscription()` (same origin as the app SW).
+ */
+export async function getRemindersEnabledConsolidated(userId: string): Promise<boolean> {
+	const dbOn = await fetchReminderSettings(userId);
+	if (!dbOn) return false;
+	if (typeof window === 'undefined') return dbOn;
+	if (!('Notification' in window) || Notification.permission !== 'granted') return false;
+	if (!('serviceWorker' in navigator) || !('PushManager' in window)) return false;
+	try {
+		const reg = await navigator.serviceWorker.ready;
+		const sub = await getPushSubscriptionWithRetry(reg, 6, 100);
+		return !!sub;
+	} catch {
+		return false;
+	}
+}
+
 /** After enabling in UI: confirm permission, active push subscription, and DB flag. */
 export async function verifyPushReminderEnabled(userId: string): Promise<boolean> {
 	if (typeof window === 'undefined') return false;
@@ -49,7 +88,7 @@ export async function verifyPushReminderEnabled(userId: string): Promise<boolean
 	if (!('serviceWorker' in navigator) || !('PushManager' in window)) return false;
 	try {
 		const reg = await navigator.serviceWorker.ready;
-		const sub = await reg.pushManager.getSubscription();
+		const sub = await getPushSubscriptionWithRetry(reg);
 		if (!sub) return false;
 	} catch {
 		return false;
@@ -160,4 +199,51 @@ export async function disableHabitReminders(userId: string): Promise<{ error?: s
 	await supabase.from('push_subscriptions').delete().eq('user_id', userId);
 
 	return {};
+}
+
+/** Match JSON payload in `supabase/functions/send-habit-reminders/index.ts` and `showNotification` in `static/push-sw.js`. */
+export const HABIT_PUSH_REMINDER_TITLE = 'Привычки';
+export const HABIT_PUSH_REMINDER_BODY = 'Расскажи как прошел твой день.';
+export const HABIT_PUSH_REMINDER_REL_URL = '/journal';
+
+export type HabitPushPreviewUrls = { iconUrl: string; badgeUrl: string };
+
+/**
+ * Local preview: same title/body/tag/icon behavior as when the SW handles a real `push` event (no server round-trip).
+ */
+export async function showHabitPushReminderPreview(
+	urls: HabitPushPreviewUrls
+): Promise<{ error?: string }> {
+	if (typeof window === 'undefined') return { error: 'Только в браузере' };
+	if (!('Notification' in window)) return { error: 'Уведомления недоступны' };
+	if (Notification.permission !== 'granted') {
+		return { error: 'Нет разрешения на уведомления' };
+	}
+	if (!('serviceWorker' in navigator)) return { error: 'Нет service worker' };
+	try {
+		const reg = await navigator.serviceWorker.ready;
+		const options: NotificationOptions & { renotify?: boolean } = {
+			body: HABIT_PUSH_REMINDER_BODY,
+			icon: urls.iconUrl,
+			badge: urls.badgeUrl,
+			data: { url: HABIT_PUSH_REMINDER_REL_URL },
+			tag: 'habit-reminder',
+			renotify: true
+		};
+		await reg.showNotification(HABIT_PUSH_REMINDER_TITLE, options);
+		return {};
+	} catch (e) {
+		return { error: e instanceof Error ? e.message : 'Не удалось показать уведомление' };
+	}
+}
+
+export async function showHabitPushReminderPreviewAfterDelay(
+	delayMs: number,
+	urls: HabitPushPreviewUrls
+): Promise<{ error?: string }> {
+	if (typeof window === 'undefined') return { error: 'Только в браузере' };
+	await new Promise<void>((resolve) => {
+		window.setTimeout(resolve, delayMs);
+	});
+	return showHabitPushReminderPreview(urls);
 }
