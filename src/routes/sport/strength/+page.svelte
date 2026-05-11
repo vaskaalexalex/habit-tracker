@@ -42,6 +42,51 @@
 	];
 	const DEFAULT_REPS = 10;
 
+	/** Черновики строки инпута до blur (иначе «52.» схлопывается в число). */
+	let weightInputStr = $state<Record<string, string>>({});
+	let setsInputStr = $state<Record<string, string>>({});
+
+	function parseWeightInput(raw: string): number {
+		const t = raw.trim().replace(',', '.');
+		if (t === '' || t === '.') return 0;
+		const n = parseFloat(t);
+		if (!Number.isFinite(n) || n < 0) return 0;
+		return n;
+	}
+
+	function parseSetsInput(raw: string): number {
+		const t = raw.trim();
+		if (t === '') return 0;
+		const n = parseInt(t, 10);
+		if (!Number.isFinite(n) || n < 0) return 0;
+		return n;
+	}
+
+	function formatWeightForField(w: number): string {
+		if (w === 0) return '';
+		if (Number.isInteger(w)) return String(w);
+		return String(w);
+	}
+
+	function weightFieldValue(row: Row): string {
+		const d = weightInputStr[row.id];
+		if (d !== undefined) return d;
+		return formatWeightForField(row.weight);
+	}
+
+	function setsFieldValue(row: Row): string {
+		const d = setsInputStr[row.id];
+		if (d !== undefined) return d;
+		return row.sets === 0 ? '' : String(row.sets);
+	}
+
+	function clearStrengthFieldDrafts(rowId: string) {
+		const { [rowId]: _w, ...restW } = weightInputStr;
+		const { [rowId]: _s, ...restS } = setsInputStr;
+		weightInputStr = restW;
+		setsInputStr = restS;
+	}
+
 	function makeRow(group: MuscleGroup): Row {
 		return { id: uuid(), group, exerciseId: null, weight: 0, sets: 0 };
 	}
@@ -173,21 +218,24 @@
 	}
 
 	function removeRow(id: string) {
+		clearStrengthFieldDrafts(id);
 		rows = rows.filter((r) => r.id !== id);
 	}
 
 	function clearRow(id: string) {
+		clearStrengthFieldDrafts(id);
 		rows = rows.map((r) =>
 			r.id === id ? { ...r, exerciseId: null, weight: 0, sets: 0 } : r
 		);
 	}
 
 	function setExercise(id: string, exerciseId: UUID) {
+		clearStrengthFieldDrafts(id);
 		const session = strengthStore.lastSessionSetsBefore(exerciseId, today);
 		const summary = session && session.length > 0 ? summaryFromSessionSets(session) : null;
 		rows = rows.map((r) => {
 			if (r.id !== id) return r;
-			if (summary) return { ...r, exerciseId, weight: summary.weight, sets: summary.sets };
+			if (summary) return { ...r, exerciseId, weight: summary.weight, sets: r.sets };
 			return { ...r, exerciseId, weight: 0, sets: 0 };
 		});
 	}
@@ -244,6 +292,8 @@
 				rows = fromDraft ?? makeTemplate();
 			}
 		}
+		weightInputStr = {};
+		setsInputStr = {};
 		sessionReady = true;
 	});
 
@@ -321,23 +371,54 @@
 							compact
 						/>
 						<input
-							type="number"
+							type="text"
 							inputmode="decimal"
-							min="0"
-							step="0.5"
-							bind:value={row.weight}
+							lang="en"
+							value={weightFieldValue(row)}
 							placeholder="0"
 							disabled={!row.exerciseId}
+							onfocus={() => {
+								weightInputStr = {
+									...weightInputStr,
+									[row.id]: formatWeightForField(row.weight)
+								};
+							}}
+							oninput={(e) => {
+								const v = e.currentTarget.value;
+								weightInputStr = { ...weightInputStr, [row.id]: v };
+							}}
+							onblur={() => {
+								const raw = weightInputStr[row.id] ?? formatWeightForField(row.weight);
+								const next = parseWeightInput(raw);
+								rows = rows.map((r) => (r.id === row.id ? { ...r, weight: next } : r));
+								const { [row.id]: _, ...rest } = weightInputStr;
+								weightInputStr = rest;
+							}}
 							class="hairline rounded-xl bg-(--color-bg-mute) px-2 py-1 text-center text-base tabular-nums outline-none placeholder:text-(--color-fg-mute) disabled:cursor-not-allowed disabled:opacity-45"
 						/>
 						<input
-							type="number"
+							type="text"
 							inputmode="numeric"
-							min="0"
-							step="1"
-							bind:value={row.sets}
+							value={setsFieldValue(row)}
 							placeholder="0"
 							disabled={!row.exerciseId}
+							onfocus={() => {
+								setsInputStr = {
+									...setsInputStr,
+									[row.id]: row.sets === 0 ? '' : String(row.sets)
+								};
+							}}
+							oninput={(e) => {
+								const v = e.currentTarget.value.replace(/\D/g, '');
+								setsInputStr = { ...setsInputStr, [row.id]: v };
+							}}
+							onblur={() => {
+								const raw = setsInputStr[row.id] ?? (row.sets === 0 ? '' : String(row.sets));
+								const next = parseSetsInput(raw);
+								rows = rows.map((r) => (r.id === row.id ? { ...r, sets: next } : r));
+								const { [row.id]: _, ...rest } = setsInputStr;
+								setsInputStr = rest;
+							}}
 							class="hairline rounded-xl bg-(--color-bg-mute) px-2 py-1 text-center text-base tabular-nums outline-none placeholder:text-(--color-fg-mute) disabled:cursor-not-allowed disabled:opacity-45"
 						/>
 						<button

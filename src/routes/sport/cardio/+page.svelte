@@ -9,8 +9,11 @@
 	import { CARDIO_LABELS, CARDIO_ORDER, CARDIO_NO_DISTANCE } from '$supabase/types';
 	import type { CardioType } from '$supabase/types';
 
+	const DURATION_WARMUP_DEFAULT = 10;
+	const DURATION_OTHER_DEFAULT = 30;
+
 	let type = $state<CardioType>('warmup');
-	let duration = $state<number>(30);
+	let duration = $state<number>(DURATION_WARMUP_DEFAULT);
 	let distance = $state<number | null>(null);
 	let note = $state('');
 	let saving = $state(false);
@@ -20,6 +23,11 @@
 	$effect(() => {
 		if (!hasDistance && distance !== null) distance = null;
 	});
+
+	function selectCardioType(t: CardioType) {
+		type = t;
+		duration = t === 'warmup' ? DURATION_WARMUP_DEFAULT : DURATION_OTHER_DEFAULT;
+	}
 
 	function hasWarmupToday(): boolean {
 		const d = isoToday();
@@ -66,7 +74,7 @@
 			{#each CARDIO_ORDER as t (t)}
 				<button
 					type="button"
-					onclick={() => (type = t)}
+					onclick={() => selectCardioType(t)}
 					class="tap-target rounded-xl px-3 py-1.5 text-sm transition active:scale-95"
 					class:bg-mute={type !== t}
 					class:bg-soft={type === t}
