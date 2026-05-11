@@ -196,9 +196,7 @@ Deno.serve(async (req) => {
 				keys: { p256dh: sub.p256dh, auth: sub.auth }
 			};
 			try {
-				await webpush.sendNotification(pushSub, payload, {
-					contentEncoding: 'utf8'
-				});
+				await webpush.sendNotification(pushSub, payload);
 				anySent = true;
 			} catch (e: unknown) {
 				const status = (e as { statusCode?: number })?.statusCode;
