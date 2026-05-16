@@ -1,0 +1,10 @@
+---
+description: Single-author commits; no GitHub co-authored trailers
+alwaysApply: true
+---
+
+When creating git commits in this repository:
+
+- Do **not** add `Co-authored-by:` (or any co-author trailers) to commit messages.
+- Use only the repository owner’s git identity for **author** and **committer** (`git commit` with matching `--author` / `GIT_COMMITTER_*` if needed).
+- Avoid hooks or templates that append co-author lines.
