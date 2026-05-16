@@ -6,7 +6,10 @@ build
 .DS_Store
 *.log
 dist
-.cursor
+# Cursor IDE local state (keep shared rules under .cursor/rules/)
+.cursor/*
+!.cursor/rules/
+!.cursor/rules/**
 .serena
 .agents
 skills-lock.json
