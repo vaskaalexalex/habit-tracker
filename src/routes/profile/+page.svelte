@@ -10,6 +10,7 @@
 		disableHabitReminders,
 		enableHabitReminders,
 		getRemindersEnabledConsolidated,
+		requestServerPushTest,
 		showHabitPushReminderPreviewAfterDelay,
 		syncUserReminderTimezone,
 		verifyPushReminderEnabled
@@ -26,6 +27,7 @@
 	/** Last user id we finished a settings fetch for (avoids refetch thrash when `user` object is replaced). */
 	let remindersHydratedForUserId = $state<string | null>(null);
 	let testPushWaiting = $state(false);
+	let serverPushWaiting = $state(false);
 
 	const reminderUserId = $derived(authStore.user?.id ?? '');
 
@@ -135,7 +137,7 @@
 	async function runTestPushReminder() {
 		if (testPushWaiting || typeof window === 'undefined') return;
 		testPushWaiting = true;
-		toasts.push('Через ~10 с — тестовое уведомление (как от напоминания)');
+		toasts.push('Через ~10 с — локальный тест (без сервера)');
 		try {
 			const iconUrl = new URL(`${base}/icons/192.png`, window.location.origin).href;
 			const { error } = await showHabitPushReminderPreviewAfterDelay(10_000, {
@@ -145,6 +147,24 @@
 			if (error) toasts.push(error, 'error');
 		} finally {
 			testPushWaiting = false;
+		}
+	}
+
+	async function runServerPushTest() {
+		const uid = authStore.user?.id;
+		if (!uid || serverPushWaiting || remindersBusy) return;
+		if (!remindersOn) {
+			toasts.push('Сначала включи уведомления', 'error');
+			return;
+		}
+		serverPushWaiting = true;
+		toasts.push('Отправляем push с сервера…');
+		try {
+			const { error } = await requestServerPushTest(uid);
+			if (error) toasts.push(error, 'error');
+			else toasts.push('Серверный push отправлен');
+		} finally {
+			serverPushWaiting = false;
 		}
 	}
 
@@ -197,14 +217,22 @@
 					<Bell size={18} />
 				</span>
 				<span class="min-w-0 flex-1 font-medium" id="reminders-profile-label">Уведомления</span>
-				<div class="flex shrink-0 items-center gap-2">
+				<div class="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
 					<button
 						type="button"
 						class="tap-target hairline rounded-xl px-2.5 py-1.5 text-xs font-semibold text-(--color-fg-mute) transition-opacity disabled:opacity-40"
 						disabled={testPushWaiting || remindersBusy || remindersInitialSyncPending}
 						onclick={() => void runTestPushReminder()}
 					>
-						{testPushWaiting ? '10 с…' : 'Тест 10 с'}
+						{testPushWaiting ? '10 с…' : 'Локально'}
+					</button>
+					<button
+						type="button"
+						class="tap-target hairline rounded-xl px-2.5 py-1.5 text-xs font-semibold text-(--color-fg-mute) transition-opacity disabled:opacity-40"
+						disabled={serverPushWaiting || remindersBusy || remindersInitialSyncPending}
+						onclick={() => void runServerPushTest()}
+					>
+						{serverPushWaiting ? '…' : 'С сервера'}
 					</button>
 					<SwitchToggle
 						pressed={remindersOn}

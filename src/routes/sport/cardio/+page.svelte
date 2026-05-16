@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
+	import { base } from '$app/paths';
 	import { cardioStore } from '$stores/cardio.svelte';
 	import { ensureSportCompleted } from '$stores/auto-complete';
 	import { toasts } from '$stores/toast.svelte';
@@ -56,6 +58,7 @@
 			note = '';
 			distance = null;
 			toasts.success('Записано');
+			void goto(`${base}/`, { replaceState: true });
 		} finally {
 			saving = false;
 		}

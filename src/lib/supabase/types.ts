@@ -94,6 +94,7 @@ export interface UserPushReminder {
 	user_id: UUID;
 	reminders_enabled: boolean;
 	user_timezone: string;
+	app_base_path: string;
 	last_reminder_for_user_date: ISODate | null;
 	updated_at: Timestamp;
 }

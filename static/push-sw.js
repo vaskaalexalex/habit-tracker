@@ -1,6 +1,6 @@
 /* global self, clients */
 self.addEventListener('push', function (event) {
-	let data = { title: 'Habit', body: '', url: '/' };
+	let data = { title: 'Habit', body: '', url: '/habit-tracker/journal' };
 	try {
 		if (event.data) {
 			const parsed = event.data.json();

@@ -1,8 +1,8 @@
 /**
  * Scheduled Web Push: ~3h before local midnight (21:00 in user_timezone).
- * Sends only if the journal entry for that calendar day is not “meaningful”
- * (same idea as client `isJournalEntryMeaningful`: text or mood).
- * Invoke via Supabase cron or HTTP with Authorization: Bearer <CRON_SECRET> if set.
+ * Sends only if the journal entry for that calendar day is not “meaningful”.
+ * Cron: Authorization: Bearer <CRON_SECRET>.
+ * Profile test: POST body { test_user_id, skip_window: true, test: true } + user JWT.
  */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.46.0';
 import webpush from 'npm:web-push@3.6.7';
@@ -11,6 +11,7 @@ type ReminderRow = {
 	user_id: string;
 	reminders_enabled: boolean;
 	user_timezone: string;
+	app_base_path: string | null;
 	last_reminder_for_user_date: string | null;
 };
 
@@ -21,6 +22,20 @@ type SubRow = {
 	p256dh: string;
 	auth: string;
 };
+
+type InvokeBody = {
+	test_user_id?: string;
+	skip_window?: boolean;
+	test?: boolean;
+};
+
+const DEFAULT_APP_BASE_PATH = '/habit-tracker';
+
+function journalPushUrl(appBasePath: string | null | undefined): string {
+	const b = (appBasePath ?? '').replace(/\/$/, '');
+	const base = b || DEFAULT_APP_BASE_PATH;
+	return `${base}/journal`;
+}
 
 function zonedWallClock(
 	iso: Date,
@@ -53,18 +68,15 @@ function zonedWallClock(
 	}
 }
 
-/** Local minutes from midnight [0, 1440) */
 function localMinutesFromMidnight(hour: number, minute: number): number {
 	return hour * 60 + minute;
 }
 
-/** Target: 21:00 local = 1260 minutes; allow cron slack ±15 min */
 function isInReminderWindow(hour: number, minute: number): boolean {
 	const m = localMinutesFromMidnight(hour, minute);
 	return m >= 21 * 60 - 15 && m <= 21 * 60 + 15;
 }
 
-/** True if we should nudge: no row, or empty content and no mood (aligned with client journal rules). */
 async function journalNotFilledForDate(
 	admin: ReturnType<typeof createClient>,
 	userId: string,
@@ -87,8 +99,22 @@ Deno.serve(async (req) => {
 	const authHeader = req.headers.get('authorization') ?? '';
 	const bearer = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
 
+	let body: InvokeBody = {};
+	if (req.method === 'POST') {
+		try {
+			body = (await req.json()) as InvokeBody;
+		} catch {
+			body = {};
+		}
+	}
+
+	const testUserId = typeof body.test_user_id === 'string' ? body.test_user_id.trim() : '';
+	const isProfileTest =
+		body.test === true && body.skip_window === true && testUserId.length > 0;
+
 	const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 	const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+	const anonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
 	const vapidSubject = Deno.env.get('VAPID_SUBJECT') ?? 'mailto:habit-tracker@localhost';
 
 	const admin = createClient(supabaseUrl, serviceKey);
@@ -101,7 +127,26 @@ Deno.serve(async (req) => {
 
 	const cronSecret =
 		(Deno.env.get('CRON_SECRET') ?? '').trim() || (cfg?.cron_secret ?? '').trim();
-	if (cronSecret && bearer !== cronSecret) {
+	const authorizedAsCron = !cronSecret || bearer === cronSecret;
+
+	if (isProfileTest) {
+		if (!anonKey) {
+			return new Response(JSON.stringify({ error: 'missing_anon_key' }), {
+				status: 500,
+				headers: { 'content-type': 'application/json' }
+			});
+		}
+		const userClient = createClient(supabaseUrl, anonKey, {
+			global: { headers: { Authorization: authHeader } }
+		});
+		const { data: userData, error: userErr } = await userClient.auth.getUser();
+		if (userErr || !userData.user || userData.user.id !== testUserId) {
+			return new Response(JSON.stringify({ error: 'unauthorized' }), {
+				status: 401,
+				headers: { 'content-type': 'application/json' }
+			});
+		}
+	} else if (!authorizedAsCron) {
 		return new Response(JSON.stringify({ error: 'unauthorized' }), {
 			status: 401,
 			headers: { 'content-type': 'application/json' }
@@ -123,10 +168,18 @@ Deno.serve(async (req) => {
 
 	webpush.setVapidDetails(vapidSubject, vapidPublic, vapidPrivate);
 
-	const { data: reminders, error: rErr } = await admin
+	let remindersQuery = admin
 		.from('user_push_reminders')
-		.select('user_id, reminders_enabled, user_timezone, last_reminder_for_user_date')
+		.select(
+			'user_id, reminders_enabled, user_timezone, app_base_path, last_reminder_for_user_date'
+		)
 		.eq('reminders_enabled', true);
+
+	if (isProfileTest) {
+		remindersQuery = remindersQuery.eq('user_id', testUserId);
+	}
+
+	const { data: reminders, error: rErr } = await remindersQuery;
 	if (rErr) {
 		return new Response(JSON.stringify({ error: rErr.message }), {
 			status: 500,
@@ -134,9 +187,12 @@ Deno.serve(async (req) => {
 		});
 	}
 
-	const { data: subs, error: sErr } = await admin
-		.from('push_subscriptions')
-		.select('id,user_id,endpoint,p256dh,auth');
+	let subsQuery = admin.from('push_subscriptions').select('id,user_id,endpoint,p256dh,auth');
+	if (isProfileTest) {
+		subsQuery = subsQuery.eq('user_id', testUserId);
+	}
+
+	const { data: subs, error: sErr } = await subsQuery;
 	if (sErr) {
 		return new Response(JSON.stringify({ error: sErr.message }), {
 			status: 500,
@@ -167,26 +223,30 @@ Deno.serve(async (req) => {
 		if (!r || !subList.length) continue;
 
 		const { date: todayLocal, hour, minute } = zonedWallClock(now, r.user_timezone);
-		if (!isInReminderWindow(hour, minute)) continue;
 
-		checked++;
-
-		if (r.last_reminder_for_user_date === todayLocal) continue;
-
-		let needReminder: boolean;
-		try {
-			needReminder = await journalNotFilledForDate(admin, userId, todayLocal);
-		} catch (e) {
-			errors.push(`${userId}: ${e instanceof Error ? e.message : String(e)}`);
-			continue;
+		if (!isProfileTest) {
+			if (!isInReminderWindow(hour, minute)) continue;
+			checked++;
+			if (r.last_reminder_for_user_date === todayLocal) continue;
+		} else {
+			checked++;
 		}
-		if (!needReminder) continue;
 
-		// Keep in sync with HABIT_PUSH_* in src/lib/push/reminders.ts and static/push-sw.js
+		if (!isProfileTest) {
+			let needReminder: boolean;
+			try {
+				needReminder = await journalNotFilledForDate(admin, userId, todayLocal);
+			} catch (e) {
+				errors.push(`${userId}: ${e instanceof Error ? e.message : String(e)}`);
+				continue;
+			}
+			if (!needReminder) continue;
+		}
+
 		const payload = JSON.stringify({
 			title: 'Привычки',
 			body: 'Расскажи как прошел твой день.',
-			url: '/journal'
+			url: journalPushUrl(r.app_base_path)
 		});
 
 		let anySent = false;
@@ -209,15 +269,17 @@ Deno.serve(async (req) => {
 		}
 
 		if (anySent) {
-			const { error: uErr } = await admin
-				.from('user_push_reminders')
-				.update({
-					last_reminder_for_user_date: todayLocal,
-					updated_at: new Date().toISOString()
-				})
-				.eq('user_id', userId);
-			if (uErr) errors.push(`update ${userId}: ${uErr.message}`);
-			else sent++;
+			if (!isProfileTest) {
+				const { error: uErr } = await admin
+					.from('user_push_reminders')
+					.update({
+						last_reminder_for_user_date: todayLocal,
+						updated_at: new Date().toISOString()
+					})
+					.eq('user_id', userId);
+				if (uErr) errors.push(`update ${userId}: ${uErr.message}`);
+			}
+			sent++;
 		}
 	}
 

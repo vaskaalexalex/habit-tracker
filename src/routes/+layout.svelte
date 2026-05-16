@@ -21,6 +21,7 @@
 	import { mainTabIndex } from '$lib/nav/main-tab-index';
 	import { isSamePathname } from '$lib/nav/same-pathname';
 	import { syncUserReminderTimezone } from '$lib/push/reminders';
+	import { ensurePushServiceWorkerRegistration } from '$lib/push/service-worker';
 
 	let { children } = $props();
 	let booted = $state(false);
@@ -167,27 +168,8 @@
 				didReloadForServiceWorker = true;
 				window.location.reload();
 			};
-			const activateWaitingWorker = (registration: ServiceWorkerRegistration) => {
-				registration.waiting?.postMessage({ type: 'SKIP_WAITING' });
-			};
 			const registerServiceWorker = () => {
-				const swPath = `${base}/sw.js`;
-				const scope = base ? `${base}/` : '/';
-				void navigator.serviceWorker
-					.register(swPath, { scope })
-					.then((registration) => {
-						activateWaitingWorker(registration);
-						registration.addEventListener('updatefound', () => {
-							const worker = registration.installing;
-							worker?.addEventListener('statechange', () => {
-								if (worker.state === 'installed' && navigator.serviceWorker.controller) {
-									worker.postMessage({ type: 'SKIP_WAITING' });
-								}
-							});
-						});
-						void registration.update().then(() => activateWaitingWorker(registration));
-					})
-					.catch(() => undefined);
+				void ensurePushServiceWorkerRegistration();
 			};
 			navigator.serviceWorker.addEventListener('controllerchange', reloadOnControllerChange);
 			window.addEventListener('load', registerServiceWorker);

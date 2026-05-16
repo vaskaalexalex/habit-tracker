@@ -260,10 +260,7 @@
 			}
 			await ensureSportCompleted();
 			toasts.success(`Сохранено ${valid.length} упражнен${valid.length === 1 ? 'ие' : 'ий'}`);
-			// Сразу показываем только что сохранённую тренировку, чтобы юзер
-			// мог её посмотреть/доредактировать вместо пустого шаблона.
-			rows = buildRowsFromDbOrTemplate(today);
-			writeDraftImmediate(today, rows);
+			void goto(`${base}/`, { replaceState: true });
 		} finally {
 			saving = false;
 		}
