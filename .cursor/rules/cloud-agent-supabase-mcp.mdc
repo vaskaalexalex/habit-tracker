@@ -1,0 +1,31 @@
+---
+description: Подключение Supabase MCP для облачных агентов и миграций
+alwaysApply: false
+---
+
+## Облачный агент (Cursor Cloud)
+
+Официально MCP для Cloud Agents настраивается **в веб-интерфейсе**, а не только файлом в репо:
+
+1. Открой **[cursor.com/agents](https://cursor.com/agents)**.
+2. В интерфейсе агента открой **выпадающий список MCP** и **добавь сервер** (Add / Configure MCP).
+3. Для Supabase используй **HTTP**-транспорт (для Cloud Agents поддерживаются **HTTP и stdio**; в документации Cursor указано, что **SSE / mcp-remote для Cloud Agents не подходят**).
+4. URL возьми из Supabase Dashboard: **Project → Connect → вкладка MCP** (или собери вручную по [документации Supabase MCP](https://supabase.com/docs/guides/getting-started/mcp)):
+   - базовый: `https://mcp.supabase.com/mcp`
+   - с привязкой к проекту: `https://mcp.supabase.com/mcp?project_ref=<id из Settings → General → Reference ID>`
+5. При запросе выполни **OAuth / вход в Supabase** для этого MCP (доступ — в контексте твоего аккаунта Supabase).
+
+Чтобы агент мог **накатывать миграции**, в URL **не включай** `read_only=true` (в read-only отключены `apply_migration` и прочие мутации). Для продакшена лучше отдельный dev-проект или branching по рекомендациям Supabase.
+
+## Локальный Cursor (для сравнения)
+
+- **Settings → Tools & MCP** (`Ctrl+Shift+J` / `Cmd+Shift+J`).
+- Можно скопировать конфиг из корневого файла **`mcp.supabase.cursor.example.json`** в **`.cursor/mcp.json`** (подставь свой `project_ref`). Секреты не коммить.
+
+## Секреты Cloud Agent без MCP
+
+Альтернатива MCP: **[Cursor Dashboard → Cloud Agents → Secrets](https://cursor.com/dashboard/cloud-agents)** — например `DATABASE_URL` (строка пула Postgres из Supabase) и вызов `npx supabase db push` или `psql` в задании агента.
+
+## Шаблон URL в репозитории
+
+См. **`mcp.supabase.cursor.example.json`** в корне проекта.
