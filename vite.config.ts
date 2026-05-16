@@ -39,15 +39,24 @@ export default defineConfig({
 			},
 			workbox: {
 				cleanupOutdatedCaches: true,
-				globPatterns: ['client/**/*.{js,css,ico,png,svg,webp,woff,woff2}'],
 				clientsClaim: true,
 				navigateFallback: startUrl,
+				navigateFallbackAllowlist: BASE ? [new RegExp(`^${BASE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`)] : undefined,
 				skipWaiting: true,
 				importScripts: [`${BASE || ''}/push-sw.js`],
 				runtimeCaching: [
 					{
 						urlPattern: ({ url }) => url.hostname.endsWith('.supabase.co'),
 						handler: 'NetworkOnly'
+					},
+					{
+						urlPattern: ({ url, sameOrigin }) =>
+							sameOrigin === true && url.pathname.includes('/_app/immutable/'),
+						handler: 'StaleWhileRevalidate',
+						options: {
+							cacheName: 'sveltekit-immutable',
+							expiration: { maxEntries: 256, maxAgeSeconds: 60 * 60 * 24 * 365 }
+						}
 					},
 					{
 						urlPattern: ({ request }) =>

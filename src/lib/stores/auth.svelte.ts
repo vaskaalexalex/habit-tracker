@@ -1,12 +1,13 @@
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase, isSupabaseConfigured } from '$supabase/client';
 import {
-	isAccessTokenValid,
-	minimalUserFromId,
 	persistLastUserId,
 	readLastUserId,
 	readPersistedSessionFromStorage,
-	recoverOfflineSession
+	resolveCachedAuthUser,
+	shouldIgnoreInitialNullSession,
+	isAccessTokenValid,
+	minimalUserFromId
 } from '$supabase/persisted-session';
 import { syncDebug } from '$utils/sync-debug';
 
@@ -43,9 +44,33 @@ class AuthStore {
 
 	#unsubscribe: (() => void) | null = null;
 	#stopSessionWatchers: (() => void) | null = null;
+	#explicitSignOut = false;
+	#primeUserFromLocalMarkers(): void {
+		if (this.user) return;
+		const persisted = readPersistedSessionFromStorage();
+		if (persisted?.access_token && isAccessTokenValid(persisted.access_token)) {
+			this.session = persisted;
+			this.user =
+				persisted.user ??
+				(readLastUserId() ? minimalUserFromId(readLastUserId()!) : null);
+			if (this.user?.id) return;
+		}
+		const lastId = readLastUserId();
+		if (lastId) {
+			this.user = minimalUserFromId(lastId);
+			this.session = null;
+		}
+	}
+
+	prepareReinit(): void {
+		this.initialized = false;
+		this.#unsubscribe?.();
+		this.#unsubscribe = null;
+	}
 
 	async init(): Promise<void> {
 		if (this.initialized) return;
+		this.#primeUserFromLocalMarkers();
 		if (!isSupabaseConfigured) {
 			syncDebug('auth-init-unconfigured');
 			this.initialized = true;
@@ -56,62 +81,76 @@ class AuthStore {
 		this.loading = true;
 		const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
 
-		// Restore session before onAuthStateChange so INITIAL_SESSION does not run a doomed refresh offline.
-		if (offline) {
-			syncDebug('auth-init-offline');
-			const recovered = await recoverOfflineSession(supabase);
-			if (recovered.user) {
-				this.session = recovered.session;
-				this.user = recovered.user;
-				syncDebug('auth-offline-recovered', {
-					source: recovered.source,
-					userId: this.user?.id
-				});
-			} else {
-				const lastId = readLastUserId();
-				if (lastId) {
-					this.user = minimalUserFromId(lastId);
-					this.session = null;
-					syncDebug('auth-offline-last-user-fallback', { userId: lastId });
-				}
-			}
-		} else {
+		// Local session first so offline / flaky network does not flash /login before GoTrue answers.
+		const cached = await resolveCachedAuthUser(supabase);
+		if (cached.user) {
+			this.session = cached.session;
+			this.user = cached.user;
+			syncDebug('auth-cached-resolved', {
+				offline,
+				source: cached.source,
+				userId: cached.user.id
+			});
+		}
+
+		if (!offline) {
 			try {
 				const { data } = await withTimeout(
 					supabase.auth.getSession(),
 					SESSION_TIMEOUT_MS,
 					'auth.getSession'
 				);
-				this.session = data.session;
-				this.user = data.session?.user ?? null;
-				syncDebug('auth-session-loaded', { hasSession: !!this.session, userId: this.user?.id });
+				if (data.session?.user) {
+					this.session = data.session;
+					this.user = data.session.user;
+					syncDebug('auth-session-loaded', { hasSession: !!this.session, userId: this.user?.id });
+				}
 			} catch (err) {
 				syncDebug('auth-session-timeout', {
 					error: err instanceof Error ? err.message : String(err)
 				});
 			}
+			if (!this.user) {
+				const retry = await resolveCachedAuthUser(supabase);
+				if (retry.user) {
+					this.session = retry.session;
+					this.user = retry.user;
+					syncDebug('auth-online-fallback-cached', {
+						source: retry.source,
+						userId: retry.user.id
+					});
+				}
+			}
 		}
 
 		try {
 			const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
-				const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
-				// GoTrue emits INITIAL_SESSION with null after failed refresh/setSession offline — do not wipe recovered store state.
-				if (!session && event === 'INITIAL_SESSION' && offline) {
+				// GoTrue may emit INITIAL_SESSION null when refresh fails — keep cached user for offline profile.
+				if (!session && event === 'INITIAL_SESSION') {
 					if (this.user) {
-						syncDebug('auth-state-change-ignore-initial-null-offline', {
+						syncDebug('auth-state-change-ignore-initial-null-kept-user', {
 							keptUserId: this.user.id
 						});
 						return;
 					}
-					const persisted = readPersistedSessionFromStorage();
-					if (persisted?.access_token && isAccessTokenValid(persisted.access_token)) {
-						syncDebug('auth-state-change-ignore-initial-null-offline-valid-storage');
+					if (shouldIgnoreInitialNullSession()) {
+						syncDebug('auth-state-change-ignore-initial-null-local-markers');
 						return;
 					}
-					if (readLastUserId()) {
-						syncDebug('auth-state-change-ignore-initial-null-offline-last-user-key');
-						return;
-					}
+				}
+
+				if (
+					event === 'SIGNED_OUT' &&
+					!this.#explicitSignOut &&
+					shouldIgnoreInitialNullSession()
+				) {
+					syncDebug('auth-state-change-ignore-spurious-signed-out');
+					return;
+				}
+
+				if (!session && event !== 'SIGNED_OUT' && this.user && shouldIgnoreInitialNullSession()) {
+					syncDebug('auth-state-change-ignore-null-with-local-markers', { event });
+					return;
 				}
 
 				this.session = session;
@@ -159,10 +198,15 @@ class AuthStore {
 	}
 
 	async signOut(): Promise<void> {
-		await supabase.auth.signOut();
-		persistLastUserId(null);
-		this.user = null;
-		this.session = null;
+		this.#explicitSignOut = true;
+		try {
+			await supabase.auth.signOut();
+		} finally {
+			persistLastUserId(null);
+			this.user = null;
+			this.session = null;
+			this.#explicitSignOut = false;
+		}
 	}
 
 	dispose(): void {

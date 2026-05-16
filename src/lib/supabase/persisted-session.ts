@@ -1,5 +1,6 @@
 import type { Session, User } from '@supabase/supabase-js';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { db } from '$db/dexie';
 import { AUTH_STORAGE_KEY } from '$supabase/client';
 import { syncDebug } from '$utils/sync-debug';
 
@@ -103,24 +104,35 @@ export async function recoverOfflineSession(client: SupabaseClient): Promise<{
 	}
 
 	if (!isAccessTokenValid(persisted.access_token)) {
+		const lastId = readLastUserId();
+		const sub = decodeJwtPayload(persisted.access_token)?.sub;
+		if (lastId && (!sub || sub === lastId)) {
+			syncDebug('auth-recover-expired-jwt-last-user', { userId: lastId });
+			return { session: null, user: minimalUserFromId(lastId), source: 'persisted' };
+		}
 		return { session: null, user: null, source: 'none' };
 	}
 
-	try {
-		const { data, error } = await client.auth.setSession({
-			access_token: persisted.access_token,
-			refresh_token: persisted.refresh_token
-		});
-		if (!error && data.session?.user) {
-			return { session: data.session, user: data.session.user, source: 'setSession' };
+	const online = typeof navigator === 'undefined' || navigator.onLine !== false;
+	if (online) {
+		try {
+			const { data, error } = await client.auth.setSession({
+				access_token: persisted.access_token,
+				refresh_token: persisted.refresh_token
+			});
+			if (!error && data.session?.user) {
+				return { session: data.session, user: data.session.user, source: 'setSession' };
+			}
+			if (error) {
+				syncDebug('auth-offline-set-session-error', { message: error.message });
+			}
+		} catch (err) {
+			syncDebug('auth-offline-set-session-throw', {
+				error: err instanceof Error ? err.message : String(err)
+			});
 		}
-		if (error) {
-			syncDebug('auth-offline-set-session-error', { message: error.message });
-		}
-	} catch (err) {
-		syncDebug('auth-offline-set-session-throw', {
-			error: err instanceof Error ? err.message : String(err)
-		});
+	} else {
+		syncDebug('auth-recover-skip-set-session-offline');
 	}
 
 	if (persisted.user && isAccessTokenValid(persisted.access_token)) {
@@ -134,4 +146,64 @@ export async function recoverOfflineSession(client: SupabaseClient): Promise<{
 	}
 
 	return { session: null, user: null, source: 'none' };
+}
+
+/** True if IndexedDB still has rows for this user (offline app shell is meaningful). */
+export async function hasLocalUserData(userId: string): Promise<boolean> {
+	if (typeof window === 'undefined') return false;
+	try {
+		const habit = await db.habit_completions.where('user_id').equals(userId).first();
+		if (habit) return true;
+		const journal = await db.journal_entries.where('user_id').equals(userId).first();
+		if (journal) return true;
+		const set = await db.workout_sets.where('user_id').equals(userId).first();
+		return !!set;
+	} catch {
+		return false;
+	}
+}
+
+export type CachedAuthSource = 'setSession' | 'persisted' | 'last-user-id' | 'none';
+
+/**
+ * Best-effort local auth for offline / flaky network: JWT in storage, then last user id + local cache.
+ */
+export async function resolveCachedAuthUser(client: SupabaseClient): Promise<{
+	session: Session | null;
+	user: User | null;
+	source: CachedAuthSource;
+}> {
+	const recovered = await recoverOfflineSession(client);
+	if (recovered.user) {
+		return {
+			session: recovered.session,
+			user: recovered.user,
+			source: recovered.source === 'none' ? 'none' : recovered.source
+		};
+	}
+
+	const lastId = readLastUserId();
+	if (!lastId) {
+		return { session: null, user: null, source: 'none' };
+	}
+
+	if (await hasLocalUserData(lastId)) {
+		syncDebug('auth-resolve-last-user-with-dexie', { userId: lastId });
+		return { session: null, user: minimalUserFromId(lastId), source: 'last-user-id' };
+	}
+
+	const persisted = readPersistedSessionFromStorage();
+	if (persisted?.access_token) {
+		syncDebug('auth-resolve-last-user-with-persisted-token', { userId: lastId });
+		return { session: null, user: minimalUserFromId(lastId), source: 'last-user-id' };
+	}
+
+	return { session: null, user: null, source: 'none' };
+}
+
+/** Ignore GoTrue INITIAL_SESSION=null when local session markers exist. */
+export function shouldIgnoreInitialNullSession(): boolean {
+	if (readLastUserId()) return true;
+	const persisted = readPersistedSessionFromStorage();
+	return !!(persisted?.access_token && persisted.refresh_token);
 }

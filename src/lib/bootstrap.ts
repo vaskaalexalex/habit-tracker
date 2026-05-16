@@ -5,9 +5,10 @@ import { profileStore } from '$stores/profile.svelte';
 
 let started = false;
 
-export async function bootstrap(): Promise<void> {
-	if (started) return;
+export async function bootstrap(force = false): Promise<void> {
+	if (started && !force) return;
 	started = true;
+	if (force) authStore.prepareReinit();
 	await clearLegacyApiCache();
 	themeStore.init();
 	profileStore.init();

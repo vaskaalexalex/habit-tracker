@@ -180,6 +180,18 @@ User action
 - При офлайне всё пишется локально, очередь дренится при возвращении сети.
 - Конфликт-резолв: last-write-wins по `updated_at`/`created_at`.
 
+### Offline-first: данные vs оболочка PWA
+
+**Offline-first относится к данным** (Dexie + `sync_queue`): галочки, тренировки и дневник сохраняются локально и синхронизируются при появлении сети.
+
+**Оболочка приложения** (HTML, JS, Service Worker) требует хотя бы один успешный онлайн-запуск после установки PWA или деплоя, чтобы Workbox закешировал assets. Без кеша в авиарежиме возможен белый экран.
+
+**Профиль и данные офлайн без повторного логина** — если после прошлого входа остались `habits-last-user-id` в `localStorage` и записи в Dexie (или токен в `habits-auth`, даже с истёкшим `exp`). Тогда открываются главная, профиль, привычки; синхронизация с Supabase — только онлайн.
+
+После обновления на GitHub Pages открой PWA один раз онлайн, чтобы подтянуть новый precache.
+
+Проверки: `pnpm test:offline-browser` (auth + Dexie в dev), `pnpm test:pwa-offline` (production build + preview + offline reload с SW).
+
 ## Auto-completion привычек
 
 - `Спорт`: помечается выполненным при первом подходе/кардио за день (`stores/auto-complete.ts → ensureSportCompleted`).

@@ -130,6 +130,29 @@
 			standalone: window.matchMedia('(display-mode: standalone)').matches
 		});
 
+		const onPageShow = (event: PageTransitionEvent) => {
+			if (!event.persisted) return;
+			syncDebug('layout-pageshow-persisted-bootstrap');
+			void bootstrap(true)
+				.then(() => {
+					setStoresUser(authStore.user?.id ?? null);
+					if (authStore.user) {
+						return Promise.all([
+							strengthStore.hydrateLocal(),
+							cardioStore.hydrateLocal(),
+							habitsStore.hydrateLocal(),
+							journalStore.hydrateLocal()
+						]);
+					}
+				})
+				.catch((err) => {
+					syncDebug('bootstrap-pageshow-error', {
+						error: err instanceof Error ? err.message : String(err)
+					});
+				});
+		};
+		window.addEventListener('pageshow', onPageShow);
+
 		void bootstrap()
 			.catch((err) => {
 				syncDebug('bootstrap-error', {
@@ -163,23 +186,36 @@
 		// Manual SW registration (avoids virtual:pwa-register → workbox-window in SSR bundle).
 		if (import.meta.env.PROD && 'serviceWorker' in navigator) {
 			let didReloadForServiceWorker = false;
+			let pendingSwReload = false;
 			const reloadOnControllerChange = () => {
 				if (didReloadForServiceWorker) return;
+				if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+					pendingSwReload = true;
+					syncDebug('sw-controllerchange-reload-deferred-offline');
+					return;
+				}
 				didReloadForServiceWorker = true;
 				window.location.reload();
 			};
-			const registerServiceWorker = () => {
-				void ensurePushServiceWorkerRegistration();
+			const flushPendingSwReload = () => {
+				if (!pendingSwReload || didReloadForServiceWorker) return;
+				if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
+				didReloadForServiceWorker = true;
+				pendingSwReload = false;
+				syncDebug('sw-controllerchange-reload-flush-online');
+				window.location.reload();
 			};
+			void ensurePushServiceWorkerRegistration();
 			navigator.serviceWorker.addEventListener('controllerchange', reloadOnControllerChange);
-			window.addEventListener('load', registerServiceWorker);
+			window.addEventListener('online', flushPendingSwReload);
 			stopServiceWorkerUpdate = () => {
 				navigator.serviceWorker.removeEventListener('controllerchange', reloadOnControllerChange);
-				window.removeEventListener('load', registerServiceWorker);
+				window.removeEventListener('online', flushPendingSwReload);
 			};
 		}
 
 		return () => {
+			window.removeEventListener('pageshow', onPageShow);
 			document.removeEventListener('focusin', onInputFocusIn, true);
 			document.removeEventListener('focusout', onInputFocusOut, true);
 			vv?.removeEventListener('resize', onVisualViewportResize);
@@ -298,7 +334,7 @@
 	});
 
 	$effect(() => {
-		if (!booted || !authStore.initialized) return;
+		if (!booted || !authStore.initialized || authStore.loading) return;
 		const path = $page.url.pathname;
 		const isAuthRoute = path.startsWith(`${base}/login`) || path.startsWith(`${base}/auth`);
 		if (!authStore.user && !isAuthRoute) {

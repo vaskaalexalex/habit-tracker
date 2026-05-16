@@ -23,7 +23,24 @@
 				const IMPORT_FAILURE_RE =
 					/Importing a module script failed|Failed to fetch dynamically imported module|Load failed/i;
 
+				function showOfflineShellFallback() {
+					const root = document.getElementById('app');
+					if (!root || root.dataset.offlineFallback === '1') return;
+					root.dataset.offlineFallback = '1';
+					root.style.display = 'block';
+					root.innerHTML =
+						'<div style="display:flex;min-height:100dvh;align-items:center;justify-content:center;padding:1.5rem;background:#0f172a;color:#e2e8f0;font-family:system-ui,sans-serif;text-align:center">' +
+						'<div style="max-width:20rem">' +
+						'<p style="margin:0 0 0.5rem;font-size:1.125rem;font-weight:600">Habit</p>' +
+						'<p style="margin:0;font-size:0.875rem;line-height:1.5;color:#94a3b8">Нет сети — приложение не загрузилось. Подключи интернет и открой снова.</p>' +
+						'</div></div>';
+				}
+
 				async function resetPwaCaches() {
+					if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+						showOfflineShellFallback();
+						return;
+					}
 					if (sessionStorage.getItem(RESET_KEY) === '1') return;
 					sessionStorage.setItem(RESET_KEY, '1');
 
@@ -48,15 +65,19 @@
 					window.location.replace(url);
 				}
 
+				function onImportFailure() {
+					void resetPwaCaches();
+				}
+
 				window.addEventListener('unhandledrejection', (event) => {
-					if (IMPORT_FAILURE_RE.test(String(event.reason))) void resetPwaCaches();
+					if (IMPORT_FAILURE_RE.test(String(event.reason))) onImportFailure();
 				});
 
 				window.addEventListener(
 					'error',
 					(event) => {
 						if (event.target instanceof HTMLScriptElement && event.target.type === 'module') {
-							void resetPwaCaches();
+							onImportFailure();
 						}
 					},
 					true
