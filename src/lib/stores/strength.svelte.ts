@@ -172,7 +172,7 @@ class StrengthStore {
 	async createExercise(name: string, muscleGroup?: string | null): Promise<Exercise> {
 		void name;
 		void muscleGroup;
-		throw new Error('Каталог упражнений зафиксирован в базе (22 позиции), создание отключено');
+		throw new Error('Каталог упражнений зафиксирован в базе (25 позиций), создание отключено');
 	}
 
 	async setExerciseHidden(id: UUID, hidden: boolean): Promise<void> {

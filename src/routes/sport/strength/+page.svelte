@@ -178,7 +178,7 @@
 	/** Не перегонять строки из черновика при каждом refresh sets[] — только смена дня / появление тренировки за день. */
 	let lastStrengthHydrateKey = $state<string | null>(null);
 
-	let addMuscleGroup = $state<MuscleGroup>('chest');
+	let addMuscleGroup = $state<MuscleGroup>('core');
 
 	const filledCount = $derived(
 		rows.filter((r) => r.exerciseId && r.weight > 0 && r.sets > 0).length

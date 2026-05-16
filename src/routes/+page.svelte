@@ -30,11 +30,6 @@
 
 	function handle(habit: HabitType) {
 		if (habit === 'sport') {
-			if (habitsStore.isCompleted('sport', today)) {
-				const home = `${base}/`;
-				if (!isSamePathname($page.url.pathname, home)) void goto(home);
-				return;
-			}
 			const hasStrength = strengthStore.setsForDate(today).length > 0;
 			const hasCardio = cardioStore.items.some((c) => c.date === today);
 			const href =
@@ -160,6 +155,7 @@
 					completed={done(habit)}
 					streak={habitsStore.streak(habit, today)}
 					size="compact"
+					flipVisualOnClick={habit === 'coding' || habit === 'reading'}
 					onclick={() => onTileClick(habit)}
 				/>
 			{/each}
