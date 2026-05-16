@@ -48,5 +48,10 @@
     "dexie": "^4.0.10",
     "layerchart": "^1.0.0",
     "lucide-svelte": "^0.460.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
   }
 }
