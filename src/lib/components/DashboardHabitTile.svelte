@@ -15,6 +15,8 @@
 		glass?: boolean;
 		/** Заполнить высоту ячейки грида (bento). */
 		stretch?: boolean;
+		/** Локально инвертировать «выполнено» по клику (только для привычек с toggle в сторе). */
+		flipVisualOnClick?: boolean;
 	}
 
 	let {
@@ -24,7 +26,8 @@
 		onclick,
 		size = 'md',
 		glass = false,
-		stretch = false
+		stretch = false,
+		flipVisualOnClick = true
 	}: Props = $props();
 
 	const Icon = $derived(habitIcon[habit]);
@@ -89,8 +92,10 @@
 				ry = 50;
 			}
 		}
-		visualCompleted = !visualCompleted;
-		lastClickAt = Date.now();
+		if (flipVisualOnClick) {
+			visualCompleted = !visualCompleted;
+			lastClickAt = Date.now();
+		}
 		if (!reduceMotion) {
 			scale.set(1.04, { hard: true });
 			window.setTimeout(() => scale.set(1), 140);
