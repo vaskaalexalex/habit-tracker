@@ -2,6 +2,7 @@ import { env } from '$env/dynamic/public';
 import { base } from '$app/paths';
 import { DEFAULT_VAPID_PUBLIC_KEY } from '$lib/push/default-vapid-public';
 import { ensurePushServiceWorkerRegistration } from '$lib/push/service-worker';
+import { FunctionsFetchError, FunctionsHttpError, FunctionsRelayError } from '@supabase/supabase-js';
 import { supabase, isSupabaseConfigured } from '$supabase/client';
 import type { Database } from '$supabase/types';
 
@@ -292,13 +293,41 @@ export async function showHabitPushReminderPreviewAfterDelay(
 	return showHabitPushReminderPreview(urls);
 }
 
+async function edgeInvokeErrorMessage(error: unknown): Promise<string> {
+	if (error instanceof FunctionsHttpError) {
+		try {
+			const body = (await error.context.json()) as { error?: string; message?: string };
+			if (body?.error) return body.error;
+			if (body?.message) return body.message;
+		} catch {
+			/* ignore */
+		}
+		return `Ошибка Edge (${error.context.status})`;
+	}
+	if (error instanceof FunctionsRelayError || error instanceof FunctionsFetchError) {
+		return error.message;
+	}
+	if (error instanceof Error) return error.message;
+	return 'Не удалось вызвать Edge Function';
+}
+
 /** Invoke Edge to send a real Web Push (same path as 21:00 cron). Requires reminders on + DB subscription. */
 export async function requestServerPushTest(userId: string): Promise<{ error?: string }> {
 	if (!isSupabaseConfigured) return { error: 'Supabase не настроен' };
+
+	const {
+		data: { session },
+		error: sessionErr
+	} = await supabase.auth.getSession();
+	if (sessionErr || !session?.access_token) {
+		return { error: 'Нужен вход в аккаунт для серверного push' };
+	}
+
 	const { data, error } = await supabase.functions.invoke('send-habit-reminders', {
-		body: { test_user_id: userId, skip_window: true, test: true }
+		body: { test_user_id: userId, skip_window: true, test: true },
+		headers: { Authorization: `Bearer ${session.access_token}` }
 	});
-	if (error) return { error: error.message };
+	if (error) return { error: await edgeInvokeErrorMessage(error) };
 	const payload = data as { ok?: boolean; reminders_sent?: number; errors?: string[] } | null;
 	if (!payload?.ok) {
 		return { error: payload?.errors?.[0] ?? 'Сервер не отправил push' };
