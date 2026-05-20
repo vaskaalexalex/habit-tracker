@@ -14,13 +14,24 @@
 	import TodayRing from '$components/TodayRing.svelte';
 	import PageHeadText from '$components/PageHeadText.svelte';
 	import { HABIT_ORDER } from '$supabase/types';
-	import type { HabitType } from '$supabase/types';
+	import type { HabitType, ISODate } from '$supabase/types';
 	import { todayStore } from '$stores/today.svelte';
-	import { formatRu } from '$utils/dates';
+	import { dayHeadKicker, formatRu, isISODate } from '$utils/dates';
 
 	const today = $derived(todayStore.today);
 
-	const journalEntryToday = $derived(journalStore.entries.find((e) => e.date === today));
+	const viewDate = $derived.by((): ISODate => {
+		const raw = $page.url.searchParams.get('date');
+		if (raw && isISODate(raw)) return raw;
+		return today;
+	});
+
+	const viewingToday = $derived(viewDate === today);
+	const headKicker = $derived(dayHeadKicker(viewDate, today));
+
+	const journalEntryForView = $derived(
+		journalStore.entries.find((e) => e.date === viewDate)
+	);
 
 	$effect(() => {
 		void journalStore.entries;
@@ -28,49 +39,66 @@
 		void reconcileJournalCompletions();
 	});
 
+	$effect(() => {
+		const raw = $page.url.searchParams.get('date');
+		if (raw && raw === today) {
+			void goto(`${base}/`, { replaceState: true, keepFocus: true, noScroll: true });
+		}
+	});
+
+	$effect(() => {
+		void viewDate;
+		prevAllDone = null;
+	});
+
 	function handle(habit: HabitType) {
+		const date = viewDate;
 		if (habit === 'sport') {
-			const hasStrength = strengthStore.setsForDate(today).length > 0;
-			const hasCardio = cardioStore.items.some((c) => c.date === today);
+			const hasStrength = strengthStore.setsForDate(date).length > 0;
+			const hasCardio = cardioStore.items.some((c) => c.date === date);
 			const href =
-				hasStrength && !hasCardio
-					? `${base}/sport/strength`
-					: !hasStrength && hasCardio
-						? `${base}/sport/cardio`
-						: `${base}/sport`;
+				!viewingToday
+					? hasStrength
+						? `${base}/sport/strength/${date}`
+						: `${base}/sport`
+					: hasStrength && !hasCardio
+						? `${base}/sport/strength`
+						: !hasStrength && hasCardio
+							? `${base}/sport/cardio`
+							: `${base}/sport`;
 			if (!isSamePathname($page.url.pathname, href)) void goto(href);
 			return;
 		}
 		if (habit === 'journal') {
-			const href = `${base}/journal`;
+			const href = viewingToday ? `${base}/journal` : `${base}/journal/${date}`;
 			if (!isSamePathname($page.url.pathname, href)) void goto(href);
 			return;
 		}
-		void habitsStore.toggle(habit, today);
+		void habitsStore.toggle(habit, date);
 	}
 
-	const completedToday = $derived.by(() => {
+	const completedOnView = $derived.by(() => {
 		void journalStore.entries;
 		void journalStore.loaded;
 		void habitsStore.completions;
-		void journalEntryToday;
+		void journalEntryForView;
 		const set = new Set<HabitType>();
 		for (const h of HABIT_ORDER) {
 			if (h === 'journal') {
 				if (
-					habitsStore.isCompleted('journal', today) &&
-					journalHabitBackedByWriting(journalEntryToday)
+					habitsStore.isCompleted('journal', viewDate) &&
+					journalHabitBackedByWriting(journalEntryForView)
 				) {
 					set.add(h);
 				}
 				continue;
 			}
-			if (habitsStore.isCompleted(h, today)) set.add(h);
+			if (habitsStore.isCompleted(h, viewDate)) set.add(h);
 		}
 		return set;
 	});
 
-	const allDone = $derived(completedToday.size === HABIT_ORDER.length);
+	const allDone = $derived(completedOnView.size === HABIT_ORDER.length);
 
 	let statsRowPulse = $state(false);
 	let prevAllDone: boolean | null = $state(null);
@@ -94,27 +122,49 @@
 	});
 
 	function done(h: HabitType): boolean {
-		return completedToday.has(h);
+		return completedOnView.has(h);
 	}
 
 	function onTileClick(habit: HabitType) {
 		handle(habit);
 	}
 
+	function isViewingDate(date: string): boolean {
+		if (date === today) {
+			return viewingToday && !$page.url.searchParams.has('date');
+		}
+		return $page.url.searchParams.get('date') === date;
+	}
+
 	function openHabitDay(date: string) {
-		const href = `${base}/day/${date}`;
-		if (isSamePathname($page.url.pathname, href)) return;
-		void goto(href);
+		if (!isISODate(date)) return;
+		if (isViewingDate(date)) return;
+		const href = date === today ? `${base}/` : `${base}/?date=${date}`;
+		void goto(href, { keepFocus: true, noScroll: true });
+	}
+
+	function goToToday() {
+		if (viewingToday) return;
+		void goto(`${base}/`, { keepFocus: true, noScroll: true });
 	}
 </script>
 
 <div class="page-shell min-h-0 flex-1 gap-3 max-[380px]:gap-2 sm:gap-5 sm:pb-3">
 	<div class="flex shrink-0 flex-col gap-1">
 		<PageHeadText
-			kicker="Сегодня"
-			title={formatRu(today)}
+			kicker={headKicker}
+			title={formatRu(viewDate)}
 			subtitle={profileStore.name.trim() || undefined}
 		/>
+		{#if !viewingToday}
+			<button
+				type="button"
+				class="tap-target w-fit text-xs font-medium text-(--color-accent) underline-offset-2 hover:underline"
+				onclick={goToToday}
+			>
+				Вернуться к сегодня
+			</button>
+		{/if}
 	</div>
 
 	<div
@@ -137,18 +187,19 @@
 				class="mt-1 font-black tabular-nums tracking-tight text-(--color-fg)"
 				style="font-size: clamp(1.75rem, 8.5vw, 3rem); line-height: 0.95;"
 			>
-				{completedToday.size}<span
+				{completedOnView.size}<span
 					class="home-stats-row__total text-(--color-fg-mute)"
 					style="font-size: 60%;">/{HABIT_ORDER.length}</span
 				>
 			</p>
 		</div>
 		<div class="relative z-[1]">
-			<TodayRing completed={completedToday} size={92} />
+			<TodayRing completed={completedOnView} size={92} />
 		</div>
 	</div>
 
 	<section class="flex min-h-0 min-w-0 shrink flex-col" aria-label="Привычки">
+
 		<h2
 			class="mb-1.5 shrink-0 text-[9px] font-bold uppercase tracking-wider text-(--color-fg-mute) sm:mb-2 sm:text-[10px]"
 		>
@@ -159,7 +210,7 @@
 				<DashboardHabitTile
 					{habit}
 					completed={done(habit)}
-					streak={habitsStore.streak(habit, today)}
+					streak={habitsStore.streak(habit, viewDate)}
 					size="compact"
 					flipVisualOnClick={habit === 'coding' || habit === 'reading'}
 					onclick={() => onTileClick(habit)}

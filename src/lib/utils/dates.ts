@@ -37,3 +37,17 @@ export function formatRu(date: ISODate | Date, pattern = 'd MMMM yyyy'): string 
 export function formatRuShort(date: ISODate | Date): string {
 	return formatRu(date, 'd MMM');
 }
+
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+export function isISODate(value: string): value is ISODate {
+	return ISO_DATE_RE.test(value);
+}
+
+/** Kicker for home header: «Сегодня», «Вчера» or weekday name. */
+export function dayHeadKicker(iso: ISODate, today: ISODate): string {
+	if (iso === today) return 'Сегодня';
+	if (iso === shiftDays(today, -1)) return 'Вчера';
+	const label = formatRu(iso, 'EEEE');
+	return label.charAt(0).toLocaleUpperCase('ru') + label.slice(1);
+}
