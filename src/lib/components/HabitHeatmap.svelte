@@ -4,12 +4,13 @@
 
 	interface Props {
 		completions: HabitCompletion[];
+		onDayClick?: (iso: ISODate) => void;
 		cellSize?: number;
 		cellGap?: number;
 		sectionClass?: string;
 	}
 
-	let { completions, cellSize, cellGap, sectionClass }: Props = $props();
+	let { completions, onDayClick, cellSize, cellGap, sectionClass }: Props = $props();
 
 	const doneByDate = $derived.by(() => {
 		const map = new Map<string, Set<string>>();
@@ -49,6 +50,7 @@
 	{cellSize}
 	{cellGap}
 	{sectionClass}
+	{onDayClick}
 	counterLabel="Привычки"
 	ariaLabel="Активность привычек"
 >
@@ -60,6 +62,11 @@
 			<p class="pointer-events-none break-words text-(--color-fg-mute)">
 				{list.join(', ')}
 				<span class="text-(--color-fg)">({list.length}/{HABIT_ORDER.length})</span>
+			</p>
+		{/if}
+		{#if onDayClick}
+			<p class="pointer-events-none mt-1 text-[10px] text-(--color-fg-mute)">
+				Нажми, чтобы открыть
 			</p>
 		{/if}
 	{/snippet}
