@@ -1,18 +1,32 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { page } from '$app/stores';
 	import { base } from '$app/paths';
 	import { cardioStore } from '$stores/cardio.svelte';
 	import { ensureSportCompleted } from '$stores/auto-complete';
 	import { toasts } from '$stores/toast.svelte';
-	import { isoToday } from '$utils/dates';
 	import { Loader2 } from 'lucide-svelte';
 	import PageHeader from '$components/PageHeader.svelte';
 	import CardioHeatmap from '$components/CardioHeatmap.svelte';
 	import { CARDIO_LABELS, CARDIO_ORDER, CARDIO_NO_DISTANCE } from '$supabase/types';
 	import type { CardioType } from '$supabase/types';
+	import { todayStore } from '$stores/today.svelte';
+	import { dayHeadKicker, formatRu } from '$utils/dates';
+	import { dayScopeLabel, resolveViewDate, withViewDate } from '$lib/nav/view-date';
 
 	const DURATION_WARMUP_DEFAULT = 10;
 	const DURATION_OTHER_DEFAULT = 30;
+
+	const today = $derived(todayStore.today);
+	const viewDate = $derived(resolveViewDate($page.url.searchParams, today));
+	const headKicker = $derived(dayHeadKicker(viewDate, today));
+
+	$effect(() => {
+		const raw = $page.url.searchParams.get('date');
+		if (raw && raw === today) {
+			void goto(`${base}/sport/cardio`, { replaceState: true, keepFocus: true, noScroll: true });
+		}
+	});
 
 	let type = $state<CardioType>('warmup');
 	let duration = $state<number>(DURATION_WARMUP_DEFAULT);
@@ -31,9 +45,8 @@
 		duration = t === 'warmup' ? DURATION_WARMUP_DEFAULT : DURATION_OTHER_DEFAULT;
 	}
 
-	function hasWarmupToday(): boolean {
-		const d = isoToday();
-		return cardioStore.items.some((c) => c.date === d && c.type === 'warmup');
+	function hasWarmupOnDay(): boolean {
+		return cardioStore.items.some((c) => c.date === viewDate && c.type === 'warmup');
 	}
 
 	async function submit(event: Event) {
@@ -41,8 +54,12 @@
 		if (saving) return;
 		if (
 			type === 'warmup' &&
-			hasWarmupToday() &&
-			!confirm('Уже есть зарядка за сегодня. Добавить ещё одну?')
+			hasWarmupOnDay() &&
+			!confirm(
+				viewDate === today
+					? 'Уже есть зарядка за сегодня. Добавить ещё одну?'
+					: `Уже есть зарядка за ${formatRu(viewDate, 'd MMMM')}. Добавить ещё одну?`
+			)
 		) {
 			return;
 		}
@@ -52,13 +69,14 @@
 				type,
 				duration_min: duration,
 				distance_km: hasDistance ? distance : null,
-				note: note.trim() || null
+				note: note.trim() || null,
+				date: viewDate
 			});
-			await ensureSportCompleted();
+			await ensureSportCompleted(viewDate);
 			note = '';
 			distance = null;
 			toasts.success('Записано');
-			void goto(`${base}/`, { replaceState: true });
+			void goto(withViewDate(`${base}/`, viewDate, today), { replaceState: true });
 		} finally {
 			saving = false;
 		}
@@ -67,9 +85,9 @@
 
 <div class="page-shell">
 	<PageHeader
-		kicker="Кардио"
+		kicker={headKicker}
 		title="Другая активность"
-		subtitle="Запиши активность за сегодня"
+		subtitle="Запиши активность за {dayScopeLabel(viewDate, today).toLowerCase()}"
 	/>
 
 	<form onsubmit={submit} class="hairline flex flex-col gap-3 rounded-3xl bg-(--color-bg-soft) p-4">

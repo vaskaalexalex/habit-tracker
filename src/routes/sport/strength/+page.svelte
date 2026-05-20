@@ -10,7 +10,8 @@
 	import { base } from '$app/paths';
 	import { isSamePathname } from '$lib/nav/same-pathname';
 	import { todayStore } from '$stores/today.svelte';
-	import { formatRu } from '$utils/dates';
+	import { dayHeadKicker, formatRu } from '$utils/dates';
+	import { resolveViewDate, withViewDate } from '$lib/nav/view-date';
 	import { uuid } from '$utils/uuid';
 	import {
 		MUSCLE_GROUP_LABELS,
@@ -30,6 +31,15 @@
 	const PERSIST_DEBOUNCE_MS = 160;
 
 	const today = $derived(todayStore.today);
+	const viewDate = $derived(resolveViewDate($page.url.searchParams, today));
+	const headKicker = $derived(dayHeadKicker(viewDate, today));
+
+	$effect(() => {
+		const raw = $page.url.searchParams.get('date');
+		if (raw && raw === today) {
+			void goto(`${base}/sport/strength`, { replaceState: true, keepFocus: true, noScroll: true });
+		}
+	});
 
 	/** Группы в селекте «+» (совпадает с порядком каталога). */
 	const ADD_ROW_MUSCLE_GROUPS = MUSCLE_GROUP_ORDER;
@@ -199,7 +209,7 @@
 		return JSON.stringify(filled);
 	}
 
-	const savedKey = $derived(snapshotKey(buildRowsFromDbOrTemplate(today)));
+	const savedKey = $derived(snapshotKey(buildRowsFromDbOrTemplate(viewDate)));
 	const currentKey = $derived(snapshotKey(rows));
 	const hasChanges = $derived(sessionReady && savedKey !== currentKey);
 
@@ -231,7 +241,7 @@
 
 	function setExercise(id: string, exerciseId: UUID) {
 		clearStrengthFieldDrafts(id);
-		const session = strengthStore.lastSessionSetsBefore(exerciseId, today);
+		const session = strengthStore.lastSessionSetsBefore(exerciseId, viewDate);
 		const summary = session && session.length > 0 ? summaryFromSessionSets(session) : null;
 		rows = rows.map((r) => {
 			if (r.id !== id) return r;
@@ -254,20 +264,21 @@
 					await strengthStore.addSet({
 						exercise_id: row.exerciseId as UUID,
 						weight: row.weight,
-						reps: DEFAULT_REPS
+						reps: DEFAULT_REPS,
+						date: viewDate
 					});
 				}
 			}
-			await ensureSportCompleted();
+			await ensureSportCompleted(viewDate);
 			toasts.success(`Сохранено ${valid.length} упражнен${valid.length === 1 ? 'ие' : 'ий'}`);
-			void goto(`${base}/`, { replaceState: true });
+			void goto(withViewDate(`${base}/`, viewDate, today), { replaceState: true });
 		} finally {
 			saving = false;
 		}
 	}
 
 	$effect(() => {
-		const date = today;
+		const date = viewDate;
 		if (!strengthStore.loaded) return;
 
 		const hasToday = strengthStore.setsForDate(date).length > 0;
@@ -296,7 +307,7 @@
 
 	$effect(() => {
 		if (!sessionReady) return;
-		const date = today;
+		const date = viewDate;
 		const snapshot = rows;
 		if (persistTimer) clearTimeout(persistTimer);
 		persistTimer = setTimeout(() => {
@@ -314,9 +325,9 @@
 
 <div class="page-shell">
 	<PageHeader
-		kicker="Сессия"
+		kicker={headKicker}
 		title="Силовая"
-		subtitle={formatRu(today)}
+		subtitle={formatRu(viewDate)}
 		showTrailing={hasChanges}
 	>
 		{#snippet trailing()}

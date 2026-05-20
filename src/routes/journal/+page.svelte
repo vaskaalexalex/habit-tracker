@@ -8,39 +8,73 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 	import { base } from '$app/paths';
-	import { isSamePathname } from '$lib/nav/same-pathname';
 	import { todayStore } from '$stores/today.svelte';
-	import { formatRu } from '$utils/dates';
+	import { dayHeadKicker, formatRu } from '$utils/dates';
+	import { dayScopeLabel, resolveViewDate, withViewDate } from '$lib/nav/view-date';
 
 	const today = $derived(todayStore.today);
-	const todayEntry = $derived(journalStore.getByDate(today) ?? null);
+	const viewDate = $derived(resolveViewDate($page.url.searchParams, today));
+	const headKicker = $derived(dayHeadKicker(viewDate, today));
+
+	const entryForView = $derived(journalStore.getByDate(viewDate) ?? null);
+	let loading = $state(false);
+
+	$effect(() => {
+		const raw = $page.url.searchParams.get('date');
+		if (raw && raw === today) {
+			void goto(`${base}/journal`, { replaceState: true, keepFocus: true, noScroll: true });
+		}
+	});
+
+	$effect(() => {
+		const date = viewDate;
+		if (!date) return;
+		const local = journalStore.getByDate(date);
+		if (local) {
+			loading = false;
+			return;
+		}
+		loading = true;
+		void journalStore.loadDay(date).finally(() => {
+			loading = false;
+		});
+	});
 
 	async function handleSave({ content, mood }: { content: string; mood: number | null }) {
-		await journalStore.upsertDay({ date: today, content, mood });
-		if (content.trim().length > 0) await ensureJournalCompleted(today);
-		else await habitsStore.markUndone('journal', today);
+		await journalStore.upsertDay({ date: viewDate, content, mood });
+		if (content.trim().length > 0) await ensureJournalCompleted(viewDate);
+		else await habitsStore.markUndone('journal', viewDate);
 	}
 
 	async function handleClear() {
-		await journalStore.deleteDay(today);
-		await habitsStore.markUndone('journal', today);
+		await journalStore.deleteDay(viewDate);
+		await habitsStore.markUndone('journal', viewDate);
 	}
 
 	function openJournalDay(date: string) {
-		const href = `${base}/journal/${date}`;
-		if (isSamePathname($page.url.pathname, href)) return;
-		void goto(href);
+		const href = withViewDate(`${base}/journal`, date, today);
+		const cur = `${$page.url.pathname}${$page.url.search}`;
+		if (cur === href) return;
+		void goto(href, { keepFocus: true, noScroll: true });
 	}
 </script>
 
 <div class="page-shell">
 	<PageHeader
-		kicker="Записки"
+		kicker={headKicker}
 		title="Дневник"
-		subtitle="Сегодня — {formatRu(today, 'd MMMM')}"
+		subtitle="{dayScopeLabel(viewDate, today)} — {formatRu(viewDate, 'd MMMM')}"
 	/>
 
-	<JournalEditor date={today} initial={todayEntry} onsave={handleSave} onclear={handleClear} />
+	{#if loading}
+		<div
+			class="hairline rounded-3xl bg-(--color-bg-soft) p-6 text-center text-sm text-(--color-fg-mute)"
+		>
+			Загружаем…
+		</div>
+	{:else}
+		<JournalEditor date={viewDate} initial={entryForView} onsave={handleSave} onclear={handleClear} />
+	{/if}
 
 	<section aria-label="Активность записей по дням">
 		<JournalHeatmap

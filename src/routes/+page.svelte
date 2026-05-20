@@ -2,7 +2,6 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 	import { base } from '$app/paths';
-	import { isSamePathname } from '$lib/nav/same-pathname';
 	import { habitsStore } from '$stores/habits.svelte';
 	import { strengthStore } from '$stores/strength.svelte';
 	import { cardioStore } from '$stores/cardio.svelte';
@@ -17,14 +16,11 @@
 	import type { HabitType, ISODate } from '$supabase/types';
 	import { todayStore } from '$stores/today.svelte';
 	import { dayHeadKicker, formatRu, isISODate } from '$utils/dates';
+	import { isViewingDate as isViewingDateOnPage, resolveViewDate, withViewDate } from '$lib/nav/view-date';
 
 	const today = $derived(todayStore.today);
 
-	const viewDate = $derived.by((): ISODate => {
-		const raw = $page.url.searchParams.get('date');
-		if (raw && isISODate(raw)) return raw;
-		return today;
-	});
+	const viewDate = $derived(resolveViewDate($page.url.searchParams, today));
 
 	const viewingToday = $derived(viewDate === today);
 	const headKicker = $derived(dayHeadKicker(viewDate, today));
@@ -54,24 +50,27 @@
 	function handle(habit: HabitType) {
 		const date = viewDate;
 		if (habit === 'sport') {
-			const hasStrength = strengthStore.setsForDate(date).length > 0;
-			const hasCardio = cardioStore.items.some((c) => c.date === date);
-			const href =
-				!viewingToday
-					? hasStrength
-						? `${base}/sport/strength/${date}`
-						: `${base}/sport`
-					: hasStrength && !hasCardio
+			let href: string;
+			if (viewingToday) {
+				const hasStrength = strengthStore.setsForDate(date).length > 0;
+				const hasCardio = cardioStore.items.some((c) => c.date === date);
+				href =
+					hasStrength && !hasCardio
 						? `${base}/sport/strength`
 						: !hasStrength && hasCardio
 							? `${base}/sport/cardio`
 							: `${base}/sport`;
-			if (!isSamePathname($page.url.pathname, href)) void goto(href);
+			} else {
+				href = withViewDate(`${base}/sport`, date, today);
+			}
+			const cur = `${$page.url.pathname}${$page.url.search}`;
+			if (cur !== href) void goto(href);
 			return;
 		}
 		if (habit === 'journal') {
-			const href = viewingToday ? `${base}/journal` : `${base}/journal/${date}`;
-			if (!isSamePathname($page.url.pathname, href)) void goto(href);
+			const href = withViewDate(`${base}/journal`, date, today);
+			const cur = `${$page.url.pathname}${$page.url.search}`;
+			if (cur !== href) void goto(href);
 			return;
 		}
 		void habitsStore.toggle(habit, date);
@@ -129,16 +128,9 @@
 		handle(habit);
 	}
 
-	function isViewingDate(date: string): boolean {
-		if (date === today) {
-			return viewingToday && !$page.url.searchParams.has('date');
-		}
-		return $page.url.searchParams.get('date') === date;
-	}
-
 	function openHabitDay(date: string) {
 		if (!isISODate(date)) return;
-		if (isViewingDate(date)) return;
+		if (isViewingDateOnPage($page.url.searchParams, date, today)) return;
 		const href = date === today ? `${base}/` : `${base}/?date=${date}`;
 		void goto(href, { keepFocus: true, noScroll: true });
 	}

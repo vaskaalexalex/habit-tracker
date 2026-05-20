@@ -5,7 +5,8 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 	import { base } from '$app/paths';
-	import { isSamePathname } from '$lib/nav/same-pathname';
+	import { todayStore } from '$stores/today.svelte';
+	import { withViewDate } from '$lib/nav/view-date';
 
 	interface Props {
 		sets: WorkoutSet[];
@@ -16,6 +17,8 @@
 	}
 
 	let { sets, exercises, cellSize, cellGap, sectionClass }: Props = $props();
+
+	const today = $derived(todayStore.today);
 
 	const setsByDate = $derived.by(() => {
 		const m = new Map<string, WorkoutSet[]>();
@@ -59,8 +62,9 @@
 	}
 
 	function handleDayClick(iso: ISODate) {
-		const href = `${base}/sport/strength/${iso}`;
-		if (isSamePathname($page.url.pathname, href)) return;
+		const href = withViewDate(`${base}/sport/strength`, iso, today);
+		const cur = `${$page.url.pathname}${$page.url.search}`;
+		if (cur === href) return;
 		void goto(href);
 	}
 </script>
