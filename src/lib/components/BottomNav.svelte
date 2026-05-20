@@ -40,7 +40,8 @@
 			href: `${base}/`,
 			label: 'Главная',
 			icon: Home,
-			match: (p: string) => p === `${base}/` || p === `${base}`
+			match: (p: string) =>
+				p === `${base}/` || p === `${base}` || p.startsWith(`${base}/day/`)
 		},
 		{
 			href: `${base}/sport`,

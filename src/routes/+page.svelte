@@ -100,6 +100,12 @@
 	function onTileClick(habit: HabitType) {
 		handle(habit);
 	}
+
+	function openHabitDay(date: string) {
+		const href = `${base}/day/${date}`;
+		if (isSamePathname($page.url.pathname, href)) return;
+		void goto(href);
+	}
 </script>
 
 <div class="page-shell min-h-0 flex-1 gap-3 max-[380px]:gap-2 sm:gap-5 sm:pb-3">
@@ -174,6 +180,7 @@
 			cellSize={10}
 			cellGap={2}
 			sectionClass="rounded-2xl p-3 sm:rounded-3xl sm:p-4"
+			onDayClick={openHabitDay}
 		/>
 	</section>
 </div>
