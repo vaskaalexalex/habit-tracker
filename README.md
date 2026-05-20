@@ -190,6 +190,8 @@ User action
 
 После обновления на GitHub Pages открой PWA один раз онлайн, чтобы подтянуть новый precache.
 
+**Версия и принудительное обновление:** в **Профиль** показывается короткий id сборки (локальный vs на сервере). При деплое в CI задаётся `PUBLIC_APP_BUILD_ID` (commit SHA); клиент сравнивает с `build-id.json` по сети. Кнопка **Обновить** активирует новый service worker; если версии всё ещё расходятся — полный сброс кеша SW (как при ошибке загрузки chunk в `app.html`).
+
 Проверки: `pnpm test:offline-browser` (auth + Dexie в dev), `pnpm test:pwa-offline` (production build + preview + offline reload с SW).
 
 ## Auto-completion привычек

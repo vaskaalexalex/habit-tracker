@@ -1,7 +1,19 @@
+import { readFileSync } from 'node:fs';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { SvelteKitPWA } from '@vite-pwa/sveltekit';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'vite';
+
+function readBuildId(): string {
+	try {
+		const meta = JSON.parse(readFileSync('static/build-id.json', 'utf8')) as { id?: string };
+		return meta.id?.trim() || 'dev';
+	} catch {
+		return 'dev';
+	}
+}
+
+process.env.PUBLIC_APP_BUILD_ID = readBuildId();
 
 const BASE = process.env.BASE_PATH ?? '';
 const startUrl = `${BASE}/`;
@@ -38,6 +50,7 @@ export default defineConfig({
 				]
 			},
 			workbox: {
+				globIgnores: ['**/build-id.json'],
 				cleanupOutdatedCaches: true,
 				clientsClaim: true,
 				navigateFallback: startUrl,
@@ -45,6 +58,11 @@ export default defineConfig({
 				skipWaiting: true,
 				importScripts: [`${BASE || ''}/push-sw.js`],
 				runtimeCaching: [
+					{
+						urlPattern: ({ url, sameOrigin }) =>
+							sameOrigin === true && url.pathname.endsWith('/build-id.json'),
+						handler: 'NetworkOnly'
+					},
 					{
 						urlPattern: ({ url }) => url.hostname.endsWith('.supabase.co'),
 						handler: 'NetworkOnly'

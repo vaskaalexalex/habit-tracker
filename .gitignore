@@ -1,6 +1,7 @@
 node_modules
 .svelte-kit
 build
+static/build-id.json
 .env
 .env.local
 .DS_Store
