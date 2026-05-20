@@ -38,6 +38,7 @@ jobs:
       - name: Build
         env:
           BASE_PATH: /habit-tracker
+          PUBLIC_APP_BUILD_ID: ${{ github.sha }}
           PUBLIC_SUPABASE_URL: ${{ secrets.PUBLIC_SUPABASE_URL }}
           PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.PUBLIC_SUPABASE_ANON_KEY }}
           PUBLIC_VAPID_PUBLIC_KEY: ${{ secrets.PUBLIC_VAPID_PUBLIC_KEY }}

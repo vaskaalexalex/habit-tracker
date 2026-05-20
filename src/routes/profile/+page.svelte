@@ -16,7 +16,14 @@
 		verifyPushReminderEnabled
 	} from '$lib/push/reminders';
 	import { isSupabaseConfigured } from '$supabase/client';
-	import { LogOut, Sun, Moon, Bell } from 'lucide-svelte';
+	import {
+		fetchDeployedBuildMeta,
+		isNewerBuildAvailable,
+		localBuildId,
+		shortBuildId
+	} from '$lib/pwa/version';
+	import { forceAppUpdate } from '$lib/pwa/update';
+	import { LogOut, Sun, Moon, Bell, RefreshCw } from 'lucide-svelte';
 	import { goto } from '$app/navigation';
 	import { base } from '$app/paths';
 
@@ -28,6 +35,11 @@
 	let remindersHydratedForUserId = $state<string | null>(null);
 	let testPushWaiting = $state(false);
 	let serverPushWaiting = $state(false);
+	let deployedBuild = $state<{ id: string; builtAt: string } | null>(null);
+	let deployCheckLoading = $state(false);
+	let appUpdateBusy = $state(false);
+
+	const updateAvailable = $derived(isNewerBuildAvailable(localBuildId, deployedBuild));
 
 	const reminderUserId = $derived(authStore.user?.id ?? '');
 
@@ -168,7 +180,50 @@
 		}
 	}
 
+	async function checkDeployedVersion() {
+		if (deployCheckLoading) return;
+		deployCheckLoading = true;
+		try {
+			deployedBuild = await fetchDeployedBuildMeta();
+		} finally {
+			deployCheckLoading = false;
+		}
+	}
+
+	async function runAppUpdate(hard = false) {
+		if (appUpdateBusy) return;
+		appUpdateBusy = true;
+		try {
+			const result = await forceAppUpdate({ hardIfSoftFails: hard });
+			if (result === 'offline') {
+				toasts.push('Нужен интернет для обновления', 'error');
+				return;
+			}
+			if (result === 'unsupported') {
+				toasts.push('Service Worker недоступен в этой среде', 'error');
+				return;
+			}
+			if (result === 'reloading') {
+				toasts.push('Обновляем приложение…');
+				return;
+			}
+			await checkDeployedVersion();
+			if (updateAvailable) {
+				toasts.push('На сервере новая версия — пробуем полный сброс кеша…');
+				await forceAppUpdate({ hardIfSoftFails: true });
+				return;
+			}
+			toasts.push('У тебя уже последняя версия');
+		} catch (err) {
+			toasts.push(err instanceof Error ? err.message : 'Не удалось обновить', 'error');
+		} finally {
+			appUpdateBusy = false;
+		}
+	}
+
 	onMount(() => {
+		void checkDeployedVersion();
+
 		function refreshRemindersFromDevice() {
 			if (typeof document === 'undefined' || document.visibilityState !== 'visible') return;
 			const uid = authStore.user?.id;
@@ -179,11 +234,16 @@
 				remindersOn = on;
 			});
 		}
-		document.addEventListener('visibilitychange', refreshRemindersFromDevice);
-		window.addEventListener('pageshow', refreshRemindersFromDevice);
+		const refreshOnVisible = () => {
+			if (document.visibilityState === 'visible') void checkDeployedVersion();
+			refreshRemindersFromDevice();
+		};
+
+		document.addEventListener('visibilitychange', refreshOnVisible);
+		window.addEventListener('pageshow', refreshOnVisible);
 		return () => {
-			document.removeEventListener('visibilitychange', refreshRemindersFromDevice);
-			window.removeEventListener('pageshow', refreshRemindersFromDevice);
+			document.removeEventListener('visibilitychange', refreshOnVisible);
+			window.removeEventListener('pageshow', refreshOnVisible);
 		};
 	});
 </script>
@@ -260,6 +320,47 @@
 				aria-labelledby="theme-profile-label"
 				onFlip={flipTheme}
 			/>
+		</div>
+
+		<div class="flex w-full flex-col gap-1 rounded-2xl px-3 py-3">
+			<div class="flex items-center gap-3">
+				<span class="grid size-9 shrink-0 place-items-center rounded-xl bg-(--color-bg-mute)">
+					<RefreshCw size={18} class={deployCheckLoading ? 'animate-spin' : ''} />
+				</span>
+				<div class="min-w-0 flex-1">
+					<p class="font-medium">Версия приложения</p>
+					<p class="text-xs text-(--color-fg-mute)">
+						Установлено: <span class="font-mono">{shortBuildId(localBuildId)}</span>
+						{#if deployedBuild}
+							· на сервере:
+							<span class="font-mono">{shortBuildId(deployedBuild.id)}</span>
+						{:else if deployCheckLoading}
+							· проверяем…
+						{/if}
+					</p>
+					{#if updateAvailable}
+						<p class="mt-1 text-xs font-semibold text-emerald-400">Доступно обновление после деплоя</p>
+					{/if}
+				</div>
+			</div>
+			<div class="flex flex-wrap gap-1.5 pl-12">
+				<button
+					type="button"
+					class="tap-target hairline rounded-xl px-2.5 py-1.5 text-xs font-semibold text-(--color-fg-mute) transition-opacity disabled:opacity-40"
+					disabled={deployCheckLoading || appUpdateBusy}
+					onclick={() => void checkDeployedVersion()}
+				>
+					Проверить
+				</button>
+				<button
+					type="button"
+					class="tap-target hairline rounded-xl px-2.5 py-1.5 text-xs font-semibold text-emerald-400 transition-opacity disabled:opacity-40"
+					disabled={appUpdateBusy}
+					onclick={() => void runAppUpdate(false)}
+				>
+					{appUpdateBusy ? '…' : updateAvailable ? 'Обновить' : 'Обновить принудительно'}
+				</button>
+			</div>
 		</div>
 
 		<button
