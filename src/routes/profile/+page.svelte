@@ -270,14 +270,22 @@
 	<section class="hairline rounded-3xl bg-(--color-bg-soft) p-2">
 		{#if isSupabaseConfigured}
 			<div
-				class="flex w-full items-center gap-3 rounded-2xl px-3 py-3"
+				class="flex w-full flex-col gap-1.5 rounded-2xl px-3 py-3"
 				class:opacity-50={remindersBusy || remindersInitialSyncPending}
 			>
-				<span class="grid size-9 shrink-0 place-items-center rounded-xl bg-(--color-bg-mute)">
-					<Bell size={18} />
-				</span>
-				<span class="min-w-0 flex-1 font-medium" id="reminders-profile-label">Уведомления</span>
-				<div class="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
+				<div class="flex items-center gap-3">
+					<span class="grid size-9 shrink-0 place-items-center rounded-xl bg-(--color-bg-mute)">
+						<Bell size={18} />
+					</span>
+					<span class="min-w-0 flex-1 font-medium" id="reminders-profile-label">Уведомления</span>
+					<SwitchToggle
+						pressed={remindersOn}
+						disabled={remindersBusy || remindersInitialSyncPending}
+						aria-labelledby="reminders-profile-label"
+						onFlip={() => void flipReminders()}
+					/>
+				</div>
+				<div class="flex flex-wrap gap-1.5 pl-12">
 					<button
 						type="button"
 						class="tap-target hairline rounded-xl px-2.5 py-1.5 text-xs font-semibold text-(--color-fg-mute) transition-opacity disabled:opacity-40"
@@ -294,12 +302,6 @@
 					>
 						{serverPushWaiting ? '…' : 'С сервера'}
 					</button>
-					<SwitchToggle
-						pressed={remindersOn}
-						disabled={remindersBusy || remindersInitialSyncPending}
-						aria-labelledby="reminders-profile-label"
-						onFlip={() => void flipReminders()}
-					/>
 				</div>
 			</div>
 		{/if}

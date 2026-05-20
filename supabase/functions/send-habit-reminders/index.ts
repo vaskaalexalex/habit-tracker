@@ -6,6 +6,7 @@
  */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.46.0';
 import webpush from 'npm:web-push@3.6.7';
+import { corsHeaders, jsonResponse } from '../_shared/cors.ts';
 
 type ReminderRow = {
 	user_id: string;
@@ -96,6 +97,10 @@ async function journalNotFilledForDate(
 }
 
 Deno.serve(async (req) => {
+	if (req.method === 'OPTIONS') {
+		return new Response('ok', { headers: corsHeaders });
+	}
+
 	const authHeader = req.headers.get('authorization') ?? '';
 	const bearer = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
 
@@ -131,26 +136,17 @@ Deno.serve(async (req) => {
 
 	if (isProfileTest) {
 		if (!anonKey) {
-			return new Response(JSON.stringify({ error: 'missing_anon_key' }), {
-				status: 500,
-				headers: { 'content-type': 'application/json' }
-			});
+			return jsonResponse({ error: 'missing_anon_key' }, 500);
 		}
 		const userClient = createClient(supabaseUrl, anonKey, {
 			global: { headers: { Authorization: authHeader } }
 		});
 		const { data: userData, error: userErr } = await userClient.auth.getUser();
 		if (userErr || !userData.user || userData.user.id !== testUserId) {
-			return new Response(JSON.stringify({ error: 'unauthorized' }), {
-				status: 401,
-				headers: { 'content-type': 'application/json' }
-			});
+			return jsonResponse({ error: 'unauthorized' }, 401);
 		}
 	} else if (!authorizedAsCron) {
-		return new Response(JSON.stringify({ error: 'unauthorized' }), {
-			status: 401,
-			headers: { 'content-type': 'application/json' }
-		});
+		return jsonResponse({ error: 'unauthorized' }, 401);
 	}
 
 	let vapidPublic = (Deno.env.get('VAPID_PUBLIC_KEY') ?? '').trim();
@@ -160,10 +156,7 @@ Deno.serve(async (req) => {
 		vapidPrivate = (cfg?.vapid_private ?? '').trim();
 	}
 	if (!vapidPublic || !vapidPrivate) {
-		return new Response(JSON.stringify({ error: 'missing_vapid_keys' }), {
-			status: 500,
-			headers: { 'content-type': 'application/json' }
-		});
+		return jsonResponse({ error: 'missing_vapid_keys' }, 500);
 	}
 
 	webpush.setVapidDetails(vapidSubject, vapidPublic, vapidPrivate);
@@ -181,10 +174,7 @@ Deno.serve(async (req) => {
 
 	const { data: reminders, error: rErr } = await remindersQuery;
 	if (rErr) {
-		return new Response(JSON.stringify({ error: rErr.message }), {
-			status: 500,
-			headers: { 'content-type': 'application/json' }
-		});
+		return jsonResponse({ error: rErr.message }, 500);
 	}
 
 	let subsQuery = admin.from('push_subscriptions').select('id,user_id,endpoint,p256dh,auth');
@@ -194,10 +184,7 @@ Deno.serve(async (req) => {
 
 	const { data: subs, error: sErr } = await subsQuery;
 	if (sErr) {
-		return new Response(JSON.stringify({ error: sErr.message }), {
-			status: 500,
-			headers: { 'content-type': 'application/json' }
-		});
+		return jsonResponse({ error: sErr.message }, 500);
 	}
 
 	const reminderMap = new Map<string, ReminderRow>();
@@ -283,13 +270,10 @@ Deno.serve(async (req) => {
 		}
 	}
 
-	return new Response(
-		JSON.stringify({
-			ok: true,
-			users_in_window: checked,
-			reminders_sent: sent,
-			errors: errors.length ? errors : undefined
-		}),
-		{ headers: { 'content-type': 'application/json' } }
-	);
+	return jsonResponse({
+		ok: true,
+		users_in_window: checked,
+		reminders_sent: sent,
+		errors: errors.length ? errors : undefined
+	});
 });
