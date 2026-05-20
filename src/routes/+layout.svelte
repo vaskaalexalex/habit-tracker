@@ -17,6 +17,7 @@
 	import BottomNav from '$components/BottomNav.svelte';
 	import ToastHost from '$components/ToastHost.svelte';
 	import InstallPrompt from '$components/InstallPrompt.svelte';
+	import TopLoadBar from '$components/TopLoadBar.svelte';
 	import { syncStatusStore } from '$stores/sync-status.svelte';
 	import { mainTabIndex } from '$lib/nav/main-tab-index';
 	import { isSamePathname } from '$lib/nav/same-pathname';
@@ -353,12 +354,7 @@
 
 <div class="app-shell relative flex min-h-0 w-full flex-col overflow-hidden">
 	{#if !booted}
-		<div class="pointer-events-none fixed inset-x-0 top-0 z-[48] flex flex-col" aria-hidden="true">
-			<div class="shrink-0" style="height: env(safe-area-inset-top, 0px);"></div>
-			<div class="h-[3px] w-full overflow-hidden bg-(--color-bg-mute)">
-				<div class="bootstrap-load-bar__stripe"></div>
-			</div>
-		</div>
+		<TopLoadBar active />
 	{/if}
 	<main
 		class="app-main-vt safe-top flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto overscroll-y-contain"

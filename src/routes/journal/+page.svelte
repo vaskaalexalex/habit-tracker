@@ -5,6 +5,7 @@
 	import JournalEditor from '$components/JournalEditor.svelte';
 	import JournalHeatmap from '$components/JournalHeatmap.svelte';
 	import PageHeader from '$components/PageHeader.svelte';
+	import TopLoadBar from '$components/TopLoadBar.svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 	import { base } from '$app/paths';
@@ -60,21 +61,17 @@
 </script>
 
 <div class="page-shell">
+	<TopLoadBar active={loading} />
+
 	<PageHeader
 		kicker={headKicker}
 		title="Дневник"
 		subtitle="{dayScopeLabel(viewDate, today)} — {formatRu(viewDate, 'd MMMM')}"
 	/>
 
-	{#if loading}
-		<div
-			class="hairline rounded-3xl bg-(--color-bg-soft) p-6 text-center text-sm text-(--color-fg-mute)"
-		>
-			Загружаем…
-		</div>
-	{:else}
+	<div class="relative" class:opacity-60={loading} class:pointer-events-none={loading}>
 		<JournalEditor date={viewDate} initial={entryForView} onsave={handleSave} onclear={handleClear} />
-	{/if}
+	</div>
 
 	<section aria-label="Активность записей по дням">
 		<JournalHeatmap

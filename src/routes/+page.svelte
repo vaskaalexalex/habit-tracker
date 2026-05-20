@@ -36,6 +36,12 @@
 	});
 
 	$effect(() => {
+		const date = viewDate;
+		if (!date) return;
+		void journalStore.loadDay(date);
+	});
+
+	$effect(() => {
 		const raw = $page.url.searchParams.get('date');
 		if (raw && raw === today) {
 			void goto(`${base}/`, { replaceState: true, keepFocus: true, noScroll: true });

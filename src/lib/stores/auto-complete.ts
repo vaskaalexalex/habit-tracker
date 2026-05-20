@@ -64,6 +64,15 @@ export async function ensureJournalCompleted(date: ISODate = isoToday()): Promis
 }
 
 export async function reconcileJournalCompletions(): Promise<void> {
+	/** Dates with journal text — habit row must exist (same idea as sport + workouts). */
+	const withWriting = new Set<ISODate>();
+	for (const e of journalStore.entries) {
+		if (journalHabitBackedByWriting(e)) withWriting.add(e.date);
+	}
+	for (const date of withWriting) {
+		await ensureJournalCompleted(date);
+	}
+
 	const dates = habitsStore.completionsByHabit('journal').map((c) => c.date);
 	for (const date of dates) {
 		const entry = await journalStore.resolveEntryForDate(date);
