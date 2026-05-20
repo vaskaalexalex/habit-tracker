@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -e
+email="$(git config user.email)"
+if [ "$email" = "cursoragent@cursor.com" ]; then
+  echo "refusing commit: user.email=cursoragent@cursor.com (см. .cursor/rules/git-no-coauthor.mdc)" >&2
+  exit 1
+fi
+if git diff --cached --name-only | grep -q .; then
+  msg_file="$(git rev-parse --git-path COMMIT_EDITMSG)"
+  if [ -f "$msg_file" ] && grep -qi 'co-authored-by:.*cursoragent@cursor.com' "$msg_file"; then
+    echo "refusing commit: Co-authored-by cursoragent" >&2
+    exit 1
+  fi
+fi
