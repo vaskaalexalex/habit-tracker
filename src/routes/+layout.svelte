@@ -5,6 +5,7 @@
 	import { base } from '$app/paths';
 	import { page } from '$app/stores';
 	import { authStore } from '$stores/auth.svelte';
+	import { profileStore } from '$stores/profile.svelte';
 	import { habitsStore } from '$stores/habits.svelte';
 	import { strengthStore } from '$stores/strength.svelte';
 	import { cardioStore } from '$stores/cardio.svelte';
@@ -21,7 +22,7 @@
 	import { syncStatusStore } from '$stores/sync-status.svelte';
 	import { mainTabIndex } from '$lib/nav/main-tab-index';
 	import { isSamePathname } from '$lib/nav/same-pathname';
-	import { syncUserReminderTimezone } from '$lib/push/reminders';
+	import { syncUserReminderTimezone, ensureCurrentDeviceSubscriptionStored } from '$lib/push/reminders';
 	import { ensurePushServiceWorkerRegistration } from '$lib/push/service-worker';
 
 	let { children } = $props();
@@ -321,6 +322,18 @@
 	$effect(() => {
 		if (!booted || !authStore.user?.id) return;
 		void syncUserReminderTimezone(authStore.user.id);
+		if (
+			typeof window !== 'undefined' &&
+			'Notification' in window &&
+			Notification.permission === 'granted'
+		) {
+			void ensureCurrentDeviceSubscriptionStored(authStore.user.id);
+		}
+	});
+
+	$effect(() => {
+		if (!booted || !authStore.user?.id) return;
+		void profileStore.loadFromRemote(authStore.user.id);
 	});
 
 	$effect(() => {

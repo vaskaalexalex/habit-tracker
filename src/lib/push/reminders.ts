@@ -11,6 +11,16 @@ type PushInsert = Database['public']['Tables']['push_subscriptions']['Insert'];
 const VAPID_MISMATCH_HINT =
 	' Проверь, что PUBLIC_VAPID_PUBLIC_KEY в сборке совпадает с приватным ключом на Edge/Vault.';
 
+export type EnsureSubscriptionResult = { ok: true } | { ok: false; error: string };
+
+type EdgePushResponse = {
+	ok?: boolean;
+	code?: string;
+	error?: string;
+	reminders_sent?: number;
+	errors?: string[];
+};
+
 export function getDeviceTimeZone(): string {
 	try {
 		return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
@@ -22,6 +32,10 @@ export function getDeviceTimeZone(): string {
 export function habitPushJournalRelUrl(appBasePath: string = base): string {
 	const b = appBasePath.replace(/\/$/, '');
 	return b ? `${b}/journal` : '/journal';
+}
+
+function getVapidPublicKey(): string {
+	return (env.PUBLIC_VAPID_PUBLIC_KEY || DEFAULT_VAPID_PUBLIC_KEY).trim();
 }
 
 /** Keep server-side TZ + base path aligned with device (call on session refresh). */
@@ -54,18 +68,6 @@ export async function fetchReminderSettings(userId: string): Promise<boolean> {
 	return data?.reminders_enabled ?? false;
 }
 
-async function hasPushSubscriptionInDb(userId: string): Promise<boolean> {
-	const { count, error } = await supabase
-		.from('push_subscriptions')
-		.select('id', { count: 'exact', head: true })
-		.eq('user_id', userId);
-	if (error) {
-		console.warn('[push] count subscriptions', error.message);
-		return false;
-	}
-	return (count ?? 0) > 0;
-}
-
 /** PWA / Safari: subscription can lag briefly after subscribe() — retry before treating as missing. */
 async function getPushSubscriptionWithRetry(
 	registration: ServiceWorkerRegistration,
@@ -84,42 +86,6 @@ async function getPushSubscriptionWithRetry(
 		}
 	}
 	return null;
-}
-
-/**
- * Whether the reminders toggle should show "on": DB flag plus in-browser permission and push subscription.
- */
-export async function getRemindersEnabledConsolidated(userId: string): Promise<boolean> {
-	const dbOn = await fetchReminderSettings(userId);
-	if (!dbOn) return false;
-	if (!(await hasPushSubscriptionInDb(userId))) return false;
-	if (typeof window === 'undefined') return dbOn;
-	if (!('Notification' in window) || Notification.permission !== 'granted') return false;
-	if (!('serviceWorker' in navigator) || !('PushManager' in window)) return false;
-	try {
-		const reg = await navigator.serviceWorker.ready;
-		const sub = await getPushSubscriptionWithRetry(reg, 6, 100);
-		return !!sub;
-	} catch {
-		return false;
-	}
-}
-
-/** After enabling in UI: confirm permission, active push subscription, and DB rows. */
-export async function verifyPushReminderEnabled(userId: string): Promise<boolean> {
-	if (typeof window === 'undefined') return false;
-	if (!('Notification' in window) || Notification.permission !== 'granted') return false;
-	if (!('serviceWorker' in navigator) || !('PushManager' in window)) return false;
-	if (!(await fetchReminderSettings(userId))) return false;
-	if (!(await hasPushSubscriptionInDb(userId))) return false;
-	try {
-		const reg = await navigator.serviceWorker.ready;
-		const sub = await getPushSubscriptionWithRetry(reg);
-		if (!sub) return false;
-	} catch {
-		return false;
-	}
-	return true;
 }
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
@@ -144,9 +110,116 @@ async function subscribeWithVapid(
 	});
 }
 
+async function upsertSubscriptionToDb(
+	userId: string,
+	subscription: PushSubscription
+): Promise<{ error?: string }> {
+	const j = subscription.toJSON();
+	const endpoint = j.endpoint;
+	const key = j.keys;
+	if (!endpoint || !key?.p256dh || !key?.auth) {
+		return { error: 'Некорректная подписка push' };
+	}
+
+	const row: PushInsert = {
+		user_id: userId,
+		endpoint,
+		p256dh: key.p256dh,
+		auth: key.auth
+	};
+
+	const { error: subErr } = await supabase.from('push_subscriptions').upsert(row, {
+		onConflict: 'user_id,endpoint'
+	});
+	if (subErr) return { error: `Подписка в БД: ${subErr.message}` };
+
+	const { error: delErr } = await supabase
+		.from('push_subscriptions')
+		.delete()
+		.eq('user_id', userId)
+		.neq('endpoint', endpoint);
+	if (delErr) console.warn('[push] prune stale subscriptions', delErr.message);
+
+	return {};
+}
+
+/**
+ * Ensure the browser's current PushSubscription is stored in Supabase and stale rows are removed.
+ * Safe to call on boot and before server push tests.
+ */
+export async function ensureCurrentDeviceSubscriptionStored(
+	userId: string
+): Promise<EnsureSubscriptionResult> {
+	if (!isSupabaseConfigured) return { ok: false, error: 'Supabase не настроен' };
+	if (typeof window === 'undefined') return { ok: false, error: 'Только в браузере' };
+	if (!('Notification' in window)) return { ok: false, error: 'Уведомления недоступны' };
+	if (Notification.permission !== 'granted') {
+		return { ok: false, error: 'Нет разрешения на уведомления' };
+	}
+	if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+		return { ok: false, error: 'Push не поддерживается' };
+	}
+
+	const dbOn = await fetchReminderSettings(userId);
+	if (!dbOn) return { ok: false, error: 'Напоминания выключены' };
+
+	const vapidKey = getVapidPublicKey();
+	if (!vapidKey) {
+		return {
+			ok: false,
+			error:
+				'Не задан публичный VAPID-ключ: добавь PUBLIC_VAPID_PUBLIC_KEY в GitHub Actions / Cloudflare или обнови default-vapid-public.ts при ротации ключей.'
+		};
+	}
+
+	const registration = await ensurePushServiceWorkerRegistration();
+	if (!registration) return { ok: false, error: 'Не удалось зарегистрировать service worker' };
+
+	let subscription = await getPushSubscriptionWithRetry(registration);
+	if (!subscription) {
+		try {
+			subscription = await subscribeWithVapid(registration, vapidKey);
+		} catch (e) {
+			const msg = e instanceof Error ? e.message : 'Не удалось подписаться на push';
+			try {
+				const old = await registration.pushManager.getSubscription();
+				await old?.unsubscribe();
+				subscription = await subscribeWithVapid(registration, vapidKey);
+			} catch (e2) {
+				const msg2 = e2 instanceof Error ? e2.message : msg;
+				const hint = /vapid|key|401|403/i.test(msg2) ? VAPID_MISMATCH_HINT : '';
+				return { ok: false, error: msg2 + hint };
+			}
+		}
+	}
+
+	const upsertResult = await upsertSubscriptionToDb(userId, subscription);
+	if (upsertResult.error) return { ok: false, error: upsertResult.error };
+
+	await syncUserReminderTimezone(userId);
+	return { ok: true };
+}
+
+/**
+ * Whether the reminders toggle should show "on": DB flag plus a live browser push subscription stored server-side.
+ */
+export async function getRemindersEnabledConsolidated(userId: string): Promise<boolean> {
+	const dbOn = await fetchReminderSettings(userId);
+	if (!dbOn) return false;
+	if (typeof window === 'undefined') return dbOn;
+	const result = await ensureCurrentDeviceSubscriptionStored(userId);
+	return result.ok;
+}
+
+/** After enabling in UI: confirm permission, active push subscription, and DB rows. */
+export async function verifyPushReminderEnabled(userId: string): Promise<boolean> {
+	const result = await ensureCurrentDeviceSubscriptionStored(userId);
+	return result.ok;
+}
+
 export async function enableHabitReminders(userId: string): Promise<{ error?: string }> {
 	if (!isSupabaseConfigured) return { error: 'Supabase не настроен' };
-	const vapidKey = (env.PUBLIC_VAPID_PUBLIC_KEY || DEFAULT_VAPID_PUBLIC_KEY).trim();
+	const vapidKey = getVapidPublicKey();
 	if (!vapidKey) {
 		return {
 			error:
@@ -183,26 +256,10 @@ export async function enableHabitReminders(userId: string): Promise<{ error?: st
 		}
 	}
 
-	const j = subscription.toJSON();
-	const endpoint = j.endpoint;
-	const key = j.keys;
-	if (!endpoint || !key?.p256dh || !key?.auth) {
-		return { error: 'Некорректная подписка push' };
-	}
+	const upsertResult = await upsertSubscriptionToDb(userId, subscription);
+	if (upsertResult.error) return { error: upsertResult.error };
 
 	const tz = getDeviceTimeZone();
-	const row: PushInsert = {
-		user_id: userId,
-		endpoint,
-		p256dh: key.p256dh,
-		auth: key.auth
-	};
-
-	const { error: subErr } = await supabase.from('push_subscriptions').upsert(row, {
-		onConflict: 'user_id,endpoint'
-	});
-	if (subErr) return { error: `Подписка в БД: ${subErr.message}` };
-
 	const { error: setErr } = await supabase.from('user_push_reminders').upsert(
 		{
 			user_id: userId,
@@ -296,7 +353,7 @@ export async function showHabitPushReminderPreviewAfterDelay(
 async function edgeInvokeErrorMessage(error: unknown): Promise<string> {
 	if (error instanceof FunctionsHttpError) {
 		try {
-			const body = (await error.context.json()) as { error?: string; message?: string };
+			const body = (await error.context.json()) as { error?: string; message?: string; code?: string };
 			if (body?.error) return body.error;
 			if (body?.message) return body.message;
 		} catch {
@@ -311,6 +368,35 @@ async function edgeInvokeErrorMessage(error: unknown): Promise<string> {
 	return 'Не удалось вызвать Edge Function';
 }
 
+async function invokeServerPushTest(
+	userId: string,
+	accessToken: string
+): Promise<{ error?: string; code?: string }> {
+	const { data, error } = await supabase.functions.invoke('send-habit-reminders', {
+		body: { test_user_id: userId, skip_window: true, test: true },
+		headers: { Authorization: `Bearer ${accessToken}` }
+	});
+	if (error) return { error: await edgeInvokeErrorMessage(error) };
+
+	const payload = data as EdgePushResponse | null;
+	console.warn('[push] server test response', payload);
+
+	if (!payload) return { error: 'Пустой ответ сервера' };
+	if (!payload.ok) {
+		return {
+			error: payload.error ?? payload.errors?.[0] ?? 'Сервер не отправил push',
+			code: payload.code
+		};
+	}
+	if ((payload.reminders_sent ?? 0) < 1) {
+		return {
+			error: payload.error ?? payload.errors?.[0] ?? 'Push не отправлен',
+			code: payload.code
+		};
+	}
+	return {};
+}
+
 /** Invoke Edge to send a real Web Push (same path as 21:00 cron). Requires reminders on + DB subscription. */
 export async function requestServerPushTest(userId: string): Promise<{ error?: string }> {
 	if (!isSupabaseConfigured) return { error: 'Supabase не настроен' };
@@ -323,20 +409,17 @@ export async function requestServerPushTest(userId: string): Promise<{ error?: s
 		return { error: 'Нужен вход в аккаунт для серверного push' };
 	}
 
-	const { data, error } = await supabase.functions.invoke('send-habit-reminders', {
-		body: { test_user_id: userId, skip_window: true, test: true },
-		headers: { Authorization: `Bearer ${session.access_token}` }
-	});
-	if (error) return { error: await edgeInvokeErrorMessage(error) };
-	const payload = data as { ok?: boolean; reminders_sent?: number; errors?: string[] } | null;
-	if (!payload?.ok) {
-		return { error: payload?.errors?.[0] ?? 'Сервер не отправил push' };
+	const heal = await ensureCurrentDeviceSubscriptionStored(userId);
+	if (!heal.ok) return { error: heal.error };
+
+	let result = await invokeServerPushTest(userId, session.access_token);
+	if (result.code === 'subscription_gone') {
+		const retryHeal = await ensureCurrentDeviceSubscriptionStored(userId);
+		if (retryHeal.ok) {
+			result = await invokeServerPushTest(userId, session.access_token);
+		}
 	}
-	if ((payload.reminders_sent ?? 0) < 1) {
-		return {
-			error:
-				'Push не отправлен: включи уведомления, дождись сохранения подписки, затем повтори тест.'
-		};
-	}
+
+	if (result.error) return { error: result.error };
 	return {};
 }

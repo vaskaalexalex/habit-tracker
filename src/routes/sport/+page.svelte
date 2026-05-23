@@ -25,9 +25,11 @@
 	});
 
 	const hasStrengthOnDay = $derived(strengthStore.setsForDate(viewDate).length > 0);
-	const hasCardioOnDay = $derived(cardioStore.items.some((c) => c.date === viewDate));
+	const cardioCountOnDay = $derived(
+		cardioStore.items.filter((c) => c.date === viewDate).length
+	);
 
-	const workoutsOnDay = $derived((hasStrengthOnDay ? 1 : 0) + (hasCardioOnDay ? 1 : 0));
+	const workoutsOnDay = $derived((hasStrengthOnDay ? 1 : 0) + cardioCountOnDay);
 
 	function trainingsWord(n: number): string {
 		const n100 = n % 100;
@@ -55,7 +57,7 @@
 			icon: HeartPulse,
 			color: 'var(--color-coding)',
 			gradient: 'from-emerald-500/30 to-teal-500/10',
-			count: hasCardioOnDay ? 1 : 0
+			count: cardioCountOnDay
 		}
 	]);
 

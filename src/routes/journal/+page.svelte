@@ -11,7 +11,7 @@
 	import { base } from '$app/paths';
 	import { todayStore } from '$stores/today.svelte';
 	import { dayHeadKicker, formatRu } from '$utils/dates';
-	import { dayScopeLabel, resolveViewDate, withViewDate } from '$lib/nav/view-date';
+	import { resolveViewDate, withViewDate } from '$lib/nav/view-date';
 
 	const today = $derived(todayStore.today);
 	const viewDate = $derived(resolveViewDate($page.url.searchParams, today));
@@ -66,7 +66,7 @@
 	<PageHeader
 		kicker={headKicker}
 		title="Дневник"
-		subtitle="{dayScopeLabel(viewDate, today)} — {formatRu(viewDate, 'd MMMM')}"
+		subtitle={formatRu(viewDate, 'd MMMM')}
 	/>
 
 	<div class="relative" class:opacity-60={loading} class:pointer-events-none={loading}>

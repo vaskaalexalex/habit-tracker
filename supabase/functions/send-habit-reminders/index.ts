@@ -30,12 +30,24 @@ type InvokeBody = {
 	test?: boolean;
 };
 
+type PushAttemptResult = {
+	sent: boolean;
+	gone: number;
+	unauthorized: number;
+	other: number;
+	errors: string[];
+};
+
 const DEFAULT_APP_BASE_PATH = '/habit-tracker';
 
 function journalPushUrl(appBasePath: string | null | undefined): string {
 	const b = (appBasePath ?? '').replace(/\/$/, '');
 	const base = b || DEFAULT_APP_BASE_PATH;
 	return `${base}/journal`;
+}
+
+function endpointSuffix(endpoint: string): string {
+	return endpoint.length > 32 ? endpoint.slice(-32) : endpoint;
 }
 
 function zonedWallClock(
@@ -94,6 +106,74 @@ async function journalNotFilledForDate(
 	const content = typeof data.content === 'string' ? data.content.trim() : '';
 	const meaningful = content.length > 0 || data.mood != null;
 	return !meaningful;
+}
+
+async function sendPushToSubscriptions(
+	admin: ReturnType<typeof createClient>,
+	userId: string,
+	subList: SubRow[],
+	payload: string
+): Promise<PushAttemptResult> {
+	let sent = false;
+	let gone = 0;
+	let unauthorized = 0;
+	let other = 0;
+	const errors: string[] = [];
+
+	for (const sub of subList) {
+		const pushSub = {
+			endpoint: sub.endpoint,
+			keys: { p256dh: sub.p256dh, auth: sub.auth }
+		};
+		try {
+			await webpush.sendNotification(pushSub, payload);
+			sent = true;
+		} catch (e: unknown) {
+			const status = (e as { statusCode?: number })?.statusCode;
+			const msg = e instanceof Error ? e.message : String(e);
+			const suffix = endpointSuffix(sub.endpoint);
+			if (status === 404 || status === 410) {
+				gone++;
+				await admin.from('push_subscriptions').delete().eq('id', sub.id);
+				errors.push(`${userId} endpoint…${suffix}: gone (${status})`);
+			} else if (status === 401 || status === 403) {
+				unauthorized++;
+				errors.push(`${userId} endpoint…${suffix}: unauthorized (${status}) ${msg}`);
+			} else {
+				other++;
+				errors.push(`${userId} endpoint…${suffix}: ${msg}`);
+			}
+		}
+	}
+
+	return { sent, gone, unauthorized, other, errors };
+}
+
+function profileTestFailureResponse(result: PushAttemptResult): Response {
+	const { gone, unauthorized, other, errors } = result;
+	if (unauthorized > 0) {
+		return jsonResponse({
+			ok: false,
+			code: 'vapid_mismatch',
+			error:
+				'Ключи VAPID не совпадают на клиенте и Edge. Проверь VAPID_PUBLIC_KEY/VAPID_PRIVATE_KEY и PUBLIC_VAPID_PUBLIC_KEY.',
+			errors
+		});
+	}
+	if (gone > 0 && other === 0 && unauthorized === 0) {
+		return jsonResponse({
+			ok: false,
+			code: 'subscription_gone',
+			error: 'Подписка устройства устарела, переподпишись.',
+			errors
+		});
+	}
+	return jsonResponse({
+		ok: false,
+		code: 'push_failed',
+		error: errors[0] ?? 'Push не отправлен',
+		errors
+	});
 }
 
 Deno.serve(async (req) => {
@@ -200,6 +280,43 @@ Deno.serve(async (req) => {
 		subsByUser.set(s.user_id, arr);
 	}
 
+	if (isProfileTest) {
+		const r = reminderMap.get(testUserId);
+		if (!r) {
+			return jsonResponse({
+				ok: false,
+				code: 'reminders_disabled',
+				error: 'Напоминания выключены.'
+			});
+		}
+		const subList = subsByUser.get(testUserId) ?? [];
+		if (subList.length === 0) {
+			return jsonResponse({
+				ok: false,
+				code: 'no_subscriptions',
+				error:
+					'Подписка для этого устройства не найдена. Переоткрой включение уведомлений.'
+			});
+		}
+
+		const payload = JSON.stringify({
+			title: 'Привычки',
+			body: 'Расскажи как прошел твой день.',
+			url: journalPushUrl(r.app_base_path)
+		});
+
+		const result = await sendPushToSubscriptions(admin, testUserId, subList, payload);
+		if (!result.sent) {
+			return profileTestFailureResponse(result);
+		}
+
+		return jsonResponse({
+			ok: true,
+			users_in_window: 1,
+			reminders_sent: 1
+		});
+	}
+
 	const now = new Date();
 	let checked = 0;
 	let sent = 0;
@@ -211,24 +328,18 @@ Deno.serve(async (req) => {
 
 		const { date: todayLocal, hour, minute } = zonedWallClock(now, r.user_timezone);
 
-		if (!isProfileTest) {
-			if (!isInReminderWindow(hour, minute)) continue;
-			checked++;
-			if (r.last_reminder_for_user_date === todayLocal) continue;
-		} else {
-			checked++;
-		}
+		if (!isInReminderWindow(hour, minute)) continue;
+		checked++;
+		if (r.last_reminder_for_user_date === todayLocal) continue;
 
-		if (!isProfileTest) {
-			let needReminder: boolean;
-			try {
-				needReminder = await journalNotFilledForDate(admin, userId, todayLocal);
-			} catch (e) {
-				errors.push(`${userId}: ${e instanceof Error ? e.message : String(e)}`);
-				continue;
-			}
-			if (!needReminder) continue;
+		let needReminder: boolean;
+		try {
+			needReminder = await journalNotFilledForDate(admin, userId, todayLocal);
+		} catch (e) {
+			errors.push(`${userId}: ${e instanceof Error ? e.message : String(e)}`);
+			continue;
 		}
+		if (!needReminder) continue;
 
 		const payload = JSON.stringify({
 			title: 'Привычки',
@@ -236,36 +347,18 @@ Deno.serve(async (req) => {
 			url: journalPushUrl(r.app_base_path)
 		});
 
-		let anySent = false;
-		for (const sub of subList) {
-			const pushSub = {
-				endpoint: sub.endpoint,
-				keys: { p256dh: sub.p256dh, auth: sub.auth }
-			};
-			try {
-				await webpush.sendNotification(pushSub, payload);
-				anySent = true;
-			} catch (e: unknown) {
-				const status = (e as { statusCode?: number })?.statusCode;
-				if (status === 404 || status === 410) {
-					await admin.from('push_subscriptions').delete().eq('id', sub.id);
-				} else {
-					errors.push(`push ${sub.id}: ${e instanceof Error ? e.message : String(e)}`);
-				}
-			}
-		}
+		const result = await sendPushToSubscriptions(admin, userId, subList, payload);
+		errors.push(...result.errors);
 
-		if (anySent) {
-			if (!isProfileTest) {
-				const { error: uErr } = await admin
-					.from('user_push_reminders')
-					.update({
-						last_reminder_for_user_date: todayLocal,
-						updated_at: new Date().toISOString()
-					})
-					.eq('user_id', userId);
-				if (uErr) errors.push(`update ${userId}: ${uErr.message}`);
-			}
+		if (result.sent) {
+			const { error: uErr } = await admin
+				.from('user_push_reminders')
+				.update({
+					last_reminder_for_user_date: todayLocal,
+					updated_at: new Date().toISOString()
+				})
+				.eq('user_id', userId);
+			if (uErr) errors.push(`update ${userId}: ${uErr.message}`);
 			sent++;
 		}
 	}

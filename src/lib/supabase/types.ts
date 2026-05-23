@@ -108,6 +108,12 @@ export interface PushSubscriptionRow {
 	created_at: Timestamp;
 }
 
+export interface UserProfile {
+	id: UUID;
+	display_name: string;
+	updated_at: Timestamp;
+}
+
 export interface Database {
 	__InternalSupabase: {
 		PostgrestVersion: '12';
@@ -170,6 +176,11 @@ export interface Database {
 					created_at?: Timestamp;
 				};
 				Update: Partial<PushSubscriptionRow>;
+			};
+			user_profiles: {
+				Row: UserProfile;
+				Insert: Omit<UserProfile, 'updated_at'> & { updated_at?: Timestamp };
+				Update: Partial<UserProfile>;
 			};
 		};
 		Enums: {

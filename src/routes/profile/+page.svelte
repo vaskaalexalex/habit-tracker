@@ -92,12 +92,16 @@
 	function save() {
 		const next = localName.trim();
 		if (next === profileStore.name) return;
-		profileStore.setName(next);
-		toasts.push('Сохранено');
+		void (async () => {
+			const { error } = await profileStore.setName(next, authStore.user?.id ?? null);
+			if (error) toasts.push(error, 'error');
+			else toasts.push('Сохранено');
+		})();
 	}
 
 	async function logout() {
 		await authStore.signOut();
+		profileStore.clear();
 		toasts.push('Вы вышли');
 		void goto(`${base}/login`, { replaceState: true });
 	}

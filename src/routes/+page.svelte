@@ -58,14 +58,18 @@
 		if (habit === 'sport') {
 			let href: string;
 			if (viewingToday) {
-				const hasStrength = strengthStore.setsForDate(date).length > 0;
-				const hasCardio = cardioStore.items.some((c) => c.date === date);
-				href =
-					hasStrength && !hasCardio
-						? `${base}/sport/strength`
-						: !hasStrength && hasCardio
-							? `${base}/sport/cardio`
-							: `${base}/sport`;
+				if (habitsStore.isCompleted('sport', date)) {
+					href = `${base}/sport`;
+				} else {
+					const hasStrength = strengthStore.setsForDate(date).length > 0;
+					const hasCardio = cardioStore.items.some((c) => c.date === date);
+					href =
+						hasStrength && !hasCardio
+							? `${base}/sport/strength`
+							: !hasStrength && hasCardio
+								? `${base}/sport/cardio`
+								: `${base}/sport`;
+				}
 			} else {
 				href = withViewDate(`${base}/sport`, date, today);
 			}

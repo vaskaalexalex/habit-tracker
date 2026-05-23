@@ -1,5 +1,5 @@
 import type { ISODate } from '$supabase/types';
-import { formatRu, isISODate } from '$utils/dates';
+import { formatRu, isISODate, shiftDays } from '$utils/dates';
 
 export function resolveViewDate(searchParams: URLSearchParams, today: ISODate): ISODate {
 	const raw = searchParams.get('date');
@@ -21,6 +21,7 @@ export function withViewDate(path: string, date: ISODate, today: ISODate): strin
 /** «Сегодня» / «15 мая» for subtitles. */
 export function dayScopeLabel(date: ISODate, today: ISODate): string {
 	if (date === today) return 'Сегодня';
+	if (date === shiftDays(today, -1)) return 'Вчера';
 	return formatRu(date, 'd MMMM');
 }
 

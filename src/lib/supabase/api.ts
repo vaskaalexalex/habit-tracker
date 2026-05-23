@@ -7,7 +7,8 @@ import type {
 	ISODate,
 	JournalEntry,
 	UUID,
-	WorkoutSet
+	WorkoutSet,
+	UserProfile
 } from './types';
 
 export async function fetchHabitCompletionsRange(
@@ -175,5 +176,30 @@ export async function upsertJournal(row: JournalEntry): Promise<void> {
 	const { error } = await supabase
 		.from('journal_entries')
 		.upsert(row, { onConflict: 'user_id,date' });
+	if (error) throw error;
+}
+
+export async function fetchUserProfile(userId: UUID): Promise<UserProfile | null> {
+	const { data, error } = await supabase
+		.from('user_profiles')
+		.select('*')
+		.eq('id', userId)
+		.maybeSingle();
+	if (error) throw error;
+	return data;
+}
+
+export async function upsertUserProfile(row: {
+	id: UUID;
+	display_name: string;
+}): Promise<void> {
+	const { error } = await supabase.from('user_profiles').upsert(
+		{
+			id: row.id,
+			display_name: row.display_name,
+			updated_at: new Date().toISOString()
+		},
+		{ onConflict: 'id' }
+	);
 	if (error) throw error;
 }
