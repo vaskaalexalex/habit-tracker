@@ -74,45 +74,24 @@
 		let stopServiceWorkerUpdate: (() => void) | null = null;
 		const stopSyncStatus = syncStatusStore.start();
 
-		// Defensive: clear any stale inline html height from previous builds that pinned it on keyboard.
+		// Defensive: clear any stale inline styles from previous builds that pinned the shell.
 		const docEl = document.documentElement;
 		docEl.style.removeProperty('height');
+		docEl.style.removeProperty('--app-viewport-height');
 
-		// iOS PWA keyboard: the layout viewport (lvh) stays full-height while the keyboard overlays
-		// the bottom, so iOS scrolls the *document* to reveal a focused input — which jerks the whole
-		// fixed shell up and down. While the keyboard is open we pin the shell to the visual-viewport
-		// height so the document has nothing left to scroll; <main> alone scrolls the field into view
-		// smoothly. No per-frame scroll fighting → no jitter.
-		const KEYBOARD_INSET_THRESHOLD_PX = 80;
+		// iOS PWA keyboard: the document itself is locked (body is position:fixed in app.css), so iOS
+		// can't scroll the whole page to reveal a focused input — that window-level scroll was what
+		// jerked the shell down-then-up. <main> is the only scroller and iOS scrolls it natively and
+		// smoothly. We only publish the keyboard height as a CSS var so <main> keeps enough bottom
+		// padding to lift lower inputs above the keyboard. No JS scroll manipulation → no jitter.
 		const vv = window.visualViewport ?? null;
-
-		function lockDocumentScroll() {
-			if (window.scrollY !== 0) window.scrollTo(0, 0);
-		}
-
 		function syncKeyboardInset() {
 			if (!vv) return;
-			const inset = window.innerHeight - vv.height;
-			if (inset > KEYBOARD_INSET_THRESHOLD_PX) {
-				docEl.style.setProperty('--app-viewport-height', `${Math.round(vv.height)}px`);
-			} else {
-				docEl.style.removeProperty('--app-viewport-height');
-			}
-			lockDocumentScroll();
+			const inset = Math.max(0, window.innerHeight - vv.height);
+			docEl.style.setProperty('--keyboard-inset', Math.round(inset) + 'px');
 		}
-
+		syncKeyboardInset();
 		vv?.addEventListener('resize', syncKeyboardInset);
-		vv?.addEventListener('scroll', syncKeyboardInset);
-
-		function onInputFocusOut(event: FocusEvent) {
-			const t = event.target;
-			if (!(t instanceof HTMLElement)) return;
-			if (!t.matches('input, textarea, select, [contenteditable=""], [contenteditable="true"]'))
-				return;
-			// Snap the document back if iOS drifted it; never touches <main>'s own scroll position.
-			lockDocumentScroll();
-		}
-		document.addEventListener('focusout', onInputFocusOut, true);
 
 		syncDebug('layout-mount', {
 			online: navigator.onLine,
@@ -206,10 +185,8 @@
 
 		return () => {
 			window.removeEventListener('pageshow', onPageShow);
-			document.removeEventListener('focusout', onInputFocusOut, true);
 			vv?.removeEventListener('resize', syncKeyboardInset);
-			vv?.removeEventListener('scroll', syncKeyboardInset);
-			docEl.style.removeProperty('--app-viewport-height');
+			docEl.style.removeProperty('--keyboard-inset');
 			stopServiceWorkerUpdate?.();
 			stopRemoteRefresh?.();
 			stopTodayRefresh?.();
