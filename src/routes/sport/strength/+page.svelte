@@ -2,7 +2,6 @@
 	import { strengthStore } from '$stores/strength.svelte';
 	import { ensureSportCompleted } from '$stores/auto-complete';
 	import { toasts } from '$stores/toast.svelte';
-	import ExerciseDropdown from '$components/ExerciseDropdown.svelte';
 	import PageHeader from '$components/PageHeader.svelte';
 	import StrengthHeatmap from '$components/StrengthHeatmap.svelte';
 	import { goto } from '$app/navigation';
@@ -16,6 +15,7 @@
 	import {
 		MUSCLE_GROUP_LABELS,
 		MUSCLE_GROUP_ORDER,
+		type Exercise,
 		type MuscleGroup,
 		type UUID
 	} from '$supabase/types';
@@ -99,6 +99,32 @@
 
 	function makeRow(group: MuscleGroup): Row {
 		return { id: uuid(), group, exerciseId: null, weight: 0, sets: 0 };
+	}
+
+	function normalizeMuscle(raw: string | null): MuscleGroup {
+		if (raw === 'shoulders' || raw === 'other') return 'arms';
+		const r = (raw ?? '').trim().toLowerCase();
+		if ((MUSCLE_GROUP_ORDER as readonly string[]).includes(r)) return r as MuscleGroup;
+		return 'arms';
+	}
+
+	function compareExercises(a: Exercise, b: Exercise): number {
+		const ao = a.sort_order ?? 10_000;
+		const bo = b.sort_order ?? 10_000;
+		if (ao !== bo) return ao - bo;
+		return a.name.localeCompare(b.name, 'ru');
+	}
+
+	/** Видимые упражнения группы, отсортированные как в каталоге; выбранное всегда включено. */
+	function exerciseOptions(group: MuscleGroup, currentId: string | null): Exercise[] {
+		const list = strengthStore.exercises
+			.filter((e) => !e.hidden && normalizeMuscle(e.muscle_group) === group)
+			.sort(compareExercises);
+		if (currentId && !list.some((e) => e.id === currentId)) {
+			const sel = strengthStore.exercises.find((e) => e.id === currentId);
+			if (sel) list.unshift(sel);
+		}
+		return list;
 	}
 
 	const exercisesPath = `${base}/sport/strength/exercises`;
@@ -371,13 +397,16 @@
 
 				{#each rowsByGroup(group) as row (row.id)}
 					<div class="grid grid-cols-[minmax(0,1fr)_72px_64px_32px_32px] items-center gap-2">
-						<ExerciseDropdown
-							exercises={strengthStore.exercises}
-							value={row.exerciseId}
-							onselect={(id) => setExercise(row.id, id)}
-							groupFilter={group}
-							compact
-						/>
+						<select
+							value={row.exerciseId ?? ''}
+							onchange={(e) => setExercise(row.id, e.currentTarget.value as UUID)}
+							class="hairline w-full min-w-0 truncate rounded-xl bg-(--color-bg-mute) px-2 py-1.5 text-sm outline-none"
+						>
+							<option value="" disabled>Упражнение</option>
+							{#each exerciseOptions(group, row.exerciseId) as ex (ex.id)}
+								<option value={ex.id}>{ex.name}</option>
+							{/each}
+						</select>
 						<input
 							type="text"
 							inputmode="decimal"

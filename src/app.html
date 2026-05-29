@@ -5,7 +5,10 @@
 		<title>Habit</title>
 		<link rel="icon" href="%sveltekit.assets%/favicon.svg" type="image/svg+xml" />
 		<link rel="manifest" href="%sveltekit.assets%/manifest.webmanifest" />
-		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+		<meta
+			name="viewport"
+			content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
+		/>
 		<meta name="theme-color" content="#22c55e" />
 		<meta name="mobile-web-app-capable" content="yes" />
 		<meta name="apple-mobile-web-app-capable" content="yes" />
@@ -18,6 +21,31 @@
 		<link rel="apple-touch-icon" sizes="192x192" href="%sveltekit.assets%/icons/192.png" />
 		<link rel="apple-touch-icon" sizes="512x512" href="%sveltekit.assets%/icons/512.png" />
 		<script>
+			(() => {
+				// iOS Safari / PWA: kill pinch-zoom and double-tap-to-zoom (meta user-scalable is ignored on iOS).
+				const prevent = (event) => event.preventDefault();
+				for (const t of ['gesturestart', 'gesturechange', 'gestureend']) {
+					document.addEventListener(t, prevent, { passive: false });
+				}
+				document.addEventListener(
+					'touchmove',
+					(event) => {
+						if (event.touches.length > 1) event.preventDefault();
+					},
+					{ passive: false }
+				);
+				let lastTouchEnd = 0;
+				document.addEventListener(
+					'touchend',
+					(event) => {
+						const now = Date.now();
+						if (now - lastTouchEnd <= 300) event.preventDefault();
+						lastTouchEnd = now;
+					},
+					{ passive: false }
+				);
+			})();
+
 			(() => {
 				const RESET_KEY = 'habit-pwa-asset-reset';
 				const IMPORT_FAILURE_RE =
