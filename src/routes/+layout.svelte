@@ -22,7 +22,10 @@
 	import { syncStatusStore } from '$stores/sync-status.svelte';
 	import { mainTabIndex } from '$lib/nav/main-tab-index';
 	import { isSamePathname } from '$lib/nav/same-pathname';
-	import { syncUserReminderTimezone, ensureCurrentDeviceSubscriptionStored } from '$lib/push/reminders';
+	import {
+		syncUserReminderTimezone,
+		ensureCurrentDeviceSubscriptionStored
+	} from '$lib/push/reminders';
 	import { ensurePushServiceWorkerRegistration } from '$lib/push/service-worker';
 
 	let { children } = $props();
@@ -72,59 +75,44 @@
 		const stopSyncStatus = syncStatusStore.start();
 
 		// Defensive: clear any stale inline html height from previous builds that pinned it on keyboard.
-		document.documentElement.style.removeProperty('height');
+		const docEl = document.documentElement;
+		docEl.style.removeProperty('height');
 
-		// iOS scrolls the nearest scroll ancestor (main / window) to bring focused inputs into view.
-		// We want layout to stay put: keyboard overlays content, nothing reflows.
-		const SCROLL_LOCK_FRAMES = 8;
-		function onInputFocusIn(event: FocusEvent) {
-			const t = event.target;
-			if (!(t instanceof HTMLElement)) return;
-			if (!t.matches('input, textarea, select, [contenteditable=""], [contenteditable="true"]'))
-				return;
-			const main = document.querySelector('main');
-			const startMainTop = main?.scrollTop ?? 0;
-			const startWinTop = window.scrollY;
-			let frames = 0;
-			const revert = () => {
-				if (main && main.scrollTop !== startMainTop) main.scrollTop = startMainTop;
-				if (window.scrollY !== startWinTop) window.scrollTo({ top: startWinTop });
-				if (++frames < SCROLL_LOCK_FRAMES) requestAnimationFrame(revert);
-			};
-			requestAnimationFrame(revert);
-		}
-		document.addEventListener('focusin', onInputFocusIn, true);
+		// iOS PWA keyboard: the layout viewport (lvh) stays full-height while the keyboard overlays
+		// the bottom, so iOS scrolls the *document* to reveal a focused input — which jerks the whole
+		// fixed shell up and down. While the keyboard is open we pin the shell to the visual-viewport
+		// height so the document has nothing left to scroll; <main> alone scrolls the field into view
+		// smoothly. No per-frame scroll fighting → no jitter.
+		const KEYBOARD_INSET_THRESHOLD_PX = 80;
+		const vv = window.visualViewport ?? null;
 
-		// iOS PWA: after keyboard dismiss Safari can leave main/window scrolled — strip under fixed nav.
-		const SCROLL_RESET_FRAMES = 6;
-		function forceScrollReset() {
-			const main = document.querySelector('main');
-			let frames = 0;
-			const tick = () => {
-				if (main && main.scrollTop !== 0) main.scrollTop = 0;
-				if (window.scrollY !== 0) window.scrollTo({ top: 0 });
-				const root = document.scrollingElement ?? document.documentElement;
-				if (root && root.scrollTop !== 0) root.scrollTop = 0;
-				if (++frames < SCROLL_RESET_FRAMES) requestAnimationFrame(tick);
-			};
-			requestAnimationFrame(tick);
+		function lockDocumentScroll() {
+			if (window.scrollY !== 0) window.scrollTo(0, 0);
 		}
+
+		function syncKeyboardInset() {
+			if (!vv) return;
+			const inset = window.innerHeight - vv.height;
+			if (inset > KEYBOARD_INSET_THRESHOLD_PX) {
+				docEl.style.setProperty('--app-viewport-height', `${Math.round(vv.height)}px`);
+			} else {
+				docEl.style.removeProperty('--app-viewport-height');
+			}
+			lockDocumentScroll();
+		}
+
+		vv?.addEventListener('resize', syncKeyboardInset);
+		vv?.addEventListener('scroll', syncKeyboardInset);
 
 		function onInputFocusOut(event: FocusEvent) {
 			const t = event.target;
 			if (!(t instanceof HTMLElement)) return;
 			if (!t.matches('input, textarea, select, [contenteditable=""], [contenteditable="true"]'))
 				return;
-			forceScrollReset();
+			// Snap the document back if iOS drifted it; never touches <main>'s own scroll position.
+			lockDocumentScroll();
 		}
 		document.addEventListener('focusout', onInputFocusOut, true);
-
-		const vv = window.visualViewport ?? null;
-		const onVisualViewportResize = () => {
-			if (!vv) return;
-			if (vv.height >= window.innerHeight - 1) forceScrollReset();
-		};
-		vv?.addEventListener('resize', onVisualViewportResize);
 
 		syncDebug('layout-mount', {
 			online: navigator.onLine,
@@ -218,9 +206,10 @@
 
 		return () => {
 			window.removeEventListener('pageshow', onPageShow);
-			document.removeEventListener('focusin', onInputFocusIn, true);
 			document.removeEventListener('focusout', onInputFocusOut, true);
-			vv?.removeEventListener('resize', onVisualViewportResize);
+			vv?.removeEventListener('resize', syncKeyboardInset);
+			vv?.removeEventListener('scroll', syncKeyboardInset);
+			docEl.style.removeProperty('--app-viewport-height');
 			stopServiceWorkerUpdate?.();
 			stopRemoteRefresh?.();
 			stopTodayRefresh?.();
