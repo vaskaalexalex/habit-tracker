@@ -44,9 +44,7 @@
 	const reminderUserId = $derived(authStore.user?.id ?? '');
 
 	const remindersInitialSyncPending = $derived(
-		!!reminderUserId &&
-			remindersLoading &&
-			remindersHydratedForUserId !== reminderUserId
+		!!reminderUserId && remindersLoading && remindersHydratedForUserId !== reminderUserId
 	);
 
 	$effect(() => {
@@ -253,7 +251,7 @@
 </script>
 
 <div class="page-shell gap-5 pb-6 sm:gap-6">
-	<header>
+	<header class="page-head">
 		<PageHeadText kicker="Аккаунт" title="Профиль" subtitle={authStore.user?.email ?? '—'} />
 	</header>
 
@@ -345,7 +343,9 @@
 						{/if}
 					</p>
 					{#if updateAvailable}
-						<p class="mt-1 text-xs font-semibold text-emerald-400">Доступно обновление после деплоя</p>
+						<p class="mt-1 text-xs font-semibold text-emerald-400">
+							Доступно обновление после деплоя
+						</p>
 					{/if}
 				</div>
 			</div>

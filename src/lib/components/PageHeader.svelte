@@ -11,19 +11,12 @@
 		trailing?: Snippet;
 	}
 
-	let {
-		kicker,
-		title,
-		subtitle,
-		meta,
-		showTrailing = false,
-		trailing
-	}: Props = $props();
+	let { kicker, title, subtitle, meta, showTrailing = false, trailing }: Props = $props();
 
 	const expand = $derived(showTrailing);
 </script>
 
-<header class="flex items-center gap-2">
+<header class="page-head flex items-center gap-2">
 	<PageHeadText {kicker} {title} {subtitle} {meta} {expand} />
 	{#if showTrailing && trailing}
 		<div class="flex shrink-0 items-center gap-2">

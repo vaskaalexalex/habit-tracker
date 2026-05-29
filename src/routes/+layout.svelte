@@ -336,7 +336,7 @@
 		<TopLoadBar active />
 	{/if}
 	<main
-		class="app-main-vt safe-top flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto overscroll-y-contain"
+		class="app-main-vt flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto overscroll-y-contain"
 		class:pb-bottom-nav={showNav}
 	>
 		{#if booted}

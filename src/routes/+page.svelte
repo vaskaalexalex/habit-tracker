@@ -16,7 +16,11 @@
 	import type { HabitType, ISODate } from '$supabase/types';
 	import { todayStore } from '$stores/today.svelte';
 	import { dayHeadKicker, formatRu, isISODate } from '$utils/dates';
-	import { isViewingDate as isViewingDateOnPage, resolveViewDate, withViewDate } from '$lib/nav/view-date';
+	import {
+		isViewingDate as isViewingDateOnPage,
+		resolveViewDate,
+		withViewDate
+	} from '$lib/nav/view-date';
 
 	const today = $derived(todayStore.today);
 
@@ -25,9 +29,7 @@
 	const viewingToday = $derived(viewDate === today);
 	const headKicker = $derived(dayHeadKicker(viewDate, today));
 
-	const journalEntryForView = $derived(
-		journalStore.entries.find((e) => e.date === viewDate)
-	);
+	const journalEntryForView = $derived(journalStore.entries.find((e) => e.date === viewDate));
 
 	$effect(() => {
 		void journalStore.entries;
@@ -152,7 +154,7 @@
 </script>
 
 <div class="page-shell min-h-0 flex-1 gap-3 max-[380px]:gap-2 sm:gap-5 sm:pb-3">
-	<div class="flex shrink-0 flex-col gap-1">
+	<div class="page-head flex shrink-0 flex-col gap-1">
 		<PageHeadText
 			kicker={headKicker}
 			title={formatRu(viewDate)}
@@ -174,10 +176,7 @@
 		class:home-stats-row--pulse={statsRowPulse}
 		class:home-stats-row--filled={allDone}
 	>
-		<span
-			class="home-stats-row__fill"
-			class:home-stats-row__fill--on={allDone}
-			aria-hidden="true"
+		<span class="home-stats-row__fill" class:home-stats-row__fill--on={allDone} aria-hidden="true"
 		></span>
 		<div class="relative z-[1] min-w-0">
 			<p
@@ -201,7 +200,6 @@
 	</div>
 
 	<section class="flex min-h-0 min-w-0 shrink flex-col" aria-label="Привычки">
-
 		<h2
 			class="mb-1.5 shrink-0 text-[9px] font-bold uppercase tracking-wider text-(--color-fg-mute) sm:mb-2 sm:text-[10px]"
 		>
