@@ -16,6 +16,7 @@
 
 	const DURATION_WARMUP_DEFAULT = 10;
 	const DURATION_OTHER_DEFAULT = 30;
+	const DURATION_TABLE_TENNIS_DEFAULT = 60;
 
 	const today = $derived(todayStore.today);
 	const viewDate = $derived(resolveViewDate($page.url.searchParams, today));
@@ -35,6 +36,7 @@
 	let saving = $state(false);
 
 	const hasDistance = $derived(!CARDIO_NO_DISTANCE.has(type));
+	const minDuration = $derived(type === 'table_tennis' ? DURATION_TABLE_TENNIS_DEFAULT : 1);
 
 	$effect(() => {
 		if (!hasDistance && distance !== null) distance = null;
@@ -42,7 +44,12 @@
 
 	function selectCardioType(t: CardioType) {
 		type = t;
-		duration = t === 'warmup' ? DURATION_WARMUP_DEFAULT : DURATION_OTHER_DEFAULT;
+		duration =
+			t === 'warmup'
+				? DURATION_WARMUP_DEFAULT
+				: t === 'table_tennis'
+					? DURATION_TABLE_TENNIS_DEFAULT
+					: DURATION_OTHER_DEFAULT;
 	}
 
 	function hasWarmupOnDay(): boolean {
@@ -52,6 +59,10 @@
 	async function submit(event: Event) {
 		event.preventDefault();
 		if (saving) return;
+		if (type === 'table_tennis' && duration < DURATION_TABLE_TENNIS_DEFAULT) {
+			toasts.error('Настольный теннис: минимум 60 мин');
+			return;
+		}
 		if (
 			type === 'warmup' &&
 			hasWarmupOnDay() &&
@@ -91,26 +102,25 @@
 	/>
 
 	<form onsubmit={submit} class="hairline flex flex-col gap-3 rounded-3xl bg-(--color-bg-soft) p-4">
-		<div class="flex flex-wrap gap-1.5">
-			{#each CARDIO_ORDER as t (t)}
-				<button
-					type="button"
-					onclick={() => selectCardioType(t)}
-					class="tap-target rounded-xl px-3 py-1.5 text-sm transition active:scale-95"
-					class:bg-mute={type !== t}
-					class:bg-soft={type === t}
-				>
-					{CARDIO_LABELS[t]}
-				</button>
-			{/each}
-		</div>
+		<label class="flex flex-col gap-1">
+			<span class="text-xs text-(--color-fg-mute)">Тип активности</span>
+			<select
+				value={type}
+				onchange={(event) => selectCardioType(event.currentTarget.value as CardioType)}
+				class="tap-target rounded-xl bg-(--color-bg-mute) px-3 py-2 outline-none"
+			>
+				{#each CARDIO_ORDER as t (t)}
+					<option value={t}>{CARDIO_LABELS[t]}</option>
+				{/each}
+			</select>
+		</label>
 		<div class="grid gap-2" class:grid-cols-2={hasDistance}>
 			<label class="flex flex-col gap-1">
 				<span class="text-xs text-(--color-fg-mute)">Длительность, мин</span>
 				<input
 					type="number"
 					inputmode="numeric"
-					min="1"
+					min={minDuration}
 					bind:value={duration}
 					required
 					class="rounded-xl bg-(--color-bg-mute) px-3 py-2 outline-none tabular-nums"
@@ -155,12 +165,3 @@
 		/>
 	</section>
 </div>
-
-<style>
-	.bg-mute {
-		background: var(--color-bg-mute);
-	}
-	.bg-soft {
-		background: var(--color-accent-soft);
-	}
-</style>

@@ -1,5 +1,5 @@
 export type HabitType = 'sport' | 'coding' | 'reading' | 'journal';
-export type CardioType = 'warmup' | 'run' | 'swim' | 'basketball' | 'walk';
+export type CardioType = 'warmup' | 'run' | 'swim' | 'basketball' | 'walk' | 'table_tennis';
 
 export type MuscleGroup = 'chest' | 'back' | 'legs' | 'arms' | 'core';
 
@@ -25,12 +25,14 @@ export const CARDIO_ORDER: readonly CardioType[] = [
 	'run',
 	'swim',
 	'basketball',
-	'walk'
+	'walk',
+	'table_tennis'
 ] as const;
 
 export const CARDIO_NO_DISTANCE: ReadonlySet<CardioType> = new Set<CardioType>([
 	'warmup',
-	'basketball'
+	'basketball',
+	'table_tennis'
 ]);
 
 export type ISODate = string;
@@ -204,5 +206,6 @@ export const CARDIO_LABELS: Record<CardioType, string> = {
 	run: 'Бег',
 	swim: 'Плавание',
 	basketball: 'Баскетбол',
-	walk: 'Ходьба'
+	walk: 'Ходьба',
+	table_tennis: 'Настольный теннис'
 };

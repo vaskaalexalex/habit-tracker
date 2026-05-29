@@ -12,6 +12,7 @@
 	import { todayStore } from '$stores/today.svelte';
 	import { dayHeadKicker, formatRu } from '$utils/dates';
 	import { resolveViewDate, withViewDate } from '$lib/nav/view-date';
+	import { isSupabaseConfigured } from '$supabase/client';
 
 	const today = $derived(todayStore.today);
 	const viewDate = $derived(resolveViewDate($page.url.searchParams, today));
@@ -35,7 +36,7 @@
 			loading = false;
 			return;
 		}
-		loading = true;
+		loading = isSupabaseConfigured && (typeof navigator === 'undefined' || navigator.onLine !== false);
 		void journalStore.loadDay(date).finally(() => {
 			loading = false;
 		});
@@ -69,7 +70,7 @@
 		subtitle={formatRu(viewDate, 'd MMMM')}
 	/>
 
-	<div class="relative" class:opacity-60={loading} class:pointer-events-none={loading}>
+	<div class="relative">
 		<JournalEditor date={viewDate} initial={entryForView} onsave={handleSave} onclear={handleClear} />
 	</div>
 
