@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { authStore } from '$stores/auth.svelte';
 	import { toasts } from '$stores/toast.svelte';
-	import PageHeadText from '$components/PageHeadText.svelte';
+	import PageHeader from '$components/PageHeader.svelte';
 	import { Mail, Lock, Loader2, Sparkles, Eye, EyeOff } from 'lucide-svelte';
 
 	let email = $state('');
@@ -34,13 +34,16 @@
 
 <div class="mx-auto flex min-h-dvh w-full max-w-md flex-col items-center justify-center px-6">
 	<div class="hairline w-full rounded-3xl bg-(--color-bg-soft) p-6 shadow-xl">
-		<div class="mb-6 flex items-center gap-3">
-			<div
-				class="grid size-12 place-items-center rounded-2xl bg-(--color-accent-soft) text-(--color-accent)"
-			>
-				<Sparkles size={22} />
-			</div>
-			<PageHeadText kicker="Вход" title="Habit" subtitle="Email и пароль" />
+		<div class="mb-6">
+			<PageHeader sticky={false} kicker="Вход" title="Habit" subtitle="Email и пароль">
+				{#snippet leading()}
+					<div
+						class="grid size-12 shrink-0 place-items-center rounded-2xl bg-(--color-accent-soft) text-(--color-accent)"
+					>
+						<Sparkles size={22} />
+					</div>
+				{/snippet}
+			</PageHeader>
 		</div>
 
 		<form onsubmit={submit} class="flex flex-col gap-3">

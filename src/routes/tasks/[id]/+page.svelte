@@ -2,9 +2,10 @@
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import { base } from '$app/paths';
-	import { ChevronLeft, Trash2, Plus, AlarmClock } from 'lucide-svelte';
+	import { Trash2, Plus, AlarmClock } from 'lucide-svelte';
 	import { tasksStore } from '$stores/tasks.svelte';
 	import { todayStore } from '$stores/today.svelte';
+	import PageHeader from '$components/PageHeader.svelte';
 	import Dropdown, { type DropdownOption } from '$components/Dropdown.svelte';
 	import { STATUS_META, PRIORITY_META } from '$lib/tasks/status-meta';
 	import { deadlineState, deadlineLabel } from '$lib/tasks/deadline';
@@ -90,17 +91,13 @@
 </script>
 
 <div class="page-shell">
-	<header class="flex items-center gap-2">
-		<button
-			type="button"
-			onclick={() => goto(`${base}/tasks`)}
-			class="tap-target -ml-1 grid place-items-center rounded-xl text-(--color-fg-mute) hover:bg-(--color-bg-mute) hover:text-(--color-fg)"
-			aria-label="Назад к задачам"
-		>
-			<ChevronLeft size={22} />
-		</button>
-		<p class="page-kicker flex-1">Задача</p>
-		{#if task}
+	<PageHeader
+		kicker="Задача"
+		onBack={() => goto(`${base}/tasks`)}
+		backLabel="Назад к задачам"
+		showTrailing={!!task}
+	>
+		{#snippet trailing()}
 			<button
 				type="button"
 				onclick={removeTask}
@@ -109,8 +106,8 @@
 			>
 				<Trash2 size={18} />
 			</button>
-		{/if}
-	</header>
+		{/snippet}
+	</PageHeader>
 
 	{#if !task}
 		<p class="py-16 text-center text-sm text-(--color-fg-mute)">
