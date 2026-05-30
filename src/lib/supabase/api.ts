@@ -6,6 +6,9 @@ import type {
 	HabitType,
 	ISODate,
 	JournalEntry,
+	Subtask,
+	Task,
+	TaskList,
 	UUID,
 	WorkoutSet,
 	UserProfile
@@ -189,10 +192,7 @@ export async function fetchUserProfile(userId: UUID): Promise<UserProfile | null
 	return data;
 }
 
-export async function upsertUserProfile(row: {
-	id: UUID;
-	display_name: string;
-}): Promise<void> {
+export async function upsertUserProfile(row: { id: UUID; display_name: string }): Promise<void> {
 	const { error } = await supabase.from('user_profiles').upsert(
 		{
 			id: row.id,
@@ -202,4 +202,37 @@ export async function upsertUserProfile(row: {
 		{ onConflict: 'id' }
 	);
 	if (error) throw error;
+}
+
+export async function fetchTaskLists(userId: UUID): Promise<TaskList[]> {
+	const { data, error } = await supabase
+		.from('task_lists')
+		.select('*')
+		.eq('user_id', userId)
+		.order('sort_order', { ascending: true })
+		.order('created_at', { ascending: true });
+	if (error) throw error;
+	return data ?? [];
+}
+
+export async function fetchTasks(userId: UUID): Promise<Task[]> {
+	const { data, error } = await supabase
+		.from('tasks')
+		.select('*')
+		.eq('user_id', userId)
+		.order('sort_order', { ascending: true })
+		.order('created_at', { ascending: false });
+	if (error) throw error;
+	return data ?? [];
+}
+
+export async function fetchSubtasks(userId: UUID): Promise<Subtask[]> {
+	const { data, error } = await supabase
+		.from('task_subtasks')
+		.select('*')
+		.eq('user_id', userId)
+		.order('sort_order', { ascending: true })
+		.order('created_at', { ascending: true });
+	if (error) throw error;
+	return data ?? [];
 }

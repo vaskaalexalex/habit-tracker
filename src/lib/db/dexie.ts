@@ -4,6 +4,9 @@ import type {
 	Exercise,
 	HabitCompletion,
 	JournalEntry,
+	Subtask,
+	Task,
+	TaskList,
 	WorkoutSet
 } from '$supabase/types';
 
@@ -14,7 +17,10 @@ export type SyncTable =
 	| 'exercises'
 	| 'workout_sets'
 	| 'cardio_workouts'
-	| 'journal_entries';
+	| 'journal_entries'
+	| 'task_lists'
+	| 'tasks'
+	| 'task_subtasks';
 
 export interface SyncTask {
 	id?: number;
@@ -32,6 +38,9 @@ export class HabitDB extends Dexie {
 	workout_sets!: Table<WorkoutSet, string>;
 	cardio_workouts!: Table<CardioWorkout, string>;
 	journal_entries!: Table<JournalEntry, string>;
+	task_lists!: Table<TaskList, string>;
+	tasks!: Table<Task, string>;
+	task_subtasks!: Table<Subtask, string>;
 	sync_queue!: Table<SyncTask, number>;
 
 	constructor() {
@@ -43,6 +52,11 @@ export class HabitDB extends Dexie {
 			cardio_workouts: 'id, user_id, [user_id+date], date',
 			journal_entries: 'id, user_id, [user_id+date], date',
 			sync_queue: '++id, ts, table'
+		});
+		this.version(2).stores({
+			task_lists: 'id, user_id, [user_id+sort_order]',
+			tasks: 'id, user_id, list_id, [user_id+status], [user_id+list_id], status',
+			task_subtasks: 'id, user_id, task_id, [task_id+sort_order]'
 		});
 	}
 }

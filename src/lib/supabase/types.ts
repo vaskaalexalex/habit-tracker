@@ -35,6 +35,26 @@ export const CARDIO_NO_DISTANCE: ReadonlySet<CardioType> = new Set<CardioType>([
 	'table_tennis'
 ]);
 
+export type TaskStatus = 'todo' | 'in_progress' | 'done';
+export type TaskPriority = 'low' | 'medium' | 'high';
+
+/** Display order for status chips, filters and long-press menu. */
+export const TASK_STATUS_ORDER: readonly TaskStatus[] = ['todo', 'in_progress', 'done'] as const;
+
+export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
+	todo: 'К выполнению',
+	in_progress: 'Выполняется',
+	done: 'Выполнено'
+};
+
+export const TASK_PRIORITY_ORDER: readonly TaskPriority[] = ['high', 'medium', 'low'] as const;
+
+export const TASK_PRIORITY_LABELS: Record<TaskPriority, string> = {
+	low: 'Низкий',
+	medium: 'Средний',
+	high: 'Высокий'
+};
+
 export type ISODate = string;
 export type Timestamp = string;
 export type UUID = string;
@@ -116,6 +136,38 @@ export interface UserProfile {
 	updated_at: Timestamp;
 }
 
+export interface TaskList {
+	id: UUID;
+	user_id: UUID;
+	name: string;
+	sort_order: number;
+	created_at: Timestamp;
+}
+
+export interface Task {
+	id: UUID;
+	user_id: UUID;
+	list_id: UUID | null;
+	title: string;
+	notes: string;
+	status: TaskStatus;
+	priority: TaskPriority;
+	due_date: ISODate | null;
+	sort_order: number;
+	created_at: Timestamp;
+	updated_at: Timestamp;
+}
+
+export interface Subtask {
+	id: UUID;
+	user_id: UUID;
+	task_id: UUID;
+	title: string;
+	done: boolean;
+	sort_order: number;
+	created_at: Timestamp;
+}
+
 export interface Database {
 	__InternalSupabase: {
 		PostgrestVersion: '12';
@@ -184,10 +236,37 @@ export interface Database {
 				Insert: Omit<UserProfile, 'updated_at'> & { updated_at?: Timestamp };
 				Update: Partial<UserProfile>;
 			};
+			task_lists: {
+				Row: TaskList;
+				Insert: Omit<TaskList, 'id' | 'created_at'> & {
+					id?: UUID;
+					created_at?: Timestamp;
+				};
+				Update: Partial<TaskList>;
+			};
+			tasks: {
+				Row: Task;
+				Insert: Omit<Task, 'id' | 'created_at' | 'updated_at'> & {
+					id?: UUID;
+					created_at?: Timestamp;
+					updated_at?: Timestamp;
+				};
+				Update: Partial<Task>;
+			};
+			task_subtasks: {
+				Row: Subtask;
+				Insert: Omit<Subtask, 'id' | 'created_at'> & {
+					id?: UUID;
+					created_at?: Timestamp;
+				};
+				Update: Partial<Subtask>;
+			};
 		};
 		Enums: {
 			habit_type: HabitType;
 			cardio_type: CardioType;
+			task_status: TaskStatus;
+			task_priority: TaskPriority;
 		};
 	};
 }

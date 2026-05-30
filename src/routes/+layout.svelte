@@ -10,6 +10,7 @@
 	import { strengthStore } from '$stores/strength.svelte';
 	import { cardioStore } from '$stores/cardio.svelte';
 	import { journalStore } from '$stores/journal.svelte';
+	import { tasksStore } from '$stores/tasks.svelte';
 	import { todayStore } from '$stores/today.svelte';
 	import { reconcileJournalCompletions, reconcileSportCompletions } from '$stores/auto-complete';
 	import { forcePushLocalData } from '$db/force-sync';
@@ -110,7 +111,8 @@
 							strengthStore.hydrateLocal(),
 							cardioStore.hydrateLocal(),
 							habitsStore.hydrateLocal(),
-							journalStore.hydrateLocal()
+							journalStore.hydrateLocal(),
+							tasksStore.hydrateLocal()
 						]);
 					}
 				})
@@ -137,7 +139,8 @@
 							strengthStore.hydrateLocal(),
 							cardioStore.hydrateLocal(),
 							habitsStore.hydrateLocal(),
-							journalStore.hydrateLocal()
+							journalStore.hydrateLocal(),
+							tasksStore.hydrateLocal()
 						]);
 						await reconcileSportCompletions();
 						await reconcileJournalCompletions();
@@ -201,6 +204,7 @@
 		strengthStore.setUser(userId);
 		cardioStore.setUser(userId);
 		journalStore.setUser(userId);
+		tasksStore.setUser(userId);
 	}
 
 	async function refreshRemoteData(force = false) {
@@ -239,13 +243,15 @@
 			habitsStore.refresh(),
 			strengthStore.refresh(),
 			cardioStore.refresh(),
-			journalStore.refresh()
+			journalStore.refresh(),
+			tasksStore.refresh()
 		]).then((results) => {
 			syncDebug('remote-refresh-finish', {
 				habits: results[0].status,
 				strength: results[1].status,
 				cardio: results[2].status,
-				journal: results[3].status
+				journal: results[3].status,
+				tasks: results[4].status
 			});
 			void reconcileSportCompletions();
 			void reconcileJournalCompletions();

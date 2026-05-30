@@ -4,7 +4,7 @@
 	import { base } from '$app/paths';
 	import { goto } from '$app/navigation';
 	import { isSamePathname } from '$lib/nav/same-pathname';
-	import { Home, Dumbbell, BookOpenText, User } from 'lucide-svelte';
+	import { Home, Dumbbell, ListChecks, BookOpenText, User } from 'lucide-svelte';
 	import { syncStatusStore } from '$stores/sync-status.svelte';
 
 	let navEl: HTMLElement | undefined = $state(undefined);
@@ -40,14 +40,19 @@
 			href: `${base}/`,
 			label: 'Главная',
 			icon: Home,
-			match: (p: string) =>
-				p === `${base}/` || p === `${base}` || p.startsWith(`${base}/day/`)
+			match: (p: string) => p === `${base}/` || p === `${base}` || p.startsWith(`${base}/day/`)
 		},
 		{
 			href: `${base}/sport`,
 			label: 'Спорт',
 			icon: Dumbbell,
 			match: (p: string) => p.startsWith(`${base}/sport`)
+		},
+		{
+			href: `${base}/tasks`,
+			label: 'Задачи',
+			icon: ListChecks,
+			match: (p: string) => p.startsWith(`${base}/tasks`)
 		},
 		{
 			href: `${base}/journal`,
@@ -76,7 +81,7 @@
 	style="padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0px));"
 	aria-label="Основная навигация"
 >
-	<ul class="grid grid-cols-4 gap-1">
+	<ul class="grid grid-cols-5 gap-1">
 		{#each items as item (item.href)}
 			{@const active = item.match($page.url.pathname)}
 			<li class="contents">
