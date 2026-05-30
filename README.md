@@ -1,217 +1,172 @@
+<div align="center">
+
 # Habit Tracker PWA
 
-Progressive web app для отслеживания четырёх привычек: **Спорт → Кодинг → Чтение → Дневник**. Свой backend на Supabase, offline-first через Dexie + sync queue, деплоится на Cloudflare Pages.
+**Offline-first PWA на SvelteKit 5 + Supabase с оптимистичным local-first движком синхронизации.**
 
-## Стек
+[![SvelteKit](https://img.shields.io/badge/SvelteKit-2-FF3E00?logo=svelte&logoColor=white)](https://kit.svelte.dev)
+[![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind-4-06B6D4?logo=tailwindcss&logoColor=white)](https://tailwindcss.com)
+[![Supabase](https://img.shields.io/badge/Supabase-Postgres%20%2B%20RLS-3ECF8E?logo=supabase&logoColor=white)](https://supabase.com)
+[![Vite](https://img.shields.io/badge/Vite-6-646CFF?logo=vite&logoColor=white)](https://vite.dev)
+[![PWA](https://img.shields.io/badge/PWA-offline--first-5A0FC8?logo=pwa&logoColor=white)](https://web.dev/progressive-web-apps/)
 
-- **SvelteKit 2 + Svelte 5** (runes: `$state`, `$derived`, `$effect`)
-- **TypeScript strict**
-- **Tailwind CSS 4** (через `@tailwindcss/vite`)
-- **@sveltejs/adapter-static** (SPA-режим, `200.html` fallback)
-- **@supabase/supabase-js** — Auth (magic link) + Postgres + RLS
-- **Dexie** — IndexedDB кеш + sync_queue (offline-first)
-- **@vite-pwa/sveltekit** — manifest, service worker (Workbox), install prompt
-- **lucide-svelte**, **date-fns**, **@fontsource-variable/inter**
-- **pnpm**
+<img src="https://skillicons.dev/icons?i=svelte,ts,tailwind,supabase,postgres,vite,pnpm,githubactions,cloudflare&theme=dark" alt="tech stack" />
 
-## Структура
+**[Живое демо](https://vaskaalexalex.github.io/habit-tracker/)** · [Русский](#русский) · [English](#english)
 
-```
-.
-├── supabase/
-│   ├── README.md
-│   └── migrations/
-│       ├── 20260430120000_init_schema.sql
-│       ├── 20260430120100_rls.sql
-│       └── 20260430120200_seed_exercises.sql
-├── src/
-│   ├── app.html, app.css, hooks.client.ts
-│   ├── lib/
-│   │   ├── supabase/      (client.ts, types.ts, api.ts)
-│   │   ├── db/            (dexie.ts, sync.ts)
-│   │   ├── stores/        (auth, habits, strength, cardio, journal, theme, toast — все на runes)
-│   │   ├── components/    (HabitCard, HabitHeatmap, BottomNav, ExerciseDropdown, SetRow, WorkoutLog, JournalEditor, ProgressChart, ToastHost, InstallPrompt)
-│   │   ├── utils/         (dates, uuid, strength)
-│   │   └── bootstrap.ts
-│   └── routes/
-│       ├── +layout.svelte/+layout.ts
-│       ├── +page.svelte                    (главная: 4 карточки + heatmap + month chart)
-│       ├── login/+page.svelte              (magic link)
-│       ├── auth/callback/+page.svelte
-│       ├── profile/+page.svelte
-│       ├── sport/+page.svelte              (хаб: силовая | другая)
-│       ├── sport/strength/+page.svelte
-│       ├── sport/strength/exercises/+page.svelte
-│       ├── sport/cardio/+page.svelte
-│       ├── journal/+page.svelte
-│       └── journal/[date]/+page.svelte
-└── static/
-    ├── manifest.webmanifest (генерится vite-pwa)
-    ├── icons/{192,512,maskable}.svg
-    ├── favicon.svg
-    └── _redirects (CF Pages SPA fallback)
+</div>
+
+> **Демо:** https://vaskaalexalex.github.io/habit-tracker/ — вход `demo@habit-tracker.app` / `habit-demo-2026` (email + пароль, аккаунт уже наполнен данными).
+
+---
+
+## Русский
+
+### Технологии
+
+| Слой | Стек |
+|------|------|
+| **UI** | SvelteKit 2, Svelte 5 (runes: `$state` / `$derived` / `$effect`), TypeScript strict |
+| **Стили** | Tailwind CSS 4 (`@tailwindcss/vite`), OKLCH-токены, dark/light |
+| **Бэкенд** | Supabase — Postgres, Row Level Security, auth по email+паролю |
+| **Offline** | Dexie (IndexedDB) + таблица `sync_queue`, optimistic UI, last-write-wins |
+| **PWA** | `@vite-pwa/sveltekit`, Workbox SW, install prompt, Web Push (Edge Function) |
+| **Утилиты** | layerchart, date-fns, lucide-svelte |
+| **Сборка / CI** | Vite 6, pnpm, ESLint, Prettier, GitHub Actions |
+| **Хостинг** | GitHub Pages / Cloudflare Pages (`adapter-static`, SPA + `200.html`) |
+
+### Архитектура
+
+Local-first: каждое действие пишется в IndexedDB и рендерится мгновенно, затем в фоне уходит в Supabase. Очередь дренится при `online` и раз в 30с; конфликты — last-write-wins по `updated_at`.
+
+```mermaid
+flowchart LR
+  action["Действие<br/>(rune-стор)"] --> dexie["Dexie .put()<br/>мгновенный рендер"]
+  dexie --> queue["sync_queue<br/>op + payload + ts"]
+  queue -->|online · 30s| drain["drainQueue()"]
+  drain --> supabase["Supabase<br/>upsert / delete · retry"]
+  supabase -.->|pull| dexie
 ```
 
-## Локальный запуск
+### Схема БД
 
-### 1. Установка
+Все таблицы — per-user, защищены RLS (`auth.uid() = user_id`). DDL: [`supabase/migrations/`](supabase/migrations).
+
+```mermaid
+erDiagram
+  users ||--o{ habit_completions : ""
+  users ||--o{ workout_sets : ""
+  users ||--o{ cardio_workouts : ""
+  users ||--o{ journal_entries : ""
+  users ||--o| user_profiles : ""
+  users ||--o{ task_lists : ""
+  users ||--o{ tasks : ""
+  exercises ||--o{ workout_sets : ""
+  task_lists ||--o{ tasks : ""
+  tasks ||--o{ task_subtasks : ""
+```
+
+### Возможности
+
+| Раздел | Кратко |
+|--------|--------|
+| **Привычки** | 4 привычки в один тап, heatmap + месячный график |
+| **Спорт** | силовые подходы (вес × повторы) по каталогу + кардио |
+| **Дневник** | запись в день, настроение 1–5 |
+| **Задачи** | списки, статусы, приоритеты, дедлайны, подзадачи (offline-first) |
+| **PWA** | установка на телефон, тёмная/светлая тема, push-напоминания |
+
+### Запуск
 
 ```bash
 pnpm install
+cp .env.example .env   # PUBLIC_SUPABASE_URL + PUBLIC_SUPABASE_ANON_KEY
+pnpm dev               # http://localhost:5173
 ```
 
-### 2. Настройка Supabase
+Supabase: `supabase db push`, провайдер **Email**, затем один раз [`supabase/seed-demo.sql`](supabase/seed-demo.sql) для демо-данных.
 
-1. Создай новый проект на [supabase.com](https://supabase.com) (free tier).
-2. В разделе **SQL Editor** выполни по очереди:
-   - `supabase/migrations/20260430120000_init_schema.sql`
-   - `supabase/migrations/20260430120100_rls.sql`
-   - `supabase/migrations/20260430120200_seed_exercises.sql`
+| Команда | Действие |
+|---------|----------|
+| `pnpm dev` / `build` / `preview` | dev-сервер / SPA-сборка / preview |
+| `pnpm check` / `lint` / `format` | типы+a11y / ESLint+Prettier / автоформат |
+| `pnpm test:pwa-offline` | прод-сборка + офлайн-перезагрузка с SW |
 
-   Или через Supabase CLI:
+Деплой: GitHub Actions → GitHub Pages ([`deploy.yml`](.github/workflows/deploy.yml), `BASE_PATH=/habit-tracker`); секреты `PUBLIC_SUPABASE_*`. Аналогично работает на Cloudflare Pages.
 
-   ```bash
-   supabase link --project-ref <your-project-ref>
-   supabase db push
-   ```
+---
 
-3. **Authentication → Providers → Email**: включи `Email`, опционально отключи `Confirm email` для удобства разработки.
-4. **Authentication → URL Configuration**:
-   - `Site URL`: `http://localhost:5173`
-   - `Redirect URLs`: добавь `http://localhost:5173/auth/callback` и продовый домен.
-5. Скопируй из `Project Settings → API`:
-   - `Project URL` → `PUBLIC_SUPABASE_URL`
-   - `anon public` key → `PUBLIC_SUPABASE_ANON_KEY`
+## English
 
-### 3. Env vars
+### Tech stack
 
-Скопируй пример и заполни:
+| Layer | Stack |
+|-------|-------|
+| **UI** | SvelteKit 2, Svelte 5 (runes: `$state` / `$derived` / `$effect`), TypeScript strict |
+| **Styling** | Tailwind CSS 4 (`@tailwindcss/vite`), OKLCH tokens, dark/light |
+| **Backend** | Supabase — Postgres, Row Level Security, email+password auth |
+| **Offline** | Dexie (IndexedDB) + `sync_queue` table, optimistic UI, last-write-wins |
+| **PWA** | `@vite-pwa/sveltekit`, Workbox SW, install prompt, Web Push (Edge Function) |
+| **Utils** | layerchart, date-fns, lucide-svelte |
+| **Build / CI** | Vite 6, pnpm, ESLint, Prettier, GitHub Actions |
+| **Hosting** | GitHub Pages / Cloudflare Pages (`adapter-static`, SPA + `200.html`) |
+
+### Architecture
+
+Local-first: every action writes to IndexedDB and renders instantly, then syncs to Supabase in the background. The queue drains on `online` and every 30s; conflicts resolve last-write-wins by `updated_at`.
+
+```mermaid
+flowchart LR
+  action["Action<br/>(rune store)"] --> dexie["Dexie .put()<br/>instant render"]
+  dexie --> queue["sync_queue<br/>op + payload + ts"]
+  queue -->|online · 30s| drain["drainQueue()"]
+  drain --> supabase["Supabase<br/>upsert / delete · retry"]
+  supabase -.->|pull| dexie
+```
+
+### Database
+
+Per-user tables protected by RLS (`auth.uid() = user_id`). DDL: [`supabase/migrations/`](supabase/migrations).
+
+```mermaid
+erDiagram
+  users ||--o{ habit_completions : ""
+  users ||--o{ workout_sets : ""
+  users ||--o{ cardio_workouts : ""
+  users ||--o{ journal_entries : ""
+  users ||--o| user_profiles : ""
+  users ||--o{ task_lists : ""
+  users ||--o{ tasks : ""
+  exercises ||--o{ workout_sets : ""
+  task_lists ||--o{ tasks : ""
+  tasks ||--o{ task_subtasks : ""
+```
+
+### Features
+
+| Area | TL;DR |
+|------|-------|
+| **Habits** | 4 one-tap habits, heatmap + month chart |
+| **Sport** | strength sets (weight × reps) from a catalog + cardio |
+| **Journal** | one entry per day, 1–5 mood |
+| **Tasks** | lists, statuses, priorities, due dates, subtasks (offline-first) |
+| **PWA** | installable, dark/light theme, push reminders |
+
+### Run
 
 ```bash
-cp .env.example .env
+pnpm install
+cp .env.example .env   # PUBLIC_SUPABASE_URL + PUBLIC_SUPABASE_ANON_KEY
+pnpm dev               # http://localhost:5173
 ```
 
-```env
-PUBLIC_SUPABASE_URL=https://<ref>.supabase.co
-PUBLIC_SUPABASE_ANON_KEY=<anon-key>
-```
+Supabase: `supabase db push`, enable the **Email** provider, then run [`supabase/seed-demo.sql`](supabase/seed-demo.sql) once for demo data.
 
-### 4. Запуск dev
+| Command | Action |
+|---------|--------|
+| `pnpm dev` / `build` / `preview` | dev server / SPA build / preview |
+| `pnpm check` / `lint` / `format` | types+a11y / ESLint+Prettier / format |
+| `pnpm test:pwa-offline` | prod build + offline reload with SW |
 
-```bash
-pnpm dev
-```
-
-Откроется `http://localhost:5173`. Введи свой email — получишь magic link.
-
-### 5. Production preview
-
-```bash
-pnpm build
-pnpm preview
-```
-
-## Команды
-
-| Команда        | Что делает                            |
-| -------------- | ------------------------------------- |
-| `pnpm dev`     | dev-сервер на `localhost:5173`        |
-| `pnpm build`   | production-сборка в `build/`          |
-| `pnpm preview` | локальный preview production-сборки   |
-| `pnpm check`   | `svelte-check` (type-checking + a11y) |
-| `pnpm lint`    | prettier + eslint                     |
-| `pnpm format`  | автоформатирование prettier           |
-
-## Деплой на Cloudflare Pages
-
-1. Запушь репозиторий на GitHub.
-2. На [Cloudflare Pages](https://pages.cloudflare.com) → **Create project** → подключи GitHub → выбери репо.
-3. **Build settings**:
-   - Framework preset: `SvelteKit`
-   - Build command: `pnpm build`
-   - Build output directory: `build`
-   - Root directory: `/`
-   - Install command: `pnpm install`
-   - Node version: `21` (или выше)
-4. **Environment variables (Production + Preview)**:
-   - `PUBLIC_SUPABASE_URL` = `https://<ref>.supabase.co`
-   - `PUBLIC_SUPABASE_ANON_KEY` = `<anon-key>`
-   - `PUBLIC_VAPID_PUBLIC_KEY` = публичный ключ из пары VAPID (`npx web-push generate-vapid-keys`); должен совпадать с публичным ключом на стороне Edge / Vault для push-напоминаний
-5. **Deploy**. После первого деплоя добавь продовый домен в Supabase → `Authentication → URL Configuration → Redirect URLs`.
-
-> CF Pages автоматически использует `static/_redirects` для SPA-фолбэка на `/200.html`.
-
-## Деплой на GitHub Pages (этот репозиторий)
-
-Workflow [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) на шаге **Build** ожидает секреты репозитория:
-
-| Secret | Назначение |
-|--------|------------|
-| `PUBLIC_SUPABASE_URL` | URL проекта Supabase |
-| `PUBLIC_SUPABASE_ANON_KEY` | anon key |
-| `PUBLIC_VAPID_PUBLIC_KEY` | (опционально) публичный VAPID; если не задан, в клиенте используется значение из `src/lib/push/default-vapid-public.ts` |
-
-После ротации ключей Web Push обнови секрет и при необходимости файл `default-vapid-public.ts`, а также приватный ключ на Edge / в Vault.
-
-## Архитектура: optimistic UI + offline sync
-
-Все мутации (галочка привычки, новый подход, запись в дневнике) идут через **optimistic write**:
-
-```
-User action
-   │
-   ▼
-┌──────────────┐    ┌──────────────────┐    ┌────────────────────┐
-│ store.add()  │ ─► │  Dexie .put()    │ ─► │ enqueue sync_queue │
-│ (rune $state)│    │  (instant render)│    │ (op + payload + ts)│
-└──────────────┘    └──────────────────┘    └─────────┬──────────┘
-                                                       │
-                                                online │ + интервал 30s
-                                                       ▼
-                                              ┌────────────────┐
-                                              │ supabase upsert│
-                                              │ retry/backoff  │
-                                              └────────────────┘
-```
-
-- `lib/stores/*.svelte.ts` — runes-сторы, source of truth для UI.
-- `lib/db/dexie.ts` — кеш + `sync_queue` таблица.
-- `lib/db/sync.ts` — `enqueue()` + `drainQueue()` + watchers (`online` event + `setInterval(30_000)`).
-- При офлайне всё пишется локально, очередь дренится при возвращении сети.
-- Конфликт-резолв: last-write-wins по `updated_at`/`created_at`.
-
-### Offline-first: данные vs оболочка PWA
-
-**Offline-first относится к данным** (Dexie + `sync_queue`): галочки, тренировки и дневник сохраняются локально и синхронизируются при появлении сети.
-
-**Оболочка приложения** (HTML, JS, Service Worker) требует хотя бы один успешный онлайн-запуск после установки PWA или деплоя, чтобы Workbox закешировал assets. Без кеша в авиарежиме возможен белый экран.
-
-**Профиль и данные офлайн без повторного логина** — если после прошлого входа остались `habits-last-user-id` в `localStorage` и записи в Dexie (или токен в `habits-auth`, даже с истёкшим `exp`). Тогда открываются главная, профиль, привычки; синхронизация с Supabase — только онлайн.
-
-После обновления на GitHub Pages открой PWA один раз онлайн, чтобы подтянуть новый precache.
-
-**Версия и принудительное обновление:** в **Профиль** показывается короткий id сборки (локальный vs на сервере). При деплое в CI задаётся `PUBLIC_APP_BUILD_ID` (commit SHA); клиент сравнивает с `build-id.json` по сети. Кнопка **Обновить** активирует новый service worker; если версии всё ещё расходятся — полный сброс кеша SW (как при ошибке загрузки chunk в `app.html`).
-
-Проверки: `pnpm test:offline-browser` (auth + Dexie в dev), `pnpm test:pwa-offline` (production build + preview + offline reload с SW).
-
-## Auto-completion привычек
-
-- `Спорт`: помечается выполненным при первом подходе/кардио за день (`stores/auto-complete.ts → ensureSportCompleted`).
-- `Дневник`: при первой записи/моду в дневнике (`ensureJournalCompleted`).
-- `Кодинг` / `Чтение`: ручной toggle на главной карточке.
-
-## Дизайн
-
-- Тёмная тема по умолчанию + светлая (переключение на `/profile`).
-- Inter Variable, шрифт-токены OKLCH.
-- `glass` BottomNav, `safe-area-inset` для iOS notch.
-- Тач-таргеты ≥44px, spring-анимации (svelte/motion), crossfade переходы.
-- Все элементы рассчитаны на мобильный экран (max-width xl, центровка).
-
-## Что осталось сделать вручную
-
-1. **Создать проект Supabase** и накатить три миграции из `supabase/migrations/`.
-2. **Прописать env vars** в `.env` (локально) и на CF Pages (для прода).
-3. **Залить на GitHub** и подключить CF Pages.
-4. **Установить PWA** на телефоне через "Добавить на главный экран" в Safari/Chrome.
-5. (Опционально) Поменять SVG-иконки в `static/icons/` на финальные PNG/SVG бренда.
+Deploy: GitHub Actions → GitHub Pages ([`deploy.yml`](.github/workflows/deploy.yml), `BASE_PATH=/habit-tracker`); secrets `PUBLIC_SUPABASE_*`. Runs on Cloudflare Pages too.
