@@ -23,9 +23,26 @@
 		shortBuildId
 	} from '$lib/pwa/version';
 	import { forceAppUpdate } from '$lib/pwa/update';
-	import { LogOut, Sun, Moon, Bell, RefreshCw } from 'lucide-svelte';
+	import {
+		LogOut,
+		Sun,
+		Moon,
+		Bell,
+		RefreshCw,
+		HardDrive,
+		ShieldCheck,
+		Download,
+		Upload
+	} from 'lucide-svelte';
 	import { goto } from '$app/navigation';
 	import { base } from '$app/paths';
+	import { storageStatus, requestPersistentStorage, type StorageStatus } from '$db/persist';
+	import { exportBackup, importBackup } from '$db/backup';
+	import { habitsStore } from '$stores/habits.svelte';
+	import { strengthStore } from '$stores/strength.svelte';
+	import { cardioStore } from '$stores/cardio.svelte';
+	import { journalStore } from '$stores/journal.svelte';
+	import { tasksStore } from '$stores/tasks.svelte';
 
 	let localName = $state(profileStore.name);
 	let remindersOn = $state(false);
@@ -38,6 +55,18 @@
 	let deployedBuild = $state<{ id: string; builtAt: string } | null>(null);
 	let deployCheckLoading = $state(false);
 	let appUpdateBusy = $state(false);
+
+	let storage = $state<StorageStatus | null>(null);
+	let storageBusy = $state(false);
+	let exporting = $state(false);
+	let importing = $state(false);
+	let importInput = $state<HTMLInputElement | null>(null);
+
+	const storageUsageLabel = $derived.by(() => {
+		if (!storage || storage.usage === undefined) return '';
+		const mb = storage.usage / (1024 * 1024);
+		return mb < 0.1 ? '< 0.1 МБ' : `${mb.toFixed(1)} МБ`;
+	});
 
 	const updateAvailable = $derived(isNewerBuildAvailable(localBuildId, deployedBuild));
 
@@ -223,8 +252,71 @@
 		}
 	}
 
+	async function refreshStorageStatus() {
+		storage = await storageStatus();
+	}
+
+	async function ensurePersistentStorage() {
+		if (storageBusy) return;
+		storageBusy = true;
+		try {
+			const granted = await requestPersistentStorage();
+			await refreshStorageStatus();
+			if (granted) toasts.push('Хранилище защищено от очистки', 'success');
+			else toasts.push('Браузер не выдал постоянное хранилище', 'error');
+		} finally {
+			storageBusy = false;
+		}
+	}
+
+	async function exportData() {
+		if (exporting) return;
+		exporting = true;
+		try {
+			const { blob, filename } = await exportBackup();
+			const url = URL.createObjectURL(blob);
+			const a = document.createElement('a');
+			a.href = url;
+			a.download = filename;
+			document.body.appendChild(a);
+			a.click();
+			a.remove();
+			URL.revokeObjectURL(url);
+			toasts.push('Резервная копия сохранена', 'success');
+		} catch (err) {
+			toasts.push(err instanceof Error ? err.message : 'Не удалось экспортировать', 'error');
+		} finally {
+			exporting = false;
+		}
+	}
+
+	async function onImportFileSelected(e: Event) {
+		const input = e.currentTarget as HTMLInputElement;
+		const file = input.files?.[0];
+		input.value = '';
+		if (!file || importing) return;
+		importing = true;
+		try {
+			const counts = await importBackup(file);
+			const total = Object.values(counts).reduce((sum, n) => sum + n, 0);
+			await Promise.all([
+				habitsStore.hydrateLocal(),
+				strengthStore.hydrateLocal(),
+				cardioStore.hydrateLocal(),
+				journalStore.hydrateLocal(),
+				tasksStore.hydrateLocal()
+			]);
+			toasts.push(`Импортировано записей: ${total}`, 'success');
+		} catch (err) {
+			toasts.push(err instanceof Error ? err.message : 'Не удалось импортировать', 'error');
+		} finally {
+			importing = false;
+		}
+	}
+
 	onMount(() => {
 		void checkDeployedVersion();
+		void refreshStorageStatus();
 
 		function refreshRemindersFromDevice() {
 			if (typeof document === 'undefined' || document.visibilityState !== 'visible') return;
@@ -379,5 +471,72 @@
 			</span>
 			<span>Выйти</span>
 		</button>
+	</section>
+
+	<section class="hairline rounded-3xl bg-(--color-bg-soft) p-2">
+		<div class="flex w-full flex-col gap-1.5 rounded-2xl px-3 py-3">
+			<div class="flex items-center gap-3">
+				<span class="grid size-9 shrink-0 place-items-center rounded-xl bg-(--color-bg-mute)">
+					{#if storage?.persisted}
+						<ShieldCheck size={18} class="text-emerald-400" />
+					{:else}
+						<HardDrive size={18} />
+					{/if}
+				</span>
+				<div class="min-w-0 flex-1">
+					<p class="font-medium">Локальные данные</p>
+					<p class="text-xs text-(--color-fg-mute)">
+						{#if !storage}
+							Проверяем хранилище…
+						{:else if !storage.supported}
+							Постоянное хранилище недоступно в этом браузере
+						{:else if storage.persisted}
+							Защищено от очистки{storageUsageLabel ? ` · ${storageUsageLabel}` : ''}
+						{:else}
+							Не защищено — браузер может удалить данные{storageUsageLabel
+								? ` · ${storageUsageLabel}`
+								: ''}
+						{/if}
+					</p>
+				</div>
+			</div>
+			<div class="flex flex-wrap gap-1.5 pl-12">
+				{#if storage && storage.supported && !storage.persisted}
+					<button
+						type="button"
+						class="tap-target hairline rounded-xl px-2.5 py-1.5 text-xs font-semibold text-emerald-400 transition-opacity disabled:opacity-40"
+						disabled={storageBusy}
+						onclick={() => void ensurePersistentStorage()}
+					>
+						{storageBusy ? '…' : 'Защитить'}
+					</button>
+				{/if}
+				<button
+					type="button"
+					class="tap-target hairline inline-flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-xs font-semibold text-(--color-fg-mute) transition-opacity disabled:opacity-40"
+					disabled={exporting}
+					onclick={() => void exportData()}
+				>
+					<Download size={14} />
+					{exporting ? '…' : 'Экспорт'}
+				</button>
+				<button
+					type="button"
+					class="tap-target hairline inline-flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-xs font-semibold text-(--color-fg-mute) transition-opacity disabled:opacity-40"
+					disabled={importing}
+					onclick={() => importInput?.click()}
+				>
+					<Upload size={14} />
+					{importing ? '…' : 'Импорт'}
+				</button>
+				<input
+					bind:this={importInput}
+					type="file"
+					accept="application/json,.json"
+					class="hidden"
+					onchange={onImportFileSelected}
+				/>
+			</div>
+		</div>
 	</section>
 </div>
