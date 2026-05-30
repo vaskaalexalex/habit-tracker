@@ -397,16 +397,19 @@
 
 				{#each rowsByGroup(group) as row (row.id)}
 					<div class="grid grid-cols-[minmax(0,1fr)_72px_64px_32px_32px] items-center gap-2">
-						<select
-							value={row.exerciseId ?? ''}
-							onchange={(e) => setExercise(row.id, e.currentTarget.value as UUID)}
-							class="hairline w-full min-w-0 truncate rounded-xl bg-(--color-bg-mute) px-2 py-1.5 text-sm outline-none"
-						>
-							<option value="" disabled>Упражнение</option>
-							{#each exerciseOptions(group, row.exerciseId) as ex (ex.id)}
-								<option value={ex.id}>{ex.name}</option>
-							{/each}
-						</select>
+						<div class="relative min-w-0">
+							<select
+								value={row.exerciseId ?? ''}
+								onchange={(e) => setExercise(row.id, e.currentTarget.value as UUID)}
+								class="native-select-compact truncate"
+							>
+								<option value="" disabled>Упражнение</option>
+								{#each exerciseOptions(group, row.exerciseId) as ex (ex.id)}
+									<option value={ex.id}>{ex.name}</option>
+								{/each}
+							</select>
+							<ChevronDown size={14} class="select-chevron-compact" aria-hidden="true" />
+						</div>
 						<input
 							type="text"
 							inputmode="decimal"
@@ -486,19 +489,12 @@
 				<label class="flex min-w-0 flex-1 items-center gap-2 text-[11px] font-medium text-(--color-fg-mute)">
 					<span class="shrink-0">Группа</span>
 					<div class="relative min-w-0 flex-1">
-						<select
-							bind:value={addMuscleGroup}
-							class="hairline w-full cursor-pointer appearance-none rounded-xl bg-(--color-bg-mute) py-1.5 pl-3 pr-10 text-sm outline-none"
-						>
+						<select bind:value={addMuscleGroup} class="native-select">
 							{#each ADD_ROW_MUSCLE_GROUPS as g (g)}
 								<option value={g}>{MUSCLE_GROUP_LABELS[g]}</option>
 							{/each}
 						</select>
-						<ChevronDown
-							size={16}
-							class="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-(--color-fg-mute)"
-							aria-hidden="true"
-						/>
+						<ChevronDown size={16} class="select-chevron" aria-hidden="true" />
 					</div>
 				</label>
 				<button

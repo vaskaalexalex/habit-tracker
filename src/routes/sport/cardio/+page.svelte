@@ -5,7 +5,7 @@
 	import { cardioStore } from '$stores/cardio.svelte';
 	import { ensureSportCompleted } from '$stores/auto-complete';
 	import { toasts } from '$stores/toast.svelte';
-	import { Loader2, Trash2 } from 'lucide-svelte';
+	import { Loader2, Trash2, ChevronDown } from 'lucide-svelte';
 	import PageHeader from '$components/PageHeader.svelte';
 	import CardioHeatmap from '$components/CardioHeatmap.svelte';
 	import { CARDIO_LABELS, CARDIO_ORDER, CARDIO_NO_DISTANCE } from '$supabase/types';
@@ -116,15 +116,18 @@
 	<form onsubmit={submit} class="hairline flex flex-col gap-3 rounded-3xl bg-(--color-bg-soft) p-4">
 		<label class="flex flex-col gap-1">
 			<span class="text-xs text-(--color-fg-mute)">Тип активности</span>
-			<select
-				value={type}
-				onchange={(event) => selectCardioType(event.currentTarget.value as CardioType)}
-				class="tap-target rounded-xl bg-(--color-bg-mute) px-3 py-2 outline-none"
-			>
-				{#each CARDIO_ORDER as t (t)}
-					<option value={t}>{CARDIO_LABELS[t]}</option>
-				{/each}
-			</select>
+			<div class="relative">
+				<select
+					value={type}
+					onchange={(event) => selectCardioType(event.currentTarget.value as CardioType)}
+					class="native-select tap-target"
+				>
+					{#each CARDIO_ORDER as t (t)}
+						<option value={t}>{CARDIO_LABELS[t]}</option>
+					{/each}
+				</select>
+				<ChevronDown size={16} class="select-chevron" aria-hidden="true" />
+			</div>
 		</label>
 		<div class="grid gap-2" class:grid-cols-2={hasDistance}>
 			<label class="flex flex-col gap-1">

@@ -2,11 +2,10 @@
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import { base } from '$app/paths';
-	import { Trash2, Plus, AlarmClock } from 'lucide-svelte';
+	import { Trash2, Plus, AlarmClock, ChevronDown } from 'lucide-svelte';
 	import { tasksStore } from '$stores/tasks.svelte';
 	import { todayStore } from '$stores/today.svelte';
 	import PageHeader from '$components/PageHeader.svelte';
-	import Dropdown, { type DropdownOption } from '$components/Dropdown.svelte';
 	import { STATUS_META, PRIORITY_META } from '$lib/tasks/status-meta';
 	import { deadlineState, deadlineLabel } from '$lib/tasks/deadline';
 	import {
@@ -37,18 +36,6 @@
 			notes = t.notes;
 		}
 	});
-
-	const statusOptions: DropdownOption[] = TASK_STATUS_ORDER.map((s) => ({
-		value: s,
-		label: STATUS_META[s].label,
-		icon: STATUS_META[s].icon
-	}));
-
-	const priorityOptions: DropdownOption[] = TASK_PRIORITY_ORDER.map((p) => ({
-		value: p,
-		label: PRIORITY_META[p].label,
-		dotClass: PRIORITY_META[p].dotClass
-	}));
 
 	const dl = $derived(task ? deadlineState(task.due_date, task.status, today) : 'none');
 
@@ -129,25 +116,38 @@
 				<span class="text-[11px] font-medium uppercase tracking-wide text-(--color-fg-mute)"
 					>Статус</span
 				>
-				<Dropdown
-					options={statusOptions}
-					value={task.status}
-					onChange={(v) => tasksStore.setStatus(task.id, v as TaskStatus)}
-					ariaLabel="Статус задачи"
-					block
-				/>
+				<div class="relative">
+					<select
+						value={task.status}
+						onchange={(e) => tasksStore.setStatus(task.id, e.currentTarget.value as TaskStatus)}
+						aria-label="Статус задачи"
+						class="native-select"
+					>
+						{#each TASK_STATUS_ORDER as s (s)}
+							<option value={s}>{STATUS_META[s].label}</option>
+						{/each}
+					</select>
+					<ChevronDown size={16} class="select-chevron" aria-hidden="true" />
+				</div>
 			</label>
 			<label class="flex flex-col gap-1">
 				<span class="text-[11px] font-medium uppercase tracking-wide text-(--color-fg-mute)"
 					>Приоритет</span
 				>
-				<Dropdown
-					options={priorityOptions}
-					value={task.priority}
-					onChange={(v) => tasksStore.updateTask(task.id, { priority: v as TaskPriority })}
-					ariaLabel="Приоритет задачи"
-					block
-				/>
+				<div class="relative">
+					<select
+						value={task.priority}
+						onchange={(e) =>
+							tasksStore.updateTask(task.id, { priority: e.currentTarget.value as TaskPriority })}
+						aria-label="Приоритет задачи"
+						class="native-select"
+					>
+						{#each TASK_PRIORITY_ORDER as p (p)}
+							<option value={p}>{PRIORITY_META[p].label}</option>
+						{/each}
+					</select>
+					<ChevronDown size={16} class="select-chevron" aria-hidden="true" />
+				</div>
 			</label>
 		</div>
 

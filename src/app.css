@@ -249,6 +249,61 @@
 	border: 1px solid var(--color-border);
 }
 
+/**
+ * Uniform native <select> (iOS picker) used across every page. Text uses the strong
+ * foreground token so options read white on dark / dark on light. Wrap in a `relative`
+ * element and add a <ChevronDown class="select-chevron" /> overlay.
+ */
+@utility native-select {
+	width: 100%;
+	appearance: none;
+	cursor: pointer;
+	border: 1px solid var(--color-border);
+	border-radius: 0.75rem;
+	background: var(--color-bg-mute);
+	color: var(--color-fg);
+	padding-block: 0.625rem;
+	padding-inline: 0.75rem 2.5rem;
+	font-size: 0.875rem;
+	line-height: 1.25rem;
+	outline: none;
+}
+
+/** Dense variant for tight inline rows (e.g. the strength workout grid). */
+@utility native-select-compact {
+	width: 100%;
+	appearance: none;
+	cursor: pointer;
+	border: 1px solid var(--color-border);
+	border-radius: 0.75rem;
+	background: var(--color-bg-mute);
+	color: var(--color-fg);
+	padding-block: 0.375rem;
+	padding-inline: 0.5rem 2rem;
+	font-size: 0.875rem;
+	line-height: 1.25rem;
+	outline: none;
+}
+
+/** Theme-aware chevron overlay for native-select wrappers (white on dark, dark on light). */
+@utility select-chevron {
+	pointer-events: none;
+	position: absolute;
+	top: 50%;
+	right: 0.75rem;
+	transform: translateY(-50%);
+	color: var(--color-fg);
+}
+
+@utility select-chevron-compact {
+	pointer-events: none;
+	position: absolute;
+	top: 50%;
+	right: 0.5rem;
+	transform: translateY(-50%);
+	color: var(--color-fg);
+}
+
 /** Root shell: fills flex column body; min-height 0 so <main overflow-y-auto> can shrink and scroll. */
 .app-shell {
 	display: flex;

@@ -1,13 +1,10 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { base } from '$app/paths';
-	import { Plus, AlarmClock, X, Check } from 'lucide-svelte';
+	import { Plus, AlarmClock, X, Check, ChevronDown } from 'lucide-svelte';
 	import { tasksStore } from '$stores/tasks.svelte';
 	import { todayStore } from '$stores/today.svelte';
 	import PageHeader from '$components/PageHeader.svelte';
-	import Dropdown, { type DropdownOption } from '$components/Dropdown.svelte';
-	import StatusSheet from '$components/StatusSheet.svelte';
-	import { longpress } from '$lib/actions/longpress';
 	import { STATUS_META, PRIORITY_META } from '$lib/tasks/status-meta';
 	import { deadlineState, deadlineLabel } from '$lib/tasks/deadline';
 	import { TASK_STATUS_ORDER, type Task, type TaskStatus } from '$supabase/types';
@@ -19,25 +16,6 @@
 	let newTitle = $state('');
 	let addingList = $state(false);
 	let newListName = $state('');
-	let sheetTaskId = $state<string | null>(null);
-
-	const sheetTask = $derived(
-		sheetTaskId ? (tasksStore.tasks.find((t) => t.id === sheetTaskId) ?? null) : null
-	);
-
-	const listOptions = $derived<DropdownOption[]>([
-		{ value: 'all', label: 'Все задачи' },
-		...tasksStore.lists.map((l) => ({ value: l.id, label: l.name }))
-	]);
-
-	const statusOptions = $derived<DropdownOption[]>([
-		{ value: 'all', label: 'Все статусы' },
-		...TASK_STATUS_ORDER.map((s) => ({
-			value: s,
-			label: STATUS_META[s].label,
-			icon: STATUS_META[s].icon
-		}))
-	]);
 
 	function priorityRank(t: Task): number {
 		return t.priority === 'high' ? 0 : t.priority === 'medium' ? 1 : 2;
@@ -82,35 +60,39 @@
 	function openTask(id: string) {
 		void goto(`${base}/tasks/${id}`);
 	}
-
-	async function applyStatus(status: TaskStatus) {
-		if (sheetTaskId) await tasksStore.setStatus(sheetTaskId, status);
-	}
 </script>
 
 <div class="page-shell">
 	<PageHeader kicker="Трекер" title="Задачи" subtitle={`${activeCount} активных`} />
 
 	<div class="flex items-center gap-2">
-		<div class="min-w-0 flex-1">
-			<Dropdown
-				options={listOptions}
+		<div class="relative min-w-0 flex-1">
+			<select
 				value={selectedList}
-				onChange={(v) => (selectedList = v)}
-				ariaLabel="Список задач"
-				block
-				compact
-			/>
+				onchange={(e) => (selectedList = e.currentTarget.value)}
+				aria-label="Список задач"
+				class="native-select"
+			>
+				<option value="all">Все задачи</option>
+				{#each tasksStore.lists as l (l.id)}
+					<option value={l.id}>{l.name}</option>
+				{/each}
+			</select>
+			<ChevronDown size={16} class="select-chevron" aria-hidden="true" />
 		</div>
-		<div class="min-w-0 flex-1">
-			<Dropdown
-				options={statusOptions}
+		<div class="relative min-w-0 flex-1">
+			<select
 				value={statusFilter}
-				onChange={(v) => (statusFilter = v as 'all' | TaskStatus)}
-				ariaLabel="Фильтр по статусу"
-				block
-				compact
-			/>
+				onchange={(e) => (statusFilter = e.currentTarget.value as 'all' | TaskStatus)}
+				aria-label="Фильтр по статусу"
+				class="native-select"
+			>
+				<option value="all">Все статусы</option>
+				{#each TASK_STATUS_ORDER as s (s)}
+					<option value={s}>{STATUS_META[s].label}</option>
+				{/each}
+			</select>
+			<ChevronDown size={16} class="select-chevron" aria-hidden="true" />
 		</div>
 		<button
 			type="button"
@@ -177,13 +159,15 @@
 			{@const StatusIcon = meta.icon}
 			{@const progress = tasksStore.progress(task.id)}
 			{@const dl = deadlineState(task.due_date, task.status, today)}
-			<li>
+			<li class="relative">
 				<button
 					type="button"
 					onclick={() => openTask(task.id)}
-					use:longpress={{ onLongPress: () => (sheetTaskId = task.id) }}
-					class="hairline flex w-full select-none items-start gap-3 rounded-2xl bg-(--color-bg-soft) p-3 text-left transition active:scale-[0.99]"
-				>
+					aria-label={`Открыть задачу: ${task.title}`}
+					class="hairline absolute inset-0 w-full rounded-2xl bg-(--color-bg-soft) transition active:scale-[0.99]"
+				></button>
+
+				<div class="pointer-events-none relative flex select-none items-start gap-3 p-3">
 					<span
 						class="mt-0.5 size-2.5 shrink-0 rounded-full {PRIORITY_META[task.priority].dotClass}"
 						title={`Приоритет: ${PRIORITY_META[task.priority].label}`}
@@ -199,11 +183,26 @@
 						</span>
 
 						<span class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
-							<span
-								class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-medium {meta.chipClass}"
-							>
-								<StatusIcon size={12} />
-								{meta.label}
+							<span class="pointer-events-auto relative inline-flex items-center">
+								<StatusIcon
+									size={12}
+									class="pointer-events-none absolute left-2 {meta.colorClass}"
+								/>
+								<select
+									value={task.status}
+									onchange={(e) =>
+										tasksStore.setStatus(task.id, e.currentTarget.value as TaskStatus)}
+									aria-label="Статус задачи"
+									class="cursor-pointer appearance-none rounded-full py-0.5 pl-7 pr-6 font-medium outline-none {meta.chipClass}"
+								>
+									{#each TASK_STATUS_ORDER as s (s)}
+										<option value={s}>{STATUS_META[s].label}</option>
+									{/each}
+								</select>
+								<ChevronDown
+									size={12}
+									class="pointer-events-none absolute right-1.5 {meta.colorClass}"
+								/>
 							</span>
 
 							{#if progress.total > 0}
@@ -232,7 +231,7 @@
 							</span>
 						{/if}
 					</span>
-				</button>
+				</div>
 			</li>
 		{/each}
 	</ul>
@@ -244,15 +243,4 @@
 				: 'Нет задач по выбранному фильтру.'}
 		</p>
 	{/if}
-
-	<p class="pt-1 text-center text-[11px] text-(--color-fg-mute)">
-		Долгое нажатие на задачу — сменить статус
-	</p>
 </div>
-
-<StatusSheet
-	open={sheetTaskId !== null}
-	current={sheetTask?.status ?? null}
-	onSelect={applyStatus}
-	onClose={() => (sheetTaskId = null)}
-/>
