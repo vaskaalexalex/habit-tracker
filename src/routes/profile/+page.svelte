@@ -1,5 +1,5 @@
 <script lang="ts">
-	import PageHeadText from '$components/PageHeadText.svelte';
+	import PageHeader from '$components/PageHeader.svelte';
 	import SwitchToggle from '$components/SwitchToggle.svelte';
 	import { authStore } from '$stores/auth.svelte';
 	import { themeStore } from '$stores/theme.svelte';
@@ -343,9 +343,7 @@
 </script>
 
 <div class="page-shell gap-5 pb-6 sm:gap-6">
-	<header class="page-head">
-		<PageHeadText kicker="Аккаунт" title="Профиль" subtitle={authStore.user?.email ?? '—'} />
-	</header>
+	<PageHeader kicker="Аккаунт" title="Профиль" subtitle={authStore.user?.email ?? '—'} />
 
 	<section class="hairline rounded-3xl bg-(--color-bg-soft) p-4">
 		<label class="flex flex-col gap-2">
