@@ -33,12 +33,44 @@ type InvokeBody = {
 type PushAttemptResult = {
 	sent: boolean;
 	gone: number;
+	keyMismatch: number;
+	badJwt: number;
 	unauthorized: number;
 	other: number;
 	errors: string[];
 };
 
 const DEFAULT_APP_BASE_PATH = '/habit-tracker';
+
+/**
+ * Apple Web Push rejects VAPID JWTs whose `sub` is not a real https/mailto URL
+ * (e.g. `mailto:...@localhost` → 403 BadJwtToken). Sanitize the env value and fall
+ * back to the app origin so a missing/invalid VAPID_SUBJECT never breaks delivery.
+ */
+const FALLBACK_VAPID_SUBJECT = 'https://vaskaalexalex.github.io/habit-tracker';
+
+function normalizeVapidSubject(raw: string | null | undefined): string {
+	const s = (raw ?? '').trim();
+	if (s.startsWith('https://')) return s;
+	if (s.startsWith('mailto:')) {
+		const domain = s.slice('mailto:'.length).split('@')[1] ?? '';
+		if (domain.includes('.') && !domain.toLowerCase().includes('localhost')) return s;
+	}
+	return FALLBACK_VAPID_SUBJECT;
+}
+
+function pushErrorReason(e: unknown): string {
+	const body = (e as { body?: unknown })?.body;
+	if (typeof body === 'string') {
+		try {
+			const parsed = JSON.parse(body) as { reason?: string };
+			if (parsed?.reason) return parsed.reason;
+		} catch {
+			return body.trim();
+		}
+	}
+	return '';
+}
 
 function journalPushUrl(appBasePath: string | null | undefined): string {
 	const b = (appBasePath ?? '').replace(/\/$/, '');
@@ -116,6 +148,8 @@ async function sendPushToSubscriptions(
 ): Promise<PushAttemptResult> {
 	let sent = false;
 	let gone = 0;
+	let keyMismatch = 0;
+	let badJwt = 0;
 	let unauthorized = 0;
 	let other = 0;
 	const errors: string[] = [];
@@ -130,37 +164,64 @@ async function sendPushToSubscriptions(
 			sent = true;
 		} catch (e: unknown) {
 			const status = (e as { statusCode?: number })?.statusCode;
+			const reason = pushErrorReason(e);
 			const msg = e instanceof Error ? e.message : String(e);
 			const suffix = endpointSuffix(sub.endpoint);
 			if (status === 404 || status === 410) {
 				gone++;
 				await admin.from('push_subscriptions').delete().eq('id', sub.id);
 				errors.push(`${userId} endpoint…${suffix}: gone (${status})`);
+			} else if (reason === 'VapidPkHashMismatch') {
+				// Subscription was created with a different VAPID public key than Edge signs with.
+				keyMismatch++;
+				errors.push(`${userId} endpoint…${suffix}: key mismatch (${status}) ${reason}`);
+			} else if (reason === 'BadJwtToken') {
+				// Push service rejected the VAPID JWT itself — almost always an invalid VAPID_SUBJECT.
+				badJwt++;
+				errors.push(`${userId} endpoint…${suffix}: bad jwt (${status}) ${reason}`);
 			} else if (status === 401 || status === 403) {
 				unauthorized++;
-				errors.push(`${userId} endpoint…${suffix}: unauthorized (${status}) ${msg}`);
+				errors.push(`${userId} endpoint…${suffix}: unauthorized (${status}) ${reason || msg}`);
 			} else {
 				other++;
-				errors.push(`${userId} endpoint…${suffix}: ${msg}`);
+				errors.push(`${userId} endpoint…${suffix}: ${reason || msg}`);
 			}
 		}
 	}
 
-	return { sent, gone, unauthorized, other, errors };
+	return { sent, gone, keyMismatch, badJwt, unauthorized, other, errors };
 }
 
 function profileTestFailureResponse(result: PushAttemptResult): Response {
-	const { gone, unauthorized, other, errors } = result;
-	if (unauthorized > 0) {
+	const { gone, keyMismatch, badJwt, unauthorized, other, errors } = result;
+	if (badJwt > 0) {
+		return jsonResponse({
+			ok: false,
+			code: 'vapid_subject_invalid',
+			error:
+				'Push-сервис отклонил VAPID JWT (BadJwtToken). Задай валидный VAPID_SUBJECT (mailto: с реальным доменом или https://…) в секретах Edge.',
+			errors
+		});
+	}
+	if (keyMismatch > 0) {
 		return jsonResponse({
 			ok: false,
 			code: 'vapid_mismatch',
 			error:
-				'Ключи VAPID не совпадают на клиенте и Edge. Проверь VAPID_PUBLIC_KEY/VAPID_PRIVATE_KEY и PUBLIC_VAPID_PUBLIC_KEY.',
+				'Подписка устройства создана другим VAPID-ключом. Выключи и снова включи напоминания, чтобы переподписаться текущим ключом.',
 			errors
 		});
 	}
-	if (gone > 0 && other === 0 && unauthorized === 0) {
+	if (unauthorized > 0) {
+		return jsonResponse({
+			ok: false,
+			code: 'unauthorized',
+			error:
+				'Push-сервис отклонил авторизацию (401/403). Проверь VAPID_PUBLIC_KEY/VAPID_PRIVATE_KEY на Edge и PUBLIC_VAPID_PUBLIC_KEY в сборке.',
+			errors
+		});
+	}
+	if (gone > 0 && other === 0 && keyMismatch === 0 && badJwt === 0 && unauthorized === 0) {
 		return jsonResponse({
 			ok: false,
 			code: 'subscription_gone',
@@ -200,7 +261,7 @@ Deno.serve(async (req) => {
 	const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 	const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 	const anonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
-	const vapidSubject = Deno.env.get('VAPID_SUBJECT') ?? 'mailto:habit-tracker@localhost';
+	const vapidSubject = normalizeVapidSubject(Deno.env.get('VAPID_SUBJECT'));
 
 	const admin = createClient(supabaseUrl, serviceKey);
 

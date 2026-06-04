@@ -99,6 +99,24 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
 	return outputArray;
 }
 
+/**
+ * After a VAPID key rotation an existing subscription still carries the OLD
+ * `applicationServerKey`, so the server's push (signed with the new private key)
+ * is rejected by the push service (Apple: VapidPkHashMismatch). Detect the drift
+ * so the caller can re-subscribe with the current key instead of reusing a dead sub.
+ */
+function subscriptionMatchesVapidKey(subscription: PushSubscription, vapidKey: string): boolean {
+	const current = subscription.options?.applicationServerKey;
+	if (!current) return true; // key not exposed → can't compare, assume current
+	const a = new Uint8Array(current as ArrayBuffer);
+	const b = urlBase64ToUint8Array(vapidKey);
+	if (a.length !== b.length) return false;
+	for (let i = 0; i < a.length; i++) {
+		if (a[i] !== b[i]) return false;
+	}
+	return true;
+}
+
 async function subscribeWithVapid(
 	registration: ServiceWorkerRegistration,
 	vapidKey: string
@@ -176,6 +194,15 @@ export async function ensureCurrentDeviceSubscriptionStored(
 	if (!registration) return { ok: false, error: 'Не удалось зарегистрировать service worker' };
 
 	let subscription = await getPushSubscriptionWithRetry(registration);
+	if (subscription && !subscriptionMatchesVapidKey(subscription, vapidKey)) {
+		// Stale subscription from a previous VAPID key — drop it and re-subscribe below.
+		try {
+			await subscription.unsubscribe();
+		} catch {
+			/* ignore */
+		}
+		subscription = null;
+	}
 	if (!subscription) {
 		try {
 			subscription = await subscribeWithVapid(registration, vapidKey);
