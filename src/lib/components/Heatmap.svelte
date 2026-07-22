@@ -1,11 +1,15 @@
 <script lang="ts">
 	import {
+		addMonths,
 		eachDayOfInterval,
+		endOfMonth,
 		endOfYear,
 		format,
 		parseISO,
 		setYear,
-		startOfYear
+		startOfMonth,
+		startOfYear,
+		subMonths
 	} from 'date-fns';
 	import { ru } from 'date-fns/locale';
 	import { onMount, type Snippet } from 'svelte';
@@ -45,6 +49,14 @@
 	const currentYear = new Date().getFullYear();
 	let year = $state<number>(currentYear);
 
+	type HeatmapView = 'month' | 'year';
+	let view = $state<HeatmapView>('month');
+	const todayIso = toISO(new Date());
+	const currentMonthStart = startOfMonth(new Date());
+	let monthCursor = $state<Date>(startOfMonth(new Date()));
+	/** Выбранный день в режиме «Месяц» для некликабельных heatmap (показ деталей). */
+	let monthSelected = $state<string | null>(null);
+
 	const yearOptions = $derived.by(() => {
 		const set = new Set<number>([currentYear]);
 		for (const y of dataYears ?? []) set.add(y);
@@ -53,6 +65,35 @@
 	const minYear = $derived(
 		yearOptions.length > 0 ? yearOptions[yearOptions.length - 1]! : currentYear
 	);
+
+	const monthDays = $derived(
+		eachDayOfInterval({ start: startOfMonth(monthCursor), end: endOfMonth(monthCursor) })
+	);
+	/** Ведущие пустые ячейки до первого дня месяца (неделя с понедельника). */
+	const monthStartDow = $derived((startOfMonth(monthCursor).getDay() + 6) % 7);
+	const monthLeadingBlanks = $derived(Array.from({ length: monthStartDow }, (_, i) => i));
+	const monthLabel = $derived(format(monthCursor, 'LLLL yyyy', { locale: ru }));
+	const minMonthStart = $derived(new Date(minYear, 0, 1));
+	const canGoNextMonth = $derived(startOfMonth(monthCursor) < currentMonthStart);
+	const canGoPrevMonth = $derived(startOfMonth(monthCursor) > minMonthStart);
+
+	function goPrevMonth() {
+		if (!canGoPrevMonth) return;
+		monthCursor = startOfMonth(subMonths(monthCursor, 1));
+		monthSelected = null;
+	}
+	function goNextMonth() {
+		if (!canGoNextMonth) return;
+		monthCursor = startOfMonth(addMonths(monthCursor, 1));
+		monthSelected = null;
+	}
+	function monthDayClick(iso: string) {
+		if (onDayClick) {
+			onDayClick(iso as ISODate);
+			return;
+		}
+		monthSelected = monthSelected === iso ? null : iso;
+	}
 
 	const range = $derived.by(() => {
 		const ref = setYear(new Date(), year);
@@ -66,20 +107,26 @@
 	const ROW_LABEL_W = 22;
 
 	const SHADES = [
-		'var(--color-bg-mute)',
-		'rgba(34, 197, 94, 0.28)',
-		'rgba(34, 197, 94, 0.5)',
-		'rgba(34, 197, 94, 0.75)',
-		'rgb(34, 197, 94)'
+		'var(--color-hm-0)',
+		'var(--color-hm-1)',
+		'var(--color-hm-2)',
+		'var(--color-hm-3)',
+		'var(--color-hm-4)'
+	];
+	/** Цвет числа дня в ячейке календаря по уровню (контраст на заливке). */
+	const INK = [
+		'var(--color-hm-ink-0)',
+		'var(--color-hm-ink-1)',
+		'var(--color-hm-ink-2)',
+		'var(--color-hm-ink-3)',
+		'var(--color-hm-ink-4)'
 	];
 
 	function levelOf(iso: string): number {
 		return levels.get(iso) ?? 0;
 	}
 
-	const isLeapYear = $derived(
-		(year % 4 === 0 && year % 100 !== 0) || year % 400 === 0
-	);
+	const isLeapYear = $derived((year % 4 === 0 && year % 100 !== 0) || year % 400 === 0);
 	const daysInYear = $derived(isLeapYear ? 366 : 365);
 
 	const activeDaysInYear = $derived.by(() => {
@@ -319,6 +366,7 @@
 
 	$effect(() => {
 		void year;
+		void view;
 		hideHoverNow();
 	});
 </script>
@@ -329,135 +377,231 @@
 	class:heatmap-touch-mode={touchTooltipMode}
 >
 	<div class="mb-3 flex flex-col gap-2">
-		<h3 class="text-sm font-medium">{title}</h3>
-
-		<div class="flex min-h-8 min-w-0 flex-nowrap items-center justify-between gap-2">
-			<div class="min-w-0 shrink-0 text-[11px] text-(--color-fg-mute)">
-				{#if counterLabel}
-					<span>{counterLabel}: </span>
-					<span class="font-semibold tabular-nums text-(--color-fg)">{activeDaysInYear}</span>
-					<span class="tabular-nums"> / {daysInYear}</span>
-				{/if}
-			</div>
-
-			<div class="flex h-8 shrink-0 items-center justify-end">
-				<div class="hairline flex items-center rounded-xl bg-(--color-bg-mute) p-0.5 text-[11px]">
-					<button
-						type="button"
-						onclick={() => (year = Math.max(minYear, year - 1))}
-						class="grid size-6 place-items-center rounded-lg hover:bg-(--color-bg-soft) disabled:opacity-30 sm:size-7"
-						disabled={year <= minYear}
-						aria-label="Предыдущий год"
-					>
-						<ChevronLeft size={12} />
-					</button>
-					<span class="min-w-[2.75rem] px-1 text-center font-medium tabular-nums">{year}</span>
-					<button
-						type="button"
-						onclick={() => (year = Math.min(currentYear, year + 1))}
-						class="grid size-6 place-items-center rounded-lg hover:bg-(--color-bg-soft) disabled:opacity-30 sm:size-7"
-						disabled={year >= currentYear}
-						aria-label="Следующий год"
-					>
-						<ChevronRight size={12} />
-					</button>
-				</div>
+		<div class="flex items-center justify-between gap-2">
+			<h3 class="font-display text-sm font-semibold uppercase tracking-wide">{title}</h3>
+			<div
+				role="tablist"
+				aria-label="Режим heatmap"
+				class="hairline flex items-center rounded-xl bg-(--color-bg-mute) p-0.5 text-[11px] font-semibold"
+			>
+				<button
+					type="button"
+					role="tab"
+					aria-selected={view === 'month'}
+					onclick={() => (view = 'month')}
+					class="rounded-lg px-2.5 py-1 transition {view === 'month'
+						? 'bg-(--color-bg-soft) text-(--color-fg)'
+						: 'text-(--color-fg-mute)'}"
+				>
+					Месяц
+				</button>
+				<button
+					type="button"
+					role="tab"
+					aria-selected={view === 'year'}
+					onclick={() => (view = 'year')}
+					class="rounded-lg px-2.5 py-1 transition {view === 'year'
+						? 'bg-(--color-bg-soft) text-(--color-fg)'
+						: 'text-(--color-fg-mute)'}"
+				>
+					Год
+				</button>
 			</div>
 		</div>
+
+		{#if view === 'year'}
+			<div class="flex min-h-8 min-w-0 flex-nowrap items-center justify-between gap-2">
+				<div class="min-w-0 shrink-0 text-[11px] text-(--color-fg-mute)">
+					{#if counterLabel}
+						<span>{counterLabel}: </span>
+						<span class="font-semibold tabular-nums text-(--color-fg)">{activeDaysInYear}</span>
+						<span class="tabular-nums"> / {daysInYear}</span>
+					{/if}
+				</div>
+
+				<div class="flex h-8 shrink-0 items-center justify-end">
+					<div class="hairline flex items-center rounded-xl bg-(--color-bg-mute) p-0.5 text-[11px]">
+						<button
+							type="button"
+							onclick={() => (year = Math.max(minYear, year - 1))}
+							class="grid size-6 place-items-center rounded-lg hover:bg-(--color-bg-soft) disabled:opacity-30 sm:size-7"
+							disabled={year <= minYear}
+							aria-label="Предыдущий год"
+						>
+							<ChevronLeft size={12} />
+						</button>
+						<span class="min-w-[2.75rem] px-1 text-center font-medium tabular-nums">{year}</span>
+						<button
+							type="button"
+							onclick={() => (year = Math.min(currentYear, year + 1))}
+							class="grid size-6 place-items-center rounded-lg hover:bg-(--color-bg-soft) disabled:opacity-30 sm:size-7"
+							disabled={year >= currentYear}
+							aria-label="Следующий год"
+						>
+							<ChevronRight size={12} />
+						</button>
+					</div>
+				</div>
+			</div>
+		{:else}
+			<div class="flex items-center justify-between gap-2">
+				<button
+					type="button"
+					onclick={goPrevMonth}
+					disabled={!canGoPrevMonth}
+					class="tap-target grid place-items-center rounded-lg text-(--color-fg-mute) hover:bg-(--color-bg-mute) hover:text-(--color-fg) disabled:opacity-30"
+					aria-label="Предыдущий месяц"
+				>
+					<ChevronLeft size={18} />
+				</button>
+				<span class="text-sm font-semibold capitalize tabular-nums">{monthLabel}</span>
+				<button
+					type="button"
+					onclick={goNextMonth}
+					disabled={!canGoNextMonth}
+					class="tap-target grid place-items-center rounded-lg text-(--color-fg-mute) hover:bg-(--color-bg-mute) hover:text-(--color-fg) disabled:opacity-30"
+					aria-label="Следующий месяц"
+				>
+					<ChevronRight size={18} />
+				</button>
+			</div>
+		{/if}
 	</div>
 
 	<div class="relative">
-		<div
-			class="overflow-x-auto overflow-y-hidden [scrollbar-gutter:stable]"
-			style="min-height: {gridSvgHeight}px;"
-		>
-			<svg
-				width={ROW_LABEL_W + totalCols * (cellSize + cellGap) - cellGap}
-				height={gridSvgHeight}
-				class="block"
-				role="img"
-				aria-label={ariaLabel}
-			>
-				<g transform="translate({ROW_LABEL_W}, 12)">
-					{#each monthMarkers as m, i (i)}
-						<text x={m.x} y={0} class="fill-(--color-fg-mute)" font-size="10">
-							{m.label}
-						</text>
-					{/each}
-				</g>
-
-				<g transform="translate(0, {headerH})">
-					{#each ROW_LABELS as label, row (row)}
-						{#if label}
-							<text
-								x={0}
-								y={row * (cellSize + cellGap) + cellSize * 0.75}
-								class="fill-(--color-fg-mute)"
-								font-size="9"
-							>
-								{label}
-							</text>
-						{/if}
-					{/each}
-				</g>
-
-				<g transform="translate({ROW_LABEL_W}, {headerH})">
-					{#each days as day, i (i)}
-						{@const slot = i + startDow}
-						{@const col = Math.floor(slot / 7)}
-						{@const row = slot % 7}
-						{@const iso = toISO(day)}
-						{@const lvl = levelOf(iso)}
-						<!-- SVG cells: pointer tooltip everywhere; onDayClick navigates on tap — no native interactive role inside SVG. -->
-						<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-						<!-- svelte-ignore a11y_click_events_have_key_events -->
-						<rect
-							x={col * (cellSize + cellGap)}
-							y={row * (cellSize + cellGap)}
-							width={cellSize}
-							height={cellSize}
-							rx={2.5}
-							ry={2.5}
-							fill={SHADES[lvl]}
-							role="img"
-							aria-label={onDayClick
-								? touchTooltipMode
-									? `${iso}. Нажми ещё раз, чтобы открыть`
-									: `Открыть ${iso}`
-								: iso}
-							class="cell"
-							class:cell-clickable={!!onDayClick}
-							class:active={hover?.iso === iso}
-							onpointerenter={touchTooltipMode ? undefined : (e) => showTooltip(iso, e)}
-							onpointerleave={touchTooltipMode ? undefined : hideTooltip}
-							onpointercancel={touchTooltipMode ? undefined : hideTooltip}
-							onclick={(e) => dayCellClick(iso, e)}
-						/>
-					{/each}
-				</g>
-			</svg>
-		</div>
-
-		{#if hover}
-			{@const hovIso = hover.iso}
-			{@const hovLvl = levelOf(hovIso)}
-			<div
-				bind:this={tooltipEl}
-				class="heatmap-tooltip hairline fixed z-[300] max-h-[min(28rem,calc(100dvh-1.25rem))] w-max max-w-[min(22rem,calc(100vw-1.25rem))] overflow-hidden rounded-xl bg-(--color-bg) px-2.5 py-1.5 text-xs shadow-lg"
-				style:left={tooltipFixed !== null ? `${tooltipFixed.left}px` : '-9999px'}
-				style:top={tooltipFixed !== null ? `${tooltipFixed.top}px` : '-9999px'}
-				style:opacity={tooltipFixed !== null ? '1' : '0'}
-				role="tooltip"
-				onpointerenter={touchTooltipMode ? undefined : clearHideHoverTimer}
-				onpointerleave={touchTooltipMode ? undefined : hideTooltip}
-			>
-				<p class="pointer-events-none font-medium tabular-nums">{hoverDate}</p>
-				{#if tooltip}
-					{@render tooltip({ iso: hovIso as ISODate, level: hovLvl })}
-				{:else}
-					<p class="pointer-events-none text-(--color-fg-mute)">без отметок</p>
-				{/if}
+		{#if view === 'month'}
+			<div class="grid grid-cols-7 gap-1">
+				{#each ROW_LABELS as label (label)}
+					<div class="pb-1 text-center text-[10px] font-medium uppercase text-(--color-fg-mute)">
+						{label}
+					</div>
+				{/each}
+				{#each monthLeadingBlanks as i (i)}
+					<div aria-hidden="true"></div>
+				{/each}
+				{#each monthDays as day (toISO(day))}
+					{@const iso = toISO(day)}
+					{@const lvl = levelOf(iso)}
+					<button
+						type="button"
+						onclick={() => monthDayClick(iso)}
+						aria-label={onDayClick ? `Открыть ${iso}` : iso}
+						class="hm-month-cell relative flex aspect-square min-h-[2.75rem] items-center justify-center rounded-[10px] text-sm font-medium tabular-nums"
+						class:hm-month-cell--today={iso === todayIso}
+						class:hm-month-cell--selected={monthSelected === iso}
+						style="background: {SHADES[lvl]}; color: {INK[lvl]};"
+					>
+						{day.getDate()}
+					</button>
+				{/each}
 			</div>
+
+			{#if !onDayClick && monthSelected}
+				{@const selLvl = levelOf(monthSelected)}
+				<div class="mt-2 rounded-xl bg-(--color-bg-mute) px-3 py-2 text-xs">
+					<p class="font-medium tabular-nums">
+						{format(parseISO(monthSelected), 'd MMMM yyyy', { locale: ru })}
+					</p>
+					{#if tooltip}
+						{@render tooltip({ iso: monthSelected as ISODate, level: selLvl })}
+					{:else}
+						<p class="text-(--color-fg-mute)">без отметок</p>
+					{/if}
+				</div>
+			{/if}
+		{:else}
+			<div
+				class="overflow-x-auto overflow-y-hidden [scrollbar-gutter:stable]"
+				style="min-height: {gridSvgHeight}px;"
+			>
+				<svg
+					width={ROW_LABEL_W + totalCols * (cellSize + cellGap) - cellGap}
+					height={gridSvgHeight}
+					class="block"
+					role="img"
+					aria-label={ariaLabel}
+				>
+					<g transform="translate({ROW_LABEL_W}, 12)">
+						{#each monthMarkers as m, i (i)}
+							<text x={m.x} y={0} class="fill-(--color-fg-mute)" font-size="10">
+								{m.label}
+							</text>
+						{/each}
+					</g>
+
+					<g transform="translate(0, {headerH})">
+						{#each ROW_LABELS as label, row (row)}
+							{#if label}
+								<text
+									x={0}
+									y={row * (cellSize + cellGap) + cellSize * 0.75}
+									class="fill-(--color-fg-mute)"
+									font-size="9"
+								>
+									{label}
+								</text>
+							{/if}
+						{/each}
+					</g>
+
+					<g transform="translate({ROW_LABEL_W}, {headerH})">
+						{#each days as day, i (i)}
+							{@const slot = i + startDow}
+							{@const col = Math.floor(slot / 7)}
+							{@const row = slot % 7}
+							{@const iso = toISO(day)}
+							{@const lvl = levelOf(iso)}
+							<!-- SVG cells: pointer tooltip everywhere; onDayClick navigates on tap — no native interactive role inside SVG. -->
+							<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+							<!-- svelte-ignore a11y_click_events_have_key_events -->
+							<rect
+								x={col * (cellSize + cellGap)}
+								y={row * (cellSize + cellGap)}
+								width={cellSize}
+								height={cellSize}
+								rx={2.5}
+								ry={2.5}
+								fill={SHADES[lvl]}
+								role="img"
+								aria-label={onDayClick
+									? touchTooltipMode
+										? `${iso}. Нажми ещё раз, чтобы открыть`
+										: `Открыть ${iso}`
+									: iso}
+								class="cell"
+								class:cell-clickable={!!onDayClick}
+								class:active={hover?.iso === iso}
+								onpointerenter={touchTooltipMode ? undefined : (e) => showTooltip(iso, e)}
+								onpointerleave={touchTooltipMode ? undefined : hideTooltip}
+								onpointercancel={touchTooltipMode ? undefined : hideTooltip}
+								onclick={(e) => dayCellClick(iso, e)}
+							/>
+						{/each}
+					</g>
+				</svg>
+			</div>
+
+			{#if hover}
+				{@const hovIso = hover.iso}
+				{@const hovLvl = levelOf(hovIso)}
+				<div
+					bind:this={tooltipEl}
+					class="heatmap-tooltip hairline fixed z-[300] max-h-[min(28rem,calc(100dvh-1.25rem))] w-max max-w-[min(22rem,calc(100vw-1.25rem))] overflow-hidden rounded-xl bg-(--color-bg) px-2.5 py-1.5 text-xs shadow-lg"
+					style:left={tooltipFixed !== null ? `${tooltipFixed.left}px` : '-9999px'}
+					style:top={tooltipFixed !== null ? `${tooltipFixed.top}px` : '-9999px'}
+					style:opacity={tooltipFixed !== null ? '1' : '0'}
+					role="tooltip"
+					onpointerenter={touchTooltipMode ? undefined : clearHideHoverTimer}
+					onpointerleave={touchTooltipMode ? undefined : hideTooltip}
+				>
+					<p class="pointer-events-none font-medium tabular-nums">{hoverDate}</p>
+					{#if tooltip}
+						{@render tooltip({ iso: hovIso as ISODate, level: hovLvl })}
+					{:else}
+						<p class="pointer-events-none text-(--color-fg-mute)">без отметок</p>
+					{/if}
+				</div>
+			{/if}
 		{/if}
 	</div>
 </div>
@@ -480,5 +624,32 @@
 
 	.cell-clickable {
 		cursor: pointer;
+	}
+
+	.hm-month-cell {
+		cursor: pointer;
+		transition: filter 0.12s ease;
+	}
+	.hm-month-cell:hover {
+		filter: brightness(1.12);
+	}
+	.hm-month-cell:active {
+		filter: brightness(1.08);
+	}
+	.hm-month-cell--today {
+		box-shadow: inset 0 0 0 2px var(--color-accent);
+	}
+	.hm-month-cell--selected {
+		box-shadow: inset 0 0 0 2px var(--color-fg);
+	}
+	.hm-month-cell:focus-visible {
+		outline: 2px solid var(--color-accent);
+		outline-offset: 2px;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.hm-month-cell {
+			transition: none;
+		}
 	}
 </style>

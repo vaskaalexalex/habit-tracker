@@ -3,6 +3,7 @@
 	import SwitchToggle from '$components/SwitchToggle.svelte';
 	import { authStore } from '$stores/auth.svelte';
 	import { themeStore } from '$stores/theme.svelte';
+	import { skinStore } from '$stores/skin.svelte';
 	import { profileStore } from '$stores/profile.svelte';
 	import { toasts } from '$stores/toast.svelte';
 	import { onMount } from 'svelte';
@@ -32,7 +33,8 @@
 		HardDrive,
 		ShieldCheck,
 		Download,
-		Upload
+		Upload,
+		Gamepad2
 	} from 'lucide-svelte';
 	import { goto } from '$app/navigation';
 	import { base } from '$app/paths';
@@ -397,6 +399,39 @@
 				</div>
 			</div>
 		{/if}
+
+		<div class="flex w-full items-center gap-3 rounded-2xl px-3 py-3">
+			<span class="grid size-9 shrink-0 place-items-center rounded-xl bg-(--color-bg-mute)">
+				<Gamepad2 size={18} />
+			</span>
+			<span class="min-w-0 flex-1 font-medium">Оформление</span>
+			<div
+				class="hairline flex items-center rounded-xl bg-(--color-bg-mute) p-0.5 text-xs font-semibold"
+				role="group"
+				aria-label="Оформление интерфейса"
+			>
+				<button
+					type="button"
+					onclick={() => skinStore.set('classic')}
+					aria-pressed={skinStore.skin === 'classic'}
+					class="rounded-lg px-2.5 py-1.5 transition {skinStore.skin === 'classic'
+						? 'bg-(--color-accent) text-(--color-accent-ink)'
+						: 'text-(--color-fg-mute)'}"
+				>
+					Классика
+				</button>
+				<button
+					type="button"
+					onclick={() => skinStore.set('arcade')}
+					aria-pressed={skinStore.skin === 'arcade'}
+					class="rounded-lg px-2.5 py-1.5 transition {skinStore.skin === 'arcade'
+						? 'bg-(--color-accent) text-(--color-accent-ink)'
+						: 'text-(--color-fg-mute)'}"
+				>
+					Аркада
+				</button>
+			</div>
+		</div>
 
 		<div class="flex w-full items-center gap-3 rounded-2xl px-3 py-3">
 			<span class="grid size-9 shrink-0 place-items-center rounded-xl bg-(--color-bg-mute)">

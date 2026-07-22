@@ -2,6 +2,7 @@ import { authStore } from '$stores/auth.svelte';
 import { startSyncWatchers } from '$db/sync';
 import { requestPersistentStorage } from '$db/persist';
 import { themeStore } from '$stores/theme.svelte';
+import { skinStore } from '$stores/skin.svelte';
 import { profileStore } from '$stores/profile.svelte';
 
 let started = false;
@@ -14,6 +15,7 @@ export async function bootstrap(force = false): Promise<void> {
 	// Best-effort: protect local data from browser eviction. Never blocks boot.
 	void requestPersistentStorage();
 	themeStore.init();
+	skinStore.init();
 	profileStore.init();
 	await authStore.init();
 	startSyncWatchers();

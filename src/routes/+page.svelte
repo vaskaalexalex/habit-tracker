@@ -11,9 +11,13 @@
 	import DashboardHabitTile from '$components/DashboardHabitTile.svelte';
 	import HabitHeatmap from '$components/HabitHeatmap.svelte';
 	import TodayRing from '$components/TodayRing.svelte';
+	import ArcadeHud from '$components/ArcadeHud.svelte';
 	import PageHeader from '$components/PageHeader.svelte';
+	import { skinStore } from '$stores/skin.svelte';
+	import { gameStore } from '$stores/game.svelte';
 	import { HABIT_ORDER } from '$supabase/types';
-	import type { HabitType, ISODate } from '$supabase/types';
+	import { habitColorVar } from '$lib/habit-visual';
+	import type { HabitType } from '$supabase/types';
 	import { todayStore } from '$stores/today.svelte';
 	import { dayHeadKicker, formatRu, isISODate } from '$utils/dates';
 	import {
@@ -110,6 +114,7 @@
 	});
 
 	const allDone = $derived(completedOnView.size === HABIT_ORDER.length);
+	const remaining = $derived(HABIT_ORDER.length - completedOnView.size);
 
 	let statsRowPulse = $state(false);
 	let prevAllDone: boolean | null = $state(null);
@@ -153,7 +158,7 @@
 	}
 </script>
 
-<div class="page-shell min-h-0 flex-1 gap-3 max-[380px]:gap-2 sm:gap-5 sm:pb-3">
+<div class="page-shell gap-4 pb-3 sm:gap-5">
 	<PageHeader
 		kicker={headKicker}
 		title={formatRu(viewDate)}
@@ -170,35 +175,79 @@
 		{/if}
 	</PageHeader>
 
-	<div
-		class="home-stats-row hairline flex shrink-0 items-end justify-between gap-2 rounded-xl bg-(--color-bg-soft) px-2.5 py-2 sm:rounded-2xl sm:px-3 sm:py-3"
-		class:home-stats-row--pulse={statsRowPulse}
-		class:home-stats-row--filled={allDone}
-	>
-		<span class="home-stats-row__fill" class:home-stats-row__fill--on={allDone} aria-hidden="true"
-		></span>
-		<div class="relative z-[1] min-w-0">
-			<p
-				class="home-stats-row__label text-xs font-semibold uppercase tracking-wide text-(--color-fg-mute) sm:text-sm"
+	{#if skinStore.skin === 'arcade'}
+		<div class="flex shrink-0 flex-col gap-3">
+			<ArcadeHud />
+			<div
+				class="home-stats-row hairline flex flex-col gap-2 bg-(--color-bg-soft) p-3"
+				class:home-stats-row--pulse={statsRowPulse}
 			>
-				Выполнено
-			</p>
-			<p
-				class="mt-1 font-black tabular-nums tracking-tight text-(--color-fg)"
-				style="font-size: clamp(1.75rem, 8.5vw, 3rem); line-height: 0.95;"
-			>
-				{completedOnView.size}<span
-					class="home-stats-row__total text-(--color-fg-mute)"
-					style="font-size: 60%;">/{HABIT_ORDER.length}</span
+				<div class="flex items-center justify-between gap-2">
+					<span class="font-display text-sm tracking-wide text-(--color-fg)">
+						ДЕНЬ · {formatRu(viewDate, 'dd.MM')}
+					</span>
+					{#if gameStore.combo > 0}
+						<span class="font-display text-xs text-(--color-journal)">
+							×{gameStore.combo} COMBO
+						</span>
+					{/if}
+				</div>
+				<div class="flex gap-1" aria-hidden="true">
+					{#each HABIT_ORDER as habit (habit)}
+						<span
+							class="h-3 flex-1"
+							style="background: {done(habit)
+								? habitColorVar(habit)
+								: 'var(--color-bg-mute)'}; box-shadow: inset 0 0 0 1px var(--color-fg-faint);"
+						></span>
+					{/each}
+				</div>
+				<div class="text-xs tabular-nums text-(--color-fg-mute)">
+					{completedOnView.size}/{HABIT_ORDER.length} квеста{allDone
+						? ' · День зачищен ✓'
+						: ' · Зачисти день ▶'}
+				</div>
+			</div>
+		</div>
+	{:else}
+		<div
+			class="home-stats-row hairline flex shrink-0 items-center gap-4 rounded-3xl bg-(--color-bg-soft) p-4 sm:gap-5 sm:p-5"
+			class:home-stats-row--pulse={statsRowPulse}
+			class:home-stats-row--filled={allDone}
+		>
+			<span class="home-stats-row__fill" class:home-stats-row__fill--on={allDone} aria-hidden="true"
+			></span>
+			<div class="relative z-[1] shrink-0">
+				<TodayRing completed={completedOnView} size={104} />
+			</div>
+			<div class="relative z-[1] flex min-w-0 flex-1 flex-col gap-2">
+				<p
+					class="home-stats-row__label text-[11px] font-bold uppercase tracking-[0.14em] text-(--color-fg-mute)"
 				>
-			</p>
+					{allDone ? 'День закрыт' : 'Выполнено сегодня'}
+				</p>
+				<p
+					class="font-display text-2xl font-semibold uppercase leading-[1.05] tracking-wide sm:text-[1.75rem]"
+				>
+					{#if allDone}
+						Полный день!
+					{:else}
+						Ещё {remaining} до полного дня
+					{/if}
+				</p>
+				<div class="mt-0.5 flex items-center gap-1.5" aria-hidden="true">
+					{#each HABIT_ORDER as h (h)}
+						<span
+							class="h-1.5 w-6 rounded-full"
+							style="background: {habitColorVar(h)}; opacity: {done(h) ? 1 : 0.28};"
+						></span>
+					{/each}
+				</div>
+			</div>
 		</div>
-		<div class="relative z-[1]">
-			<TodayRing completed={completedOnView} size={92} />
-		</div>
-	</div>
+	{/if}
 
-	<section class="flex min-h-0 min-w-0 shrink flex-col" aria-label="Привычки">
+	<section class="flex flex-col" aria-label="Привычки">
 		<h2
 			class="mb-1.5 shrink-0 text-[9px] font-bold uppercase tracking-wider text-(--color-fg-mute) sm:mb-2 sm:text-[10px]"
 		>
@@ -218,13 +267,7 @@
 		</div>
 	</section>
 
-	<section id="activity" class="scroll-mt-4 shrink-0" aria-labelledby="home-activity-heading">
-		<h2
-			id="home-activity-heading"
-			class="mb-2 text-[9px] font-bold uppercase tracking-wider text-(--color-fg-mute) sm:mb-2.5 sm:text-[10px]"
-		>
-			Активность
-		</h2>
+	<section id="activity" class="scroll-mt-4" aria-label="Активность">
 		<HabitHeatmap
 			completions={habitsStore.completions}
 			cellSize={10}

@@ -134,14 +134,19 @@
 			class:today-ring__center-num--hide={allDone}
 			style="transform: translateY(-{labelNudgeY}px);"
 		>
-			<div class="font-semibold tabular-nums leading-none" style="font-size: {numFontPx}px;">
-				{doneCount}
+			<div
+				class="font-display font-bold tabular-nums leading-none"
+				style="font-size: {numFontPx}px;"
+			>
+				{doneCount}<span class="text-(--color-fg-mute)" style="font-size: 60%;"
+					>/{HABIT_ORDER.length}</span
+				>
 			</div>
 			<div
-				class="mt-[0.12em] font-medium leading-none tracking-tight text-(--color-fg-soft)"
+				class="mt-[0.22em] font-bold uppercase leading-none tracking-wide text-(--color-fg-mute)"
 				style="font-size: {subFontPx}px;"
 			>
-				из {HABIT_ORDER.length}
+				закрыто
 			</div>
 		</div>
 		{#if allDone}

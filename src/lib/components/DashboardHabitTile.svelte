@@ -169,7 +169,9 @@
 		>
 			<Icon size={iconSz} strokeWidth={2} />
 		</span>
-		<span class="min-w-0 flex-1 truncate font-semibold tracking-tight {titleSize}">
+		<span
+			class="font-display min-w-0 flex-1 truncate font-semibold uppercase tracking-wide {titleSize}"
+		>
 			{HABIT_LABELS[habit]}
 		</span>
 		{#if streak > 0}

@@ -1,39 +1,90 @@
 @import 'tailwindcss';
 @import '@fontsource-variable/inter/wght.css';
+@import '@fontsource-variable/oswald/wght.css';
+/* Пиксельные шрифты скина «Аркада» (грузятся лениво — в «Классике» не качаются) */
+@import '@fontsource/press-start-2p/latin.css';
+@import '@fontsource/press-start-2p/cyrillic.css';
+@import '@fontsource/dotgothic16/latin.css';
+@import '@fontsource/dotgothic16/cyrillic.css';
+@import '@fontsource/vt323/latin.css';
 
 @theme {
-	/* Bold Dashboard (dark): высокий контраст, геометричные границы */
-	--color-bg: oklch(0.14 0.01 260);
-	--color-bg-soft: oklch(0.18 0.015 260);
-	--color-bg-mute: oklch(0.22 0.02 260);
+	/* Oswald Bold restyle (dark — база) */
+	--color-bg: oklch(0.17 0.012 264);
+	--color-bg-soft: oklch(0.215 0.014 264);
+	--color-bg-mute: oklch(0.265 0.014 264);
 	--color-bottom-nav-surface: color-mix(in oklch, var(--color-bg-soft) 92%, black 8%);
-	--color-fg: oklch(0.99 0 0);
-	--color-fg-soft: oklch(0.82 0.01 260);
-	--color-fg-mute: oklch(0.62 0.02 260);
-	--color-border: oklch(0.38 0.03 260);
-	--color-accent: oklch(0.75 0.2 250);
-	--color-accent-soft: oklch(0.72 0.16 250 / 0.22);
+	--color-fg: oklch(0.97 0.005 264);
+	--color-fg-soft: oklch(0.72 0.01 264);
+	--color-fg-mute: oklch(0.58 0.012 264);
+	--color-fg-faint: oklch(0.5 0.012 264);
+	--color-border: oklch(1 0 0 / 0.06);
 
-	--color-sport: oklch(0.78 0.2 30);
-	--color-coding: oklch(0.78 0.2 145);
-	--color-reading: oklch(0.78 0.2 290);
-	--color-journal: oklch(0.82 0.18 85);
+	--color-accent: oklch(0.72 0.17 255);
+	--color-accent-ink: oklch(0.16 0.02 264);
+	--color-accent-soft: oklch(0.72 0.17 255 / 0.16);
+	--color-success: oklch(0.72 0.17 150);
+	--color-danger: oklch(0.63 0.2 25);
+
+	--color-sport: oklch(0.76 0.16 45);
+	--color-coding: oklch(0.77 0.15 150);
+	--color-reading: oklch(0.72 0.16 300);
+	--color-journal: oklch(0.84 0.14 90);
+	/* Тёмный ink для текста/иконок на плитке, залитой цветом привычки */
+	--color-on-habit: oklch(0.2 0.02 264);
+
+	/* Heatmap: 5 градаций (общая зелёная шкала, тема-зависимо) */
+	--color-hm-0: oklch(0.28 0.008 264);
+	--color-hm-1: oklch(0.42 0.09 150);
+	--color-hm-2: oklch(0.53 0.12 150);
+	--color-hm-3: oklch(0.64 0.15 150);
+	--color-hm-4: oklch(0.75 0.17 150);
+	/* Цвет числа дня в ячейке календаря по уровню (контраст на заливке) */
+	--color-hm-ink-0: var(--color-fg-mute);
+	--color-hm-ink-1: oklch(0.95 0.02 150);
+	--color-hm-ink-2: oklch(0.95 0.02 150);
+	--color-hm-ink-3: oklch(0.2 0.03 150);
+	--color-hm-ink-4: oklch(0.2 0.03 150);
 
 	--font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+	--font-display: 'Oswald Variable', 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
 
-	--radius-2xl: 1.25rem;
-	--radius-3xl: 1.75rem;
+	--radius-2xl: 1.375rem;
+	--radius-3xl: 1.625rem;
 }
 
 [data-theme='light'] {
-	--color-bg: oklch(0.98 0.005 260);
-	--color-bg-soft: oklch(0.95 0.01 260);
-	--color-bg-mute: oklch(0.9 0.015 260);
-	--color-fg: oklch(0.12 0.02 260);
-	--color-fg-soft: oklch(0.32 0.02 260);
-	--color-fg-mute: oklch(0.48 0.02 260);
-	--color-border: oklch(0.82 0.02 260);
-	--color-accent-soft: oklch(0.55 0.18 250 / 0.18);
+	--color-bg: oklch(0.98 0.004 264);
+	--color-bg-soft: oklch(1 0 0);
+	--color-bg-mute: oklch(0.95 0.006 264);
+	--color-fg: oklch(0.22 0.02 264);
+	--color-fg-soft: oklch(0.42 0.015 264);
+	--color-fg-mute: oklch(0.52 0.012 264);
+	--color-fg-faint: oklch(0.6 0.012 264);
+	--color-border: oklch(0 0 0 / 0.08);
+
+	--color-accent: oklch(0.55 0.19 255);
+	--color-accent-ink: oklch(0.99 0 0);
+	--color-accent-soft: oklch(0.55 0.19 255 / 0.14);
+	--color-success: oklch(0.5 0.15 150);
+	--color-danger: oklch(0.58 0.2 25);
+
+	--color-sport: oklch(0.62 0.17 45);
+	--color-coding: oklch(0.56 0.15 150);
+	--color-reading: oklch(0.55 0.18 300);
+	--color-journal: oklch(0.7 0.15 88);
+	--color-on-habit: oklch(0.2 0.02 264);
+
+	--color-hm-0: oklch(0.92 0.01 264);
+	--color-hm-1: oklch(0.85 0.07 150);
+	--color-hm-2: oklch(0.74 0.11 150);
+	--color-hm-3: oklch(0.62 0.14 150);
+	--color-hm-4: oklch(0.5 0.15 150);
+	--color-hm-ink-0: var(--color-fg-mute);
+	--color-hm-ink-1: oklch(0.32 0.06 150);
+	--color-hm-ink-2: oklch(0.28 0.06 150);
+	--color-hm-ink-3: oklch(0.98 0.02 150);
+	--color-hm-ink-4: oklch(0.98 0.02 150);
 }
 
 @layer base {
@@ -135,25 +186,26 @@
 
 /** First-line accent label above page titles (aligned size across screens). */
 @utility page-kicker {
-	font-size: 0.75rem;
+	font-size: 0.6875rem;
 	line-height: 1rem;
 	font-weight: 700;
 	text-transform: uppercase;
-	letter-spacing: 0.05em;
+	letter-spacing: 0.16em;
 	color: var(--color-accent);
 }
 
-/** Main screen title (second line). */
+/** Main screen title (second line) — Oswald display. */
 @utility page-title {
-	font-size: 1.5rem;
+	font-family: var(--font-display);
+	font-size: 1.75rem;
 	line-height: 2rem;
-	font-weight: 900;
+	font-weight: 700;
 	text-transform: uppercase;
-	letter-spacing: -0.025em;
+	letter-spacing: 0.01em;
 	color: var(--color-fg);
 
 	@variant sm {
-		font-size: 1.875rem;
+		font-size: 2rem;
 		line-height: 2.25rem;
 	}
 }
@@ -405,8 +457,8 @@
 }
 
 .habit-tile-btn.completed {
-	color: white;
-	border-color: color-mix(in oklch, var(--color-fg) 18%, transparent);
+	color: var(--color-on-habit);
+	border-color: color-mix(in oklch, black 12%, transparent);
 }
 .habit-tile-icon {
 	background: color-mix(in oklch, var(--c) 22%, transparent);
@@ -416,8 +468,8 @@
 		color 320ms ease;
 }
 .habit-tile-btn.completed .habit-tile-icon {
-	background: rgba(255, 255, 255, 0.22);
-	color: white;
+	background: color-mix(in oklch, black 14%, transparent);
+	color: var(--color-on-habit);
 }
 .habit-tile-streak {
 	transition: color 320ms ease;
@@ -427,7 +479,7 @@
 }
 .habit-tile-btn.completed .habit-tile-streak,
 .habit-tile-btn.completed .habit-tile-streak__icon {
-	color: white;
+	color: var(--color-on-habit);
 }
 
 /* Home stats row: full green fill when all habits are completed */
@@ -565,3 +617,206 @@ html[data-vt-tab='back']::view-transition-new(app-main) {
 .app-bottom-nav-vt {
 	view-transition-name: app-bottom-nav;
 }
+
+/* ============================================================
+   СКИН «АРКАДА» — 8-bit / RPG. Включается тумблером в профиле
+   (data-skin="arcade"). «Классика» (по умолчанию) не затрагивается.
+   Работает в обеих темах: dark → navy, light → пергамент.
+   ============================================================ */
+
+[data-skin='arcade'] {
+	/* грани пиксель-рамки */
+	--edge-lite: #3a3a5c;
+	--edge-dark: #000000;
+
+	--color-bg: #0f0f1b;
+	--color-bg-soft: #1a1a2e;
+	--color-bg-mute: #24243a;
+	--color-bottom-nav-surface: #14141f;
+	--color-fg: #f4f4f0;
+	--color-fg-soft: #c8c8d6;
+	--color-fg-mute: #9a9ab0;
+	--color-fg-faint: #6b6b85;
+	--color-border: #000000;
+
+	--color-accent: #3ddc84;
+	--color-accent-ink: #0f0f1b;
+	--color-accent-soft: #24243a;
+	--color-success: #3ddc84;
+	--color-danger: #ff4d3d;
+
+	--color-sport: #ff4d3d;
+	--color-coding: #3ddc84;
+	--color-reading: #9b6cff;
+	--color-journal: #ffcf3d;
+	--color-on-habit: #0f0f1b;
+
+	--color-hm-0: #24243a;
+	--color-hm-1: #1f6b45;
+	--color-hm-2: #2a9c5f;
+	--color-hm-3: #3ddc84;
+	--color-hm-4: #7dffb4;
+	--color-hm-ink-0: #7a7a95;
+	--color-hm-ink-1: #eafff2;
+	--color-hm-ink-2: #eafff2;
+	--color-hm-ink-3: #0f0f1b;
+	--color-hm-ink-4: #0f0f1b;
+
+	--font-sans: 'DotGothic16', 'VT323', ui-monospace, monospace;
+	--font-display: 'DotGothic16', 'VT323', ui-sans-serif, sans-serif;
+}
+
+[data-skin='arcade'][data-theme='light'] {
+	--edge-lite: #fffbe8;
+	--edge-dark: #2a2018;
+
+	--color-bg: #e6d8b5;
+	--color-bg-soft: #f3ead2;
+	--color-bg-mute: #d8c8a0;
+	--color-bottom-nav-surface: #efe4c7;
+	--color-fg: #2a2018;
+	--color-fg-soft: #4a3f2c;
+	--color-fg-mute: #6b5d45;
+	--color-fg-faint: #8a7a5a;
+	--color-border: #2a2018;
+
+	--color-accent: #1f9c56;
+	--color-accent-ink: #fffbe8;
+	--color-accent-soft: #d8c8a0;
+	--color-success: #1f9c56;
+	--color-danger: #c8341f;
+
+	--color-sport: #c8341f;
+	--color-coding: #1f9c56;
+	--color-reading: #6a3fc0;
+	--color-journal: #c9971a;
+	--color-on-habit: #fffbe8;
+
+	--color-hm-0: #d8c8a0;
+	--color-hm-1: #a8cb8f;
+	--color-hm-2: #6faa5f;
+	--color-hm-3: #3f8c3f;
+	--color-hm-4: #1f9c56;
+	--color-hm-ink-0: #6b5d45;
+	--color-hm-ink-1: #24300f;
+	--color-hm-ink-2: #fffbe8;
+	--color-hm-ink-3: #fffbe8;
+	--color-hm-ink-4: #fffbe8;
+}
+
+/* Пиксель-перфект: без скруглений */
+[data-skin='arcade'] * {
+	border-radius: 0 !important;
+}
+
+/* Заголовок экрана — настоящий Press Start 2P (мельче классики) */
+[data-skin='arcade'] .page-title {
+	font-family: 'Press Start 2P', 'Pixelify Sans Variable', sans-serif;
+	font-size: 1rem;
+	line-height: 1.7;
+	letter-spacing: 0;
+}
+@media (min-width: 640px) {
+	[data-skin='arcade'] .page-title {
+		font-size: 1.25rem;
+	}
+}
+[data-skin='arcade'] .page-kicker {
+	font-family: 'Press Start 2P', 'Pixelify Sans Variable', sans-serif;
+	font-size: 0.5rem;
+	letter-spacing: 0.06em;
+}
+
+/* Карточка/панель — пиксель-рамка */
+[data-skin='arcade'] .hairline {
+	border: 3px solid var(--edge-dark) !important;
+	box-shadow:
+		inset 2px 2px 0 var(--edge-lite),
+		inset -2px -2px 0 var(--edge-dark),
+		4px 4px 0 var(--edge-dark);
+}
+
+/* Инпуты / textarea / select — пиксельный слот */
+[data-skin='arcade'] input,
+[data-skin='arcade'] textarea,
+[data-skin='arcade'] select,
+[data-skin='arcade'] .native-select,
+[data-skin='arcade'] .native-select-compact {
+	border: 2px solid var(--edge-dark) !important;
+	box-shadow: inset 2px 2px 0 var(--edge-lite) !important;
+	background-color: var(--color-bg-mute) !important;
+	color: var(--color-fg) !important;
+}
+
+/* Кнопки-картриджи: любой button/ссылка с заливкой accent */
+[data-skin='arcade'] button[class*='bg-(--color-accent)'],
+[data-skin='arcade'] a[class*='bg-(--color-accent)'] {
+	border: 2px solid var(--edge-dark);
+	box-shadow:
+		inset 2px 2px 0 color-mix(in oklab, white 30%, transparent),
+		3px 3px 0 var(--edge-dark);
+	color: var(--color-accent-ink) !important;
+}
+[data-skin='arcade'] button[class*='bg-(--color-accent)']:active,
+[data-skin='arcade'] a[class*='bg-(--color-accent)']:active {
+	transform: translate(2px, 2px);
+	box-shadow: inset 2px 2px 0 color-mix(in oklab, white 25%, transparent);
+}
+
+/* Плитка привычки — пиксельный квест-слот */
+[data-skin='arcade'] .habit-tile-btn {
+	border: 3px solid var(--edge-dark) !important;
+	box-shadow:
+		inset 2px 2px 0 var(--edge-lite),
+		inset -2px -2px 0 var(--edge-dark),
+		4px 4px 0 var(--edge-dark);
+}
+[data-skin='arcade'] .habit-tile-icon {
+	border: 2px solid var(--edge-dark);
+}
+/* Имя привычки в аркаде чуть компактнее (DotGothic16 шире Oswald) */
+[data-skin='arcade'] .habit-tile-btn .font-display {
+	font-size: 0.8125rem;
+	letter-spacing: 0;
+}
+/* Угловой значок «квест выполнен» на залитой плитке */
+[data-skin='arcade'] .habit-tile-btn.completed::after {
+	content: '✓';
+	position: absolute;
+	top: 0;
+	right: 0;
+	z-index: 2;
+	display: grid;
+	place-items: center;
+	width: 20px;
+	height: 20px;
+	background: var(--color-accent);
+	color: var(--color-accent-ink);
+	border-left: 2px solid var(--edge-dark);
+	border-bottom: 2px solid var(--edge-dark);
+	font-size: 11px;
+	line-height: 1;
+}
+
+/* Heatmap — пиксельные тайлы */
+[data-skin='arcade'] .hm-month-cell {
+	border: 2px solid var(--edge-dark);
+}
+[data-skin='arcade'] .hm-month-cell--today {
+	box-shadow: inset 0 0 0 3px var(--color-accent);
+}
+
+/* Нижняя навигация и «стекло» — плоские пиксель-панели */
+[data-skin='arcade'] .bottom-nav-surface {
+	background: var(--color-bottom-nav-surface);
+	backdrop-filter: none;
+	-webkit-backdrop-filter: none;
+	border-top: 3px solid var(--edge-dark);
+}
+[data-skin='arcade'] .glass {
+	background: var(--color-bg-soft);
+	backdrop-filter: none;
+	-webkit-backdrop-filter: none;
+}
+
+/* Мигающая каретка-акцент у ссылок «▶»/каталог не трогаем — остаётся текстом */
