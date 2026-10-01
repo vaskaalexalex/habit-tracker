@@ -148,9 +148,7 @@ class StrengthStore {
 
 	/** Latest workout day strictly before `beforeDate`; all sets that day for this exercise, by set_number. */
 	lastSessionSetsBefore(exerciseId: UUID, beforeDate: ISODate): WorkoutSet[] | null {
-		const relevant = this.sets.filter(
-			(s) => s.exercise_id === exerciseId && s.date < beforeDate
-		);
+		const relevant = this.sets.filter((s) => s.exercise_id === exerciseId && s.date < beforeDate);
 		if (relevant.length === 0) return null;
 		const first = relevant[0];
 		if (!first) return null;
@@ -226,6 +224,18 @@ class StrengthStore {
 		this.sets = this.sets.filter((s) => s.id !== id);
 		await db.workout_sets.delete(id);
 		await enqueue('workout_sets', 'delete', { id });
+		void drainQueue();
+	}
+
+	async deleteDay(date: ISODate): Promise<void> {
+		const ids = this.setsForDate(date).map((s) => s.id);
+		if (ids.length === 0) return;
+		const idSet = new Set(ids);
+		this.sets = this.sets.filter((s) => !idSet.has(s.id));
+		await db.workout_sets.bulkDelete(ids);
+		for (const id of ids) {
+			await enqueue('workout_sets', 'delete', { id });
+		}
 		void drainQueue();
 	}
 }

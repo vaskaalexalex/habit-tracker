@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { strengthStore } from '$stores/strength.svelte';
-	import { ensureSportCompleted } from '$stores/auto-complete';
+	import { ensureSportCompleted, ensureSportNotCompletedIfEmpty } from '$stores/auto-complete';
 	import { toasts } from '$stores/toast.svelte';
 	import PageHeader from '$components/PageHeader.svelte';
 	import StrengthHeatmap from '$components/StrengthHeatmap.svelte';
@@ -115,10 +115,19 @@
 		return a.name.localeCompare(b.name, 'ru');
 	}
 
-	/** Видимые упражнения группы, отсортированные как в каталоге; выбранное всегда включено. */
-	function exerciseOptions(group: MuscleGroup, currentId: string | null): Exercise[] {
+	/** Видимые упражнения группы без выбранных в других строках дня; выбранное в строке всегда включено. */
+	function exerciseOptions(
+		group: MuscleGroup,
+		rowId: string,
+		currentId: string | null
+	): Exercise[] {
+		const takenElsewhere = new Set(
+			rows.filter((r) => r.id !== rowId && r.exerciseId).map((r) => r.exerciseId as string)
+		);
 		const list = strengthStore.exercises
-			.filter((e) => !e.hidden && normalizeMuscle(e.muscle_group) === group)
+			.filter(
+				(e) => !e.hidden && normalizeMuscle(e.muscle_group) === group && !takenElsewhere.has(e.id)
+			)
 			.sort(compareExercises);
 		if (currentId && !list.some((e) => e.id === currentId)) {
 			const sel = strengthStore.exercises.find((e) => e.id === currentId);
@@ -209,6 +218,7 @@
 
 	let rows = $state<Row[]>(makeTemplate());
 	let saving = $state(false);
+	let deleting = $state(false);
 	let sessionReady = $state(false);
 	let persistTimer: ReturnType<typeof setTimeout> | null = null;
 	/** Не перегонять строки из черновика при каждом refresh sets[] — только смена дня / появление тренировки за день. */
@@ -238,10 +248,9 @@
 	const savedKey = $derived(snapshotKey(buildRowsFromDbOrTemplate(viewDate)));
 	const currentKey = $derived(snapshotKey(rows));
 	const hasChanges = $derived(sessionReady && savedKey !== currentKey);
+	const hasSavedWorkout = $derived(strengthStore.setsForDate(viewDate).length > 0);
 
-	const groupsInOrder = $derived(
-		MUSCLE_GROUP_ORDER.filter((g) => rows.some((r) => r.group === g))
-	);
+	const groupsInOrder = $derived(MUSCLE_GROUP_ORDER.filter((g) => rows.some((r) => r.group === g)));
 
 	function rowsByGroup(group: MuscleGroup): Row[] {
 		return rows.filter((r) => r.group === group);
@@ -260,9 +269,7 @@
 
 	function clearRow(id: string) {
 		clearStrengthFieldDrafts(id);
-		rows = rows.map((r) =>
-			r.id === id ? { ...r, exerciseId: null, weight: 0, sets: 0 } : r
-		);
+		rows = rows.map((r) => (r.id === id ? { ...r, exerciseId: null, weight: 0, sets: 0 } : r));
 	}
 
 	function setExercise(id: string, exerciseId: UUID) {
@@ -285,6 +292,8 @@
 		}
 		saving = true;
 		try {
+			const isEdit = hasSavedWorkout;
+			if (isEdit) await strengthStore.deleteDay(viewDate);
 			for (const row of valid) {
 				for (let i = 0; i < row.sets; i++) {
 					await strengthStore.addSet({
@@ -296,10 +305,31 @@
 				}
 			}
 			await ensureSportCompleted(viewDate);
-			toasts.success(`Сохранено ${valid.length} упражнен${valid.length === 1 ? 'ие' : 'ий'}`);
+			toasts.success(
+				`${isEdit ? 'Обновлено' : 'Сохранено'} ${valid.length} упражнен${valid.length === 1 ? 'ие' : 'ий'}`
+			);
 			void goto(withViewDate(`${base}/`, viewDate, today), { replaceState: true });
 		} finally {
 			saving = false;
+		}
+	}
+
+	async function deleteWorkout() {
+		if (deleting || saving || !hasSavedWorkout) return;
+		if (!confirm(`Удалить тренировку за ${formatRu(viewDate, 'd MMMM')}?`)) return;
+		deleting = true;
+		try {
+			const date = viewDate;
+			const template = makeTemplate();
+			writeDraftImmediate(date, template);
+			rows = template;
+			weightInputStr = {};
+			setsInputStr = {};
+			await strengthStore.deleteDay(date);
+			await ensureSportNotCompletedIfEmpty(date);
+			toasts.success('Тренировка удалена');
+		} finally {
+			deleting = false;
 		}
 	}
 
@@ -404,7 +434,7 @@
 								class="native-select-compact truncate"
 							>
 								<option value="" disabled>Упражнение</option>
-								{#each exerciseOptions(group, row.exerciseId) as ex (ex.id)}
+								{#each exerciseOptions(group, row.id, row.exerciseId) as ex (ex.id)}
 									<option value={ex.id}>{ex.name}</option>
 								{/each}
 							</select>
@@ -486,7 +516,9 @@
 
 		<div class="flex flex-col gap-2 border-t border-(--color-border) pt-3">
 			<div class="flex flex-wrap items-center gap-2 px-1">
-				<label class="flex min-w-0 flex-1 items-center gap-2 text-[11px] font-medium text-(--color-fg-mute)">
+				<label
+					class="flex min-w-0 flex-1 items-center gap-2 text-[11px] font-medium text-(--color-fg-mute)"
+				>
 					<span class="shrink-0">Группа</span>
 					<div class="relative min-w-0 flex-1">
 						<select bind:value={addMuscleGroup} class="native-select">
@@ -505,9 +537,26 @@
 					<Plus size={14} /> Добавить упражнение
 				</button>
 			</div>
+			{#if hasSavedWorkout}
+				<button
+					type="button"
+					onclick={deleteWorkout}
+					disabled={deleting || saving}
+					class="inline-flex items-center justify-center gap-1.5 self-start rounded-xl px-3 py-2 text-xs font-semibold text-(--color-fg-mute) hover:bg-(--color-bg-mute) hover:text-rose-400 disabled:pointer-events-none disabled:opacity-40"
+				>
+					{#if deleting}
+						<Loader2 size={14} class="animate-spin" />
+					{:else}
+						<Trash2 size={14} />
+					{/if}
+					Удалить тренировку
+				</button>
+			{/if}
 		</div>
 
-		<p class="flex flex-wrap items-center gap-x-2 gap-y-1 px-1 pt-1 text-[11px] text-(--color-fg-mute)">
+		<p
+			class="flex flex-wrap items-center gap-x-2 gap-y-1 px-1 pt-1 text-[11px] text-(--color-fg-mute)"
+		>
 			<span>Подход = {DEFAULT_REPS} повторений по умолчанию. Список из каталога — </span>
 			<a
 				href={exercisesPath}
