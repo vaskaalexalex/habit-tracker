@@ -384,22 +384,38 @@
 		kicker={headKicker}
 		title="Силовая"
 		subtitle={formatRu(viewDate)}
-		showTrailing={hasChanges}
+		showTrailing={hasChanges || (sessionReady && hasSavedWorkout)}
 	>
 		{#snippet trailing()}
-			<button
-				type="button"
-				onclick={saveAll}
-				disabled={saving || filledCount === 0}
-				class="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-2xl bg-(--color-accent) px-3 text-sm font-bold text-white transition active:scale-[0.97] disabled:opacity-50"
-			>
-				{#if saving}
-					<Loader2 size={16} class="animate-spin" />
-				{:else}
-					<Save size={16} />
-				{/if}
-				<span>Сохранить{filledCount > 0 ? ` · ${filledCount}` : ''}</span>
-			</button>
+			{#if hasChanges}
+				<button
+					type="button"
+					onclick={saveAll}
+					disabled={saving || filledCount === 0}
+					class="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-2xl bg-(--color-accent) px-3 text-sm font-bold text-white transition active:scale-[0.97] disabled:opacity-50"
+				>
+					{#if saving}
+						<Loader2 size={16} class="animate-spin" />
+					{:else}
+						<Save size={16} />
+					{/if}
+					<span>Сохранить{filledCount > 0 ? ` · ${filledCount}` : ''}</span>
+				</button>
+			{:else}
+				<button
+					type="button"
+					onclick={deleteWorkout}
+					disabled={deleting || saving}
+					class="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-2xl bg-(--color-danger) px-3 text-sm font-bold text-white transition active:scale-[0.97] disabled:opacity-50"
+				>
+					{#if deleting}
+						<Loader2 size={16} class="animate-spin" />
+					{:else}
+						<Trash2 size={16} />
+					{/if}
+					<span>Удалить</span>
+				</button>
+			{/if}
 		{/snippet}
 	</PageHeader>
 
@@ -537,21 +553,6 @@
 					<Plus size={14} /> Добавить упражнение
 				</button>
 			</div>
-			{#if hasSavedWorkout}
-				<button
-					type="button"
-					onclick={deleteWorkout}
-					disabled={deleting || saving}
-					class="inline-flex items-center justify-center gap-1.5 self-start rounded-xl px-3 py-2 text-xs font-semibold text-(--color-fg-mute) hover:bg-(--color-bg-mute) hover:text-rose-400 disabled:pointer-events-none disabled:opacity-40"
-				>
-					{#if deleting}
-						<Loader2 size={14} class="animate-spin" />
-					{:else}
-						<Trash2 size={14} />
-					{/if}
-					Удалить тренировку
-				</button>
-			{/if}
 		</div>
 
 		<p
