@@ -34,12 +34,14 @@
 		ShieldCheck,
 		Download,
 		Upload,
-		Gamepad2
+		Gamepad2,
+		CloudDownload
 	} from 'lucide-svelte';
 	import { goto } from '$app/navigation';
 	import { base } from '$app/paths';
 	import { storageStatus, requestPersistentStorage, type StorageStatus } from '$db/persist';
 	import { exportBackup, importBackup } from '$db/backup';
+	import { resetLocalDataFromServer } from '$db/force-sync';
 	import { habitsStore } from '$stores/habits.svelte';
 	import { strengthStore } from '$stores/strength.svelte';
 	import { cardioStore } from '$stores/cardio.svelte';
@@ -62,6 +64,7 @@
 	let storageBusy = $state(false);
 	let exporting = $state(false);
 	let importing = $state(false);
+	let resettingLocal = $state(false);
 	let importInput = $state<HTMLInputElement | null>(null);
 
 	const storageUsageLabel = $derived.by(() => {
@@ -268,6 +271,28 @@
 			else toasts.push('Браузер не выдал постоянное хранилище', 'error');
 		} finally {
 			storageBusy = false;
+		}
+	}
+
+	async function reloadDataFromServer() {
+		if (resettingLocal) return;
+		if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+			toasts.push('Нужен интернет, чтобы загрузить данные с сервера', 'error');
+			return;
+		}
+		if (!confirm('Заменить данные на устройстве данными с сервера?')) return;
+		resettingLocal = true;
+		try {
+			const result = await resetLocalDataFromServer();
+			if (result === 'pending') {
+				toasts.push('Есть неотправленные изменения — дождись синхронизации', 'error');
+				return;
+			}
+			location.reload();
+		} catch (err) {
+			toasts.push(err instanceof Error ? err.message : 'Не удалось обновить данные', 'error');
+		} finally {
+			resettingLocal = false;
 		}
 	}
 
@@ -561,6 +586,15 @@
 				>
 					<Upload size={14} />
 					{importing ? '…' : 'Импорт'}
+				</button>
+				<button
+					type="button"
+					class="tap-target hairline inline-flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-xs font-semibold text-(--color-fg-mute) transition-opacity disabled:opacity-40"
+					disabled={resettingLocal}
+					onclick={() => void reloadDataFromServer()}
+				>
+					<CloudDownload size={14} />
+					{resettingLocal ? '…' : 'С сервера'}
 				</button>
 				<input
 					bind:this={importInput}
