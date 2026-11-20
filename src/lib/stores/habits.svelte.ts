@@ -27,7 +27,7 @@ class HabitsStore {
 		return { fromISO: toISO(from), toISO2: toISO(to) };
 	}
 
-	async hydrateLocal(monthsBack = 12): Promise<void> {
+	async hydrateLocal(monthsBack = 6): Promise<void> {
 		if (!this.#userId) return;
 		const { fromISO, toISO2 } = this.#range(monthsBack);
 		try {
@@ -48,7 +48,7 @@ class HabitsStore {
 		}
 	}
 
-	async syncRemote(monthsBack = 12): Promise<void> {
+	async syncRemote(monthsBack = 6): Promise<void> {
 		if (!this.#userId) return;
 		const { fromISO, toISO2 } = this.#range(monthsBack);
 		// Snapshot ids the user has BEFORE drain/fetch. After the awaits we
@@ -91,7 +91,7 @@ class HabitsStore {
 		}
 	}
 
-	async refresh(monthsBack = 12): Promise<void> {
+	async refresh(monthsBack = 6): Promise<void> {
 		if (!this.#userId) return;
 		this.loading = true;
 		const { fromISO, toISO2 } = this.#range(monthsBack);
@@ -100,6 +100,10 @@ class HabitsStore {
 		await this.syncRemote(monthsBack);
 		this.loading = false;
 		syncDebug('habits-refresh-finish', { count: this.completions.length });
+	}
+
+	coversDate(date: ISODate, monthsBack = 6): boolean {
+		return date >= this.#range(monthsBack).fromISO;
 	}
 
 	isCompleted(habit: HabitType, date: ISODate): boolean {

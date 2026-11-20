@@ -93,10 +93,35 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
 	});
 }
 
+function taskKey(task: SyncTask): string {
+	const payload = task.payload as Record<string, unknown>;
+	if (task.table === 'habit_completions' && payload.habit_type && payload.date) {
+		return `${task.table}|${String(payload.user_id)}|${String(payload.habit_type)}|${String(payload.date)}`;
+	}
+	return `${task.table}|${String(payload.id)}`;
+}
+
+async function compactQueue(): Promise<void> {
+	const all = await db.sync_queue.orderBy('ts').toArray();
+	const lastIdByKey = new Map<string, number>();
+	for (const task of all) {
+		if (task.id !== undefined) lastIdByKey.set(taskKey(task), task.id);
+	}
+	const keep = new Set(lastIdByKey.values());
+	const stale = all
+		.map((task) => task.id)
+		.filter((id): id is number => id !== undefined && !keep.has(id));
+	if (stale.length === 0) return;
+	await db.sync_queue.bulkDelete(stale);
+	syncDebug('queue-compacted', { before: all.length, removed: stale.length });
+	notifyQueueChanged();
+}
+
 async function drainQueueNow(): Promise<DrainResult> {
 	let ok = 0;
 	let failed = 0;
 
+	await compactQueue();
 	const tasks = await db.sync_queue.orderBy('ts').limit(50).toArray();
 	syncDebug('queue-drain-start', { count: tasks.length });
 	for (const task of tasks) {

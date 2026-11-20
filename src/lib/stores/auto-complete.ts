@@ -23,9 +23,7 @@ export async function ensureSportCompleted(date: ISODate = isoToday()): Promise<
 	}
 }
 
-export async function ensureSportNotCompletedIfEmpty(
-	date: ISODate = isoToday()
-): Promise<void> {
+export async function ensureSportNotCompletedIfEmpty(date: ISODate = isoToday()): Promise<void> {
 	const hasStrength = strengthStore.setsForDate(date).length > 0;
 	const hasCardio = cardioStore.items.some((c) => c.date === date);
 	if (hasStrength || hasCardio) return;
@@ -67,7 +65,7 @@ export async function reconcileJournalCompletions(): Promise<void> {
 	/** Dates with journal text — habit row must exist (same idea as sport + workouts). */
 	const withWriting = new Set<ISODate>();
 	for (const e of journalStore.entries) {
-		if (journalHabitBackedByWriting(e)) withWriting.add(e.date);
+		if (journalHabitBackedByWriting(e) && habitsStore.coversDate(e.date)) withWriting.add(e.date);
 	}
 	for (const date of withWriting) {
 		await ensureJournalCompleted(date);
