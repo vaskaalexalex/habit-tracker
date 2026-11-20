@@ -15,6 +15,16 @@ interface ForcePushResult {
 	subtasks: number;
 }
 
+function dedupeByConflictKey(rows: readonly unknown[], onConflict: string): unknown[] {
+	const keys = onConflict.split(',');
+	const byKey = new Map<string, unknown>();
+	for (const row of rows) {
+		const record = row as Record<string, unknown>;
+		byKey.set(keys.map((key) => String(record[key])).join('|'), row);
+	}
+	return [...byKey.values()];
+}
+
 async function upsertRows(
 	table: string,
 	rows: readonly unknown[],
@@ -22,7 +32,10 @@ async function upsertRows(
 ): Promise<void> {
 	if (rows.length === 0) return;
 
-	const query = supabase.from(table).upsert(rows as never, onConflict ? { onConflict } : undefined);
+	const uniqueRows = onConflict ? dedupeByConflictKey(rows, onConflict) : rows;
+	const query = supabase
+		.from(table)
+		.upsert(uniqueRows as never, onConflict ? { onConflict } : undefined);
 	const { error } = await query;
 	if (error) throw error;
 }
