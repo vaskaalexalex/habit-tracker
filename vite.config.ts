@@ -54,7 +54,9 @@ export default defineConfig({
 				cleanupOutdatedCaches: true,
 				clientsClaim: true,
 				navigateFallback: startUrl,
-				navigateFallbackAllowlist: BASE ? [new RegExp(`^${BASE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`)] : undefined,
+				navigateFallbackAllowlist: BASE
+					? [new RegExp(`^${BASE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`)]
+					: undefined,
 				skipWaiting: true,
 				importScripts: [`${BASE || ''}/push-sw.js`],
 				runtimeCaching: [
@@ -62,6 +64,12 @@ export default defineConfig({
 						urlPattern: ({ url, sameOrigin }) =>
 							sameOrigin === true && url.pathname.endsWith('/build-id.json'),
 						handler: 'NetworkOnly'
+					},
+					{
+						urlPattern: ({ url, sameOrigin }) =>
+							sameOrigin === true && url.pathname.endsWith('/_app/env.js'),
+						handler: 'NetworkFirst',
+						options: { cacheName: 'sveltekit-env', networkTimeoutSeconds: 3 }
 					},
 					{
 						urlPattern: ({ url }) => url.hostname.endsWith('.supabase.co'),
