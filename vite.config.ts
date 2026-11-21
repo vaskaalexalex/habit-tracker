@@ -14,6 +14,7 @@ function readBuildId(): string {
 }
 
 process.env.PUBLIC_APP_BUILD_ID = readBuildId();
+process.env.PUBLIC_VAPID_PUBLIC_KEY ??= '';
 
 const BASE = process.env.BASE_PATH ?? '';
 const startUrl = `${BASE}/`;

@@ -1,8 +1,12 @@
-import { env } from '$env/dynamic/public';
+import { PUBLIC_VAPID_PUBLIC_KEY } from '$env/static/public';
 import { base } from '$app/paths';
 import { DEFAULT_VAPID_PUBLIC_KEY } from '$lib/push/default-vapid-public';
 import { ensurePushServiceWorkerRegistration } from '$lib/push/service-worker';
-import { FunctionsFetchError, FunctionsHttpError, FunctionsRelayError } from '@supabase/supabase-js';
+import {
+	FunctionsFetchError,
+	FunctionsHttpError,
+	FunctionsRelayError
+} from '@supabase/supabase-js';
 import { supabase, isSupabaseConfigured } from '$supabase/client';
 import type { Database } from '$supabase/types';
 
@@ -35,7 +39,7 @@ export function habitPushJournalRelUrl(appBasePath: string = base): string {
 }
 
 function getVapidPublicKey(): string {
-	return (env.PUBLIC_VAPID_PUBLIC_KEY || DEFAULT_VAPID_PUBLIC_KEY).trim();
+	return (PUBLIC_VAPID_PUBLIC_KEY || DEFAULT_VAPID_PUBLIC_KEY).trim();
 }
 
 /** Keep server-side TZ + base path aligned with device (call on session refresh). */
@@ -380,7 +384,11 @@ export async function showHabitPushReminderPreviewAfterDelay(
 async function edgeInvokeErrorMessage(error: unknown): Promise<string> {
 	if (error instanceof FunctionsHttpError) {
 		try {
-			const body = (await error.context.json()) as { error?: string; message?: string; code?: string };
+			const body = (await error.context.json()) as {
+				error?: string;
+				message?: string;
+				code?: string;
+			};
 			if (body?.error) return body.error;
 			if (body?.message) return body.message;
 		} catch {
